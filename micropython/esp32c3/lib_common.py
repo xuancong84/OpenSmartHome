@@ -25,14 +25,7 @@ P = {
 url_string = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~/?'
 is_valid_pin = lambda pin, P=P: type(P.get(pin, ''))==int
 read_py_obj = lambda f: Try(lambda: eval(open(f).read()), '')
-execRC = lambda *args: None
-
-# None (=>null): the control will not be shown; to disable, set to empty string
-def dft_eval(s, dft):
-	try:
-		return eval(s, globals(), globals())
-	except:
-		return dft
+execRC = dft_eval = None
 
 def Try(*args):
 	exc = ''

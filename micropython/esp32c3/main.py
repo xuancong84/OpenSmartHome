@@ -11,12 +11,20 @@ gc.collect()
 # Global variables
 RCFILE = 'rc-codes.txt'
 wifi = {}
-
+err = False
 
 # Namespace for global variable
 import lib_common as g
 from lib_common import *
 
+
+# None (=>null): the control will not be shown; to disable, set to empty string
+def dft_eval(s, dft):
+	try:
+		return eval(s, globals(), globals())
+	except:
+		return dft
+g.dft_eval = dft_eval
 
 def connect_wifi():
 	global wifi
@@ -75,17 +83,12 @@ def build_rc():
 	fp.close()
 
 def get_rc_code(key):
-	if f' {key} ' not in g.rc_set:
-		return None
-	try:
-		with open(RCFILE) as fp:
-			for L in fp:
-				gc.collect()
-				its = L.split('\t')
-				if key == its[0]:
-					return eval(its[-1])
-	except Exception as e:
-		prt(e)
+	with open(RCFILE) as fp:
+		for L in fp:
+			gc.collect()
+			its = L.split('\t')
+			if key == its[0]:
+				return its[-1]
 	return None
 
 def save_file(fn, gen):
@@ -172,24 +175,28 @@ def run_module(obj):
 		return str(e)
 
 # Remote control execute
-def execRC(s):
+def execRC(s, stack=0):
+	global err
+	if stack==0:
+		err = False
 	if type(s)==bytes:
 		s = s.decode()
-	prt(f'execRC:{str(s)}')
+	prt(f'execRC({stack}): {str(s)}')
 	if s is None: return 'OK'
 	try:
 		if type(s) == list:
 			res = []
 			for i in s:
-				res += [execRC(i)]
+				res += [execRC(i, stack+1)]
 				gc.collect()
 			return '\r\n'.join(res)
 		elif type(s)==str:
 			if s.startswith('http'):
 				url.get(url_encode(s),timeout=5).close()
+			elif f' {s} ' in g.rc_set:
+				execRC(Eval(get_rc_code(s)), stack+1)
 			else:
-				code = get_rc_code(s)
-				return execRC(eval(s) if code==None else code)
+				return s if err else execRC(Eval(s), stack+1)
 		elif type(s)==dict:
 			p = s.get('protocol', 'RF433')
 			prt(p, s)
@@ -213,6 +220,7 @@ def execRC(s):
 				return run_module(s)
 
 	except Exception as e:
+		err = True
 		prt(e)
 		return str(e)
 	return str(s)
@@ -236,9 +244,11 @@ def Exec(cmd):
 		return str(e)
 	
 def Eval(cmd):
+	global err
 	try:
 		return eval(cmd, globals(), globals())
 	except Exception as e:
+		err = True
 		return str(e)
 
 def setParams(query_line):

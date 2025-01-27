@@ -1,4 +1,4 @@
-import os, sys, io, re, time, string, json, threading, yt_dlp, gzip
+import os, sys, io, re, time, string, json, threading, yt_dlp, gzip, multiprocessing
 import pykakasi, pinyin, logging, requests, shutil, subprocess, asyncio
 from unidecode import unidecode
 from urllib.parse import unquote
@@ -8,6 +8,7 @@ from googletrans import Translator
 from lib.ChineseNumber import *
 from lib.settings import *
 from device_config import *
+from contextlib import redirect_stdout, redirect_stderr
 
 ggl_translator = Translator()
 KKS = pykakasi.kakasi()
@@ -81,13 +82,20 @@ def runsys(cmd, event=None):
 def RUNSYS(cmd, event=None):
 	threading.Thread(target=runsys, args=(cmd, event)).start()
 
-run_thread = lambda F: threading.Thread(target=lambda: F()).start()
+def run_thread(F, *args):
+	thread = threading.Thread(target=lambda: F(*args))
+	thread.start()
+	return thread
+
 get_filesize = lambda fn: Try(lambda: os.path.getsize(fn), 0)
 
 def fuzzy(txt, dct=FUZZY_PINYIN):
 	for src, tgt in dct.items():
 		txt = txt.replace(src, tgt)
 	return txt
+
+_json2pyc = {'null': 'None', 'false': 'False', 'true': 'True'}
+json2pyc = lambda t: fuzzy(t, _json2pyc)
 
 fn2dur = {}
 def getDuration(fn):
@@ -218,125 +226,51 @@ def getAnyMediaList(base_path=SHARED_PATH, exts=video_file_exts):
 	return []
 
 
-# For getting thread's STDIO
-orig___stdout__ = sys.__stdout__
-orig___stderr__ = sys.__stderr__
-orig_stdout = sys.stdout
-orig_stderr = sys.stderr
-thread_proxies = {}
-
-def redirect(thread_id=None):
-	"""
-	Enables the redirect for the current thread's output to a single StringIO
-	object and returns the object.
-
-	:return: The StringIO object.
-	:rtype: ``io.StringIO``
-	"""
-	# Use the current thread's identity if not given
-	ident = thread_id or threading.currentThread().ident
-
-	# Enable the redirect and return the StringIO object.
-	thread_proxies[ident] = io.StringIO()
-	return thread_proxies[ident]
-
-def stop_redirect(thread_id=None):
-	"""
-	Enables the redirect for the current thread's output to a single StringIO
-	object and returns the object.
-
-	:return: The final string value.
-	:rtype: ``str``
-	"""
-	# Use the current thread's identity if not given
-	ident = thread_id or threading.currentThread().ident
-	return thread_proxies.pop(ident, None)
-
-def _get_stream(original):
-	"""
-	Returns the inner function for use in the LocalProxy object.
-
-	:param original: The stream to be returned if thread is not proxied.
-	:type original: ``file``
-	:return: The inner function for use in the LocalProxy object.
-	:rtype: ``function``
-	"""
-	def proxy():
-		"""
-		Returns the original stream if the current thread is not proxied,
-		otherwise we return the proxied item.
-
-		:return: The stream object for the current thread.
-		:rtype: ``file``
-		"""
-		# Get the current thread's identity.
-		ident = threading.currentThread().ident
-
-		# Return the proxy, otherwise return the original.
-		return thread_proxies.get(ident, original)
-
-	# Return the inner function.
-	return proxy
-
-def enable_proxy():
-	# Overwrites __stdout__, __stderr__, stdout, and stderr with the proxied objects.
-	sys.__stdout__ = local.LocalProxy(_get_stream(orig___stdout__))
-	sys.__stderr__ = local.LocalProxy(_get_stream(orig___stderr__))
-	sys.stdout = local.LocalProxy(_get_stream(orig_stdout))
-	sys.stderr = local.LocalProxy(_get_stream(orig_stderr))
-
-def disable_proxy():
-	# Overwrites __stdout__, __stderr__, stdout, and stderr with the original
-	sys.__stdout__ = orig___stdout__
-	sys.__stderr__ = orig___stderr__
-	sys.stdout = orig_stdout
-	sys.stderr = orig_stderr
-
-
 # For yt-dlp
 def parse_outfn(L, tmp_dir):
 	out_fn = ''
 	for L1 in L.splitlines():
-		if L1.startswith('[download] ') and L1.endswith(' has already been downloaded'):
-			out_fn = L1[11:-28]
-		elif tmp_dir in L1:
-			out_fn = L1[L1.find(tmp_dir):].strip()
+		if L1.startswith('[') and tmp_dir in L1 and '.mp4' in L1:
+			out_fn = L1[L1.find(tmp_dir):L1.rfind('.mp4')+4]
 	return out_fn
+
+def run_thread_redirect(func, stdout, stderr):
+	with redirect_stdout(stdout):
+		with redirect_stderr(stderr):
+			func()
 
 def call_yt_dlp(argv, mobile_ip, tmp_dir):
 	out_fn = ''
-	thread = threading.Thread(target=lambda: yt_dlp.main(argv))
-	thread.start()
-	while thread.ident==None:pass
-	tid = thread.ident
-	sio = redirect(tid)
+	stdout, stderr = io.StringIO(), io.StringIO()
+	thread = run_thread(lambda: run_thread_redirect(lambda: yt_dlp.main(argv), stdout, stderr))
 	while thread.is_alive():
 		time.sleep(1)
-		L = sio.getvalue()
+		L = stdout.getvalue()+stderr.getvalue()
 		if not L: continue
+		stdout.truncate(0), stdout.seek(0)
+		stderr.truncate(0), stderr.seek(0)
 		sys.stdout.write(L)
+		sys.stdout.flush()
 		Try(lambda: os.ip2ydsock[mobile_ip].send(L))
 		out_fn = parse_outfn(L, tmp_dir) or out_fn
-		sio.truncate(0)
-		sio.seek(0)
+	return out_fn
 
-	return out_fn or parse_outfn(sio.getvalue(), tmp_dir)
 
 def download_video(song_url, include_subtitles, high_quality, redownload, mobile_ip):
 	logging.info("Downloading video: " + song_url)
 	tmp_dir = os.path.expanduser(f'{DOWNLOAD_PATH}/tmp/')
 
 	# If file already present, skip downloading
+	cmd_base = ['--fixup', 'force', '--socket-timeout', '3', '-R', 'infinite', '--remux-video', 'mp4'] \
+		+ cookies_opt + (['--force-overwrites'] if redownload else [])
 	opt_quality = ['-f', 'bestvideo[height<=1080]+bestaudio[abr<=160]'] if high_quality else ['-f', 'mp4+m4a']
 	opt_sub = ['--sub-langs', 'all', '--embed-subs'] if include_subtitles else []
-	cmd = ['--fixup', 'force', '--socket-timeout', '3', '-R', 'infinite'] \
-		+ cookies_opt + opt_quality + opt_sub + (['--force-overwrites'] if redownload else []) \
-		+ ["-o", tmp_dir+"%(title)s.%(ext)s"] + [song_url]
+	cmd = cmd_base + opt_quality + opt_sub + ["-o", tmp_dir+"%(title)s.%(ext)s"] + [song_url]
 	logging.info("Youtube-dl command: " + " ".join(cmd))
 	out_fn = call_yt_dlp(cmd, mobile_ip, tmp_dir)
 	if not out_fn:
 		logging.error("Error code while downloading, retrying without format options ...")
-		cmd = ['--socket-timeout', '3', '-R', 'infinite', '-P', tmp_dir] + [song_url]
+		cmd = cmd_base + ['-P', tmp_dir] + [song_url]
 		logging.info("Youtube-dl command: " + " ".join(cmd))
 		out_fn = call_yt_dlp(cmd, mobile_ip, tmp_dir)
 	if get_filesize(out_fn):
@@ -390,6 +324,24 @@ def sec2hhmmss(sec, sub_second=False):
 def hhmmss2sec(hms):
 	hh, mm, ss = [float(i) for i in (['0', '0']+hms.split(':'))[-3:]]
 	return hh*3600 + mm*60 + ss
+
+def xauth_add(key=None):
+	"""
+	Xauth add magic key to screen :0
+	"""
+	try:
+		mkey = key or RUN(['xauth', 'list'], shell=False).splitlines()[0].split()[-1]
+		RUN(['xauth', 'add', ':0', '.', mkey], shell=False)
+	except:
+		pass
+
+def get_weather():
+	obj = Try(lambda: eval(json2pyc(requests.get(ACCUWEATHER_API_GET).text))[0], {})
+	tempDegC = Try(lambda: obj['Temperature']['Metric']['Value'], None)
+	humidity = Try(lambda: obj['RelativeHumidity'], None)
+	realfeel = Try(lambda: obj['RealFeelTemperatureShade']['Metric']['Value'], None)
+	weatherT = Try(lambda: obj['WeatherText'], None)
+	return tempDegC, humidity, realfeel, weatherT
 
 
 if __name__ == '__main__':

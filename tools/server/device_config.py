@@ -69,7 +69,38 @@ VOICE_CMD_FFWD_DCT = {
 	'客人房电视机快退': 'commonTV',
 }
 
-if os.path.isfile('secret.py'):
-	from secret import *
+FAN_CMDS = {
+	'dinningFan': {
+		'OFF': 'http://192.168.50.4/rc_run?DFS',
+		'LEVELS':
+			['http://192.168.50.4/rc_run?DFL',
+			 'http://192.168.50.4/rc_run?DFM',
+			 'http://192.168.50.4/rc_run?DFH']
+	},
+	'sofaFan': {
+		'OFF': 'http://192.168.50.4/rc_run?SFS',
+		'LEVELS':
+			['http://192.168.50.4/rc_run?SF1',
+			 'http://192.168.50.4/rc_run?SF2',
+			 'http://192.168.50.4/rc_run?SF3',
+			 'http://192.168.50.4/rc_run?SF4',
+			 'http://192.168.50.4/rc_run?SF5',
+			 'http://192.168.50.4/rc_run?SF6']
+	},
+	'roomGndFan': {
 
-SECRET_VARS = ['ASR_CLOUD_URL', 'CUSTOM_CMDLINES', 'HUBS']
+	},
+	'livingGndFan': {
+		
+	}
+}
+
+SECRET_VARS = ['ASR_CLOUD_URL', 'CUSTOM_CMDLINES', 'HUBS', 'ACCUWEATHER_API_GET']
+if os.path.isfile('secret.py'):
+	import secret
+else:
+	class A: pass
+	secret = A()
+
+for var in SECRET_VARS:
+	exec(f'{var}=getattr(secret, "{var}", None)', globals(), globals())

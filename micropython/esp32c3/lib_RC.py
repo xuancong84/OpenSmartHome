@@ -111,17 +111,16 @@ class RC():
 		tm_til = ticks_us()+1000
 		while ticks_us()<tm_til: pass
 
-		# for i in range(self.nrepeat):
-		# 	level = init_level^self.tx_inv
-		# 	p(level)
-		# 	tm_til = ticks_us()
-		# 	for dt in arr:
-		# 		tm_til += dt
-		# 		level = 1-level
-		# 		while ticks_us()<tm_til: pass
-		# 		p(level)
+		for i in range(self.nrepeat):
+			level = init_level^self.tx_inv
+			p(level)
+			tm_til = ticks_us()
+			for dt in arr:
+				tm_til += dt
+				level = 1-level
+				while ticks_us()<tm_til: pass
+				p(level)
 		machine.enable_irq(st_irq)
-		print('DEBUG tms=', t1, t2, t3)
 		# ** End of time critical **
 
 		p(self.tx_inv)	# turn off radio
