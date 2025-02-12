@@ -120,6 +120,16 @@ button:focus {outline: none;}
 button:hover {background-position: -20px -20px;}
 button:focus:not(:active) {box-shadow: rgba(40, 170, 255, 0.25) 0 0 0 .125em;}
 
+.playmenu p {
+  color: #000; /* text color */
+  display: block;
+  cursor: pointer;
+  padding: 2px;
+  margin: 0;
+  text-decoration: none; /* Remove underline from links */
+}
+.playmenu p:hover { background-color: #aaa; }
+
 table, th, td {border: 1px solid;}
 h3 {margin-bottom:10px;}
 input {font-size:15px;}
@@ -216,8 +226,26 @@ input {font-size:15px;}
 			<span class="hand" style="color:red" onclick="recorder.stop();">☒</span>
 		</h1>
 	</div>
+	<div id="PlayListMenu" data-draggable="true" data-resizable="true"
+		style="position:fixed; z-index:5; width: 50%; height: 50%; background-color: #fff; display: none; border:4px ridge #149BF3;">
+		<h2 id='PlayListMenuHeader' style="color: lime; background-color: #149BF3; text-align: center; cursor: pointer; margin: 0; padding: 10px;" data-drag-handle="true">
+			Music Playlist
+			<span onclick="openPlayList()" style="float: right;">❎</span>
+		</h2>
+		<div id="PlayControl" style="margin: 4px;">
+			<button onclick="updatePlayList('/play/0 0 1', 2000);" class="bb">Start &nbsp; ▶</button>
+			<button onclick="updatePlayList('/stop', 1000);" class="bb">Stop &nbsp; ■</button>
+			<button onclick="GET('/togglePause')" class="bb">Pause/Unpause &nbsp; ⏯</button>&nbsp;
+			<label style="white-space: nowrap;">
+				<b>Volume:</b>
+				<input type="range" min="0" max="100" value="50" id="volumeSlider" style="vertical-align:middle" oninput="GET('/volume/'+this.value)">
+			</label>
+		</div>
+		<div class="playmenu" id="PlayList" style="overflow: scroll;"></div>
+	</div>
 	<div id="header" style="width:100%; position:fixed; top:0px;">
 		<h2 style="font-size: 64px; float: right; position: fixed; right: 0px; top: 0px; margin: 10px; cursor:pointer">
+			<span title="Open Music Playlist" onclick="openPlayList()">🎶</span>
 			<span title="Play NAS media on this computer in a new tab" onclick="openInNewTab('/webPlay/0/KTV')">🎥</span>
 			<span title="Send voice command to the selected hub controller" onclick="ASR()">🗣</span>
 		</h2>
@@ -494,6 +522,77 @@ ${'<td contenteditable="true" class="wrap"></td>'.repeat(tb.rows[0].childElement
 	rid++;
 	return row;
 }
+var playListMenu = getById('PlayListMenu'), playList =  getById('PlayList');
+function updatePlayList(url, delay){
+	if(url!=null){
+		GET(url);
+		setTimeout(()=>{updatePlayList()}, delay);
+	}else{
+		GET('/get_playlist',
+			(ev)=>{
+				playListMenu.style.display = 'block';
+				var obj = JSON.parse(ev.target.responseText);
+				var lst = ('list' in obj?obj.list:[]), paused = ('paused' in obj?obj.paused:null), cur_i = ('cur_i' in obj?obj.cur_i:null);
+				var css = "style='color:red; font-weight:bold;'";
+				playList.innerHTML = '';
+				for(var i=0; i<lst.length; i++)
+					playList.innerHTML += `<p class="hand" onclick="GET('/playFromN/${i}');updatePlayList()" ${i==cur_i?css:""}>${lst[i]}</p>`;
+				getById('volumeSlider').value = obj.volume;
+				onresize();
+			},
+			(ev)=>{alert(ev.currentTarget.response)}
+		);
+	}
+}
+function openPlayList(){
+	if(playListMenu.style.display=='none'){
+		updatePlayList();
+	}else{
+		playListMenu.style.display='none';
+	}
+}
+
+var dragEl, dragHandleEl, lastPosition = {};
+function setupDraggable(){
+  dragHandleEl = document.querySelector('[data-drag-handle]');
+  dragHandleEl.addEventListener('mousedown', dragStart);
+  dragHandleEl.addEventListener('mouseup', dragEnd);
+  dragHandleEl.addEventListener('mouseout', dragEnd);
+}
+function setupResizable(onresize){
+  const resizeEl = document.querySelector('[data-resizable]');
+  resizeEl.style.setProperty('resize', 'both');
+  resizeEl.style.setProperty('overflow', 'hidden');
+  resizeEl.onresize = onresize;
+}
+function dragStart(event){
+  dragEl = getDraggableAncestor(event.target);
+  dragEl.style.setProperty('position','absolute');
+  lastPosition.left = event.target.clientX;
+  lastPosition.top = event.target.clientY;
+  dragHandleEl.classList.add('dragging');
+  dragHandleEl.addEventListener('mousemove', dragMove);
+}
+function dragMove(event){
+  const dragElRect = dragEl.getBoundingClientRect();
+  const newLeft = dragElRect.left + event.clientX - lastPosition.left;
+  const newTop = dragElRect.top + event.clientY - lastPosition.top;
+  dragEl.style.setProperty('left', `${newLeft}px`);
+  dragEl.style.setProperty('top', `${newTop}px`);
+  lastPosition.left = event.clientX;
+  lastPosition.top = event.clientY;
+  window.getSelection().removeAllRanges();
+}
+function getDraggableAncestor(element){
+  if (element.getAttribute('data-draggable')) return element;
+  return getDraggableAncestor(element.parentElement);
+}
+function dragEnd(){
+  dragHandleEl.classList.remove('dragging');
+  dragHandleEl.removeEventListener('mousemove',dragMove);
+  dragEl = null;
+}
+
 var siriWave, recorder, recorder_timeout, use_recorded, audios, spectrum, dBASpectrum, taskHandle, source, asr_func, g_stream, g_devices;
 var g_asrInit = false;
 const wav_win = getById('waveform'), updateFreq = 5;
@@ -623,6 +722,9 @@ function onRecStop(){
 		req.send(blob);
 	}
 }
+function onresize(){
+	playList.style.maxHeight = `calc( 100% - ${getById('PlayListMenuHeader').offsetHeight}px - ${getById('PlayControl').offsetHeight}px - 8px)`;
+}
 window.onload = () => {
 	init();
 	var scr0 = getById('scrollable0');
@@ -631,6 +733,8 @@ window.onload = () => {
 	scr0.style.maxHeight=`calc( 100% - ${h}px )`;
 	scr0.style.display='block';
 	scr0.style.overflow="auto";
+	setupDraggable();
+	setupResizable(onresize);
 }
 </script>
 </body>

@@ -199,6 +199,17 @@ def ensure_fullscreen():
 		time.sleep(0.2)
 		mplayer.set_fullscreen(True)
 
+@app.route('/get_playlist')
+def get_playlist():
+	global filelist, player, mplayer
+	obj = {
+		'volume': Try(lambda: int(get_volume()), None),
+		'cur_i': Try(lambda: filelist.index(mrl2path(mplayer.get_media().get_mrl())), -1),
+		'paused': Try(lambda: not mplayer.is_playing(), None),
+		'list': [] if player==None else [os.path.basename(f) for f in filelist],
+	}
+	return json.dumps(obj)
+
 def on_media_opening(_):
 	global isFirst, isVideo
 	print(f'Starting to play: {mrl2path(mplayer.get_media().get_mrl())}', file=sys.stderr)
@@ -230,6 +241,7 @@ def _play(tm_info, filename=''):
 	if tm_sec>0:
 		threading.Timer(1000, lambda:player.set_position(tm_sec)).start()
 
+@app.route('/play/<tm_info>')
 @app.route('/play/<tm_info>/<path:filename>')
 def play(tm_info, filename=''):
 	run_thread(lambda: _play(tm_info, filename))
@@ -241,6 +253,15 @@ def pause():
 	try:
 		if player.is_playing():
 			player.set_pause(True)
+	except Exception as e:
+		return str(e)
+	return 'OK'
+
+@app.route('/togglePause')
+def togglePause():
+	global player
+	try:
+		player.pause()
 	except Exception as e:
 		return str(e)
 	return 'OK'
@@ -343,6 +364,16 @@ def playFrom(name='', tv_name=None, lang=None):
 		ii = name if type(name)==int else findSong(name, lang=lang, flist=plist)
 		assert ii!=None
 		player.play_item_at_index(ii) if tv_name is None else tv_wscmd(tv_name, f'goto_idx {ii}')
+	except Exception as e:
+		return str(e)
+	return 'OK'
+
+@app.route('/playFromN/<int:N>')
+@app.route('/playFromN/<tv_name>/<int:N>')
+def playFromN(N=0, tv_name=None):
+	global player
+	try:
+		player.play_item_at_index(N) if tv_name is None else tv_wscmd(tv_name, f'goto_idx {N}')
 	except Exception as e:
 		return str(e)
 	return 'OK'
@@ -558,6 +589,8 @@ def yd_init(sock):
 	ip2ydsock.pop(key)
 
 def load_playable(ip, tm_info, filename):
+	if ip==None and filename=='':
+		filename = MP3_DFTLIST
 	fullname = filename if type(filename)==str and filename.startswith(SHARED_PATH) else (SHARED_PATH+str(filename))
 	tm_sec, ii, randomize = ([int(float(i)) for i in tm_info.split()]+[0,0])[:3]
 	tvd = ip2tvdata[ip]
@@ -1007,9 +1040,9 @@ def ecovacs(name='', cmd=''):
 	return RUN(f'./ecovacs-cmd.sh {name} {cmd} &')
 
 # For ceiling fan control
-@app.route('/ceilingFan', defaults={'name': '', 'level': ''})
-@app.route('/ceilingFan/<name>/<level>')
-def ceilingFan(name='', level=''):
+@app.route('/autoFan/<name>')
+@app.route('/autoFan/<name>/<level>')
+def autoFan(name='', level=''):
 	return RUN(f'./ecovacs-cmd.sh {name} {level} &')
 
 # For OpenHomeKaraoke

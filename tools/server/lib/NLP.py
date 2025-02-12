@@ -1,5 +1,5 @@
 import os, sys, io, re, time, string, json, threading, yt_dlp, gzip, multiprocessing
-import pykakasi, pinyin, logging, requests, shutil, subprocess, asyncio
+import pykakasi, pinyin, logging, requests, shutil, subprocess, asyncio, socket
 from unidecode import unidecode
 from urllib.parse import unquote
 from werkzeug import local
@@ -335,13 +335,143 @@ def xauth_add(key=None):
 	except:
 		pass
 
-def get_weather():
+
+# Weather API
+last_wt_tms = 0
+last_wt = [None]*4
+def _get_weather():
 	obj = Try(lambda: eval(json2pyc(requests.get(ACCUWEATHER_API_GET).text))[0], {})
 	tempDegC = Try(lambda: obj['Temperature']['Metric']['Value'], None)
 	humidity = Try(lambda: obj['RelativeHumidity'], None)
 	realfeel = Try(lambda: obj['RealFeelTemperatureShade']['Metric']['Value'], None)
 	weatherT = Try(lambda: obj['WeatherText'], None)
-	return tempDegC, humidity, realfeel, weatherT
+	return [tempDegC, humidity, realfeel, weatherT]
+
+def get_weather():
+	global last_wt, last_wt_tms
+	curr_tms = time.time()
+	if curr_tms-last_wt_tms>3600:
+		last_wt_tms = curr_tms
+		last_wt = _get_weather()
+	return last_wt
+
+
+# Imported from Micropython lib
+url_string = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~/?'
+def parse_data(s):
+	if type(s)==int:
+		h = hex(s)[2:]
+		return bytes.fromhex(('0'+h) if len(h)&1 else h)
+	if type(s)==str:
+		return Try(lambda: bytes.fromhex(s), s.encode())
+	return s
+
+def url_encode(s):
+	try:
+		p = s.find('/', s.find('//')+2)
+		return s[:p] + ''.join([(c if c in url_string else f'%{ord(c):x}') for c in s[p:]])
+	except:
+		return s
+	
+def send_tcp(obj):
+	try:
+		s = socket.socket()
+		s.settimeout(3)
+		s.connect((obj['IP'], obj['PORT']))
+		data = parse_data(obj['data'])
+		s.sendall(data)
+		s.recv(obj.get('recv_size', 256))
+		s.close()
+		return f'OK, sent {len(data)} bytes'
+	except Exception as e:
+		LOG(e)
+		return str(e)
+
+def send_udp(obj):
+	try:
+		s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		nsent = s.sendto(parse_data(obj['data']), (obj['IP'], obj['PORT']))
+		s.close()
+		return f'OK, sent {nsent} bytes'
+	except Exception as e:
+		LOG(e)
+		return str(e)
+	
+def send_wol(obj):
+	try:
+		mac = obj['data']
+		if len(mac) == 17:
+			mac = mac.replace(mac[2], "")
+		elif len(mac) != 12:
+			return "Incorrect MAC address format"
+		s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		nsent = s.sendto(bytes.fromhex("F"*12 + mac*16), (obj.get('IP', '255.255.255.255'), obj.get('PORT', 9)))
+		s.close()
+		return f'OK, sent {nsent} bytes'
+	except Exception as e:
+		LOG(e)
+		return str(e)
+
+def send_cap(obj):
+	s = None
+	for L in open(obj['filename'], 'rb'):
+		try:
+			L = L.strip()
+			if L.startswith(b'{'):
+				obj = eval(L)
+				s = socket.socket()
+				s.settimeout(3)
+				s.connect((obj['IP'], obj['PORT']))
+				if 'data' in obj:
+					s.sendall(parse_data(obj['data']))
+			elif L.startswith(b'b'):
+				s.sendall(eval(L))
+			elif L.isdigit():
+				s.recv(int(L)*2)
+		except:
+			pass
+	try:
+		s.close()
+		return 'OK'
+	except Exception as e:
+		return str(e)
+
+err = False
+def execRC(s, stack=0):
+	global err
+	if stack==0:
+		err = False
+	if type(s)==bytes:
+		s = s.decode()
+	LOG(f'execRC({stack}): {str(s)}')
+	if s is None: return 'OK'
+	try:
+		if type(s) == list:
+			res = []
+			for i in s:
+				res += [execRC(i, stack+1)]
+			return '\r\n'.join(res)
+		elif type(s)==str:
+			if s.startswith('http'):
+				requests.get(url_encode(s),timeout=5).close()
+			else:
+				return s if err else execRC(Eval(s), stack+1)
+		elif type(s)==dict:
+			p = s.get('protocol', 'RF433')
+			LOG(p, s)
+			if p=='TCP':
+				return send_tcp(s)
+			elif p=='UDP':
+				return send_udp(s)
+			elif p=='WOL':
+				return send_wol(s)
+			elif p=='CAP':
+				return send_cap(s)
+	except Exception as e:
+		err = True
+		LOG(e)
+		return str(e)
+	return str(s)
 
 
 if __name__ == '__main__':
