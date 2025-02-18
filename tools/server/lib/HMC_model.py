@@ -26,9 +26,12 @@ class Model:
 		with open(self.filename, 'w') as fp:
 			fp.write(str(self.data))
 
-	def add(self, x, y, save=True):
+	def add(self, x, y, save=True, overwrite_last=False):
 		lst = self.data.get(y, [])
-		self.data[y] = ([x]+lst)[:self.n_save]
+		if overwrite_last and lst:
+			self.data[y][0] = x
+		else:
+			self.data[y] = ([x]+lst)[:self.n_save]
 		if save:
 			self.save()
 
@@ -46,7 +49,7 @@ class Model:
 
 	def predict(self, x):
 		dists = [[cls, self.HMD(x,arr)] for cls, arr in self.data.items()]
-		cls = sorted(dists, key=lambda t:t[1])[0][0]
+		cls = sorted(dists, key=lambda t:t[1])[0][0] if dists else None
 		return cls
 
 

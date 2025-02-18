@@ -65,7 +65,7 @@ h1 {
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body style="background-color:black; overflow: hidden;">
- <div id="vcontainer">
+ <div id="vcontainer" onfullscreenchange="on_fs_chg(this)">
   <video id='video0' autoplay controls onended="ws_send('next')" onclick="clickvid(event)"
       onseeked="markCounter=0" ontouchmove="timerRst()" onmousemove="timerRst()">
   </video>
@@ -564,13 +564,7 @@ var menuIcon0Height = getById('menuIcon0').offsetHeight;
 function handleKey(key, amount=0){
   switch (key) {
     case "f":
-      if(document.fullscreenElement){
-        document.exitFullscreen();
-        getById('toggle-fs').classList.replace('icon-fullscreen-exit', 'icon-expand');
-      }else{
-        getById('vcontainer').requestFullscreen();
-        getById('toggle-fs').classList.replace('icon-expand', 'icon-fullscreen-exit');
-      }
+      document.fullscreenElement ? document.exitFullscreen() : getById('vcontainer').requestFullscreen();
       break;
     case "ArrowLeft":
       v.currentTime -= 3.75*2**amount;
@@ -586,12 +580,16 @@ function handleKey(key, amount=0){
       v.volume = Math.max(0, v.volume-.1);
       show_flashmsg(`Volume = ${v.volume.toFixed(1)}`);
       break;
-    case ">":
+    case "=":
       v.playbackRate += .1;
       show_flashmsg(`PlaySpeed = ${v.playbackRate.toFixed(2)}`);
       break;
-    case "<":
+    case "-":
       v.playbackRate = Math.max(.1, v.playbackRate-.1);
+      show_flashmsg(`PlaySpeed = ${v.playbackRate.toFixed(2)}`);
+      break;
+    case "0":
+      v.playbackRate = 1;
       show_flashmsg(`PlaySpeed = ${v.playbackRate.toFixed(2)}`);
       break;
     case " ":
@@ -607,6 +605,12 @@ function handleKey(key, amount=0){
       return false;
   }
   return true;
+}
+document.onfullscreenchange = (e)=>{
+  if(document.fullscreenElement)
+    getById('toggle-fs').classList.replace('icon-expand', 'icon-fullscreen-exit');
+  else
+    getById('toggle-fs').classList.replace('icon-fullscreen-exit', 'icon-expand');
 }
 window.addEventListener("keydown", function (event) {
   var amount = 0;

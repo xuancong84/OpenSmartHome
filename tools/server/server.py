@@ -4,6 +4,7 @@
 import os, sys, traceback, argparse, math, requests, json, re, webbrowser
 import subprocess, random, time, threading, socket
 import vlc, signal, qrcode, qrcode.image.svg
+import pandas as pd
 from collections import *
 from io import StringIO
 from flask import Flask, request, send_from_directory, render_template, send_file
@@ -62,13 +63,14 @@ load_playstate = lambda: Try(lambda: InfiniteDefaultRevisionDict().from_json(Ope
 def save_playstate(obj):
 	with Open(PLAYSTATE_FILE, 'wt') as fp:
 		obj.to_json(fp, indent=1)
+os.save_state = lambda: save_playstate(ip2tvdata)
 get_base_url = lambda: f'{"https" if ssl else "http"}://{local_IP}:{port}'
 
 ip2websock, ip2ydsock = {}, {}
 os.ip2ydsock = ip2ydsock
 # ip2tvdata: {'IP':{'playlist':[full filenames], 'cur_ii': current_index, 'shuffled': bool (save play position if false), 
 # 	'markers':[(key1,val1),...], 'T2Slang':'', 'T2Stext':'', 'S2Tlang':'', 'S2Ttext':''}}
-ip2tvdata = load_playstate()
+os.sys_state = ip2tvdata = load_playstate()
 _tv2lginfo = Try(lambda: json.load(Open(LG_TV_CONFIG_FILE)), {})
 def tv2lginfo(tv_name):
 	ret = _tv2lginfo.get(tv_name, tv_name)
@@ -207,6 +209,7 @@ def get_playlist():
 		'cur_i': Try(lambda: filelist.index(mrl2path(mplayer.get_media().get_mrl())), -1),
 		'paused': Try(lambda: not mplayer.is_playing(), None),
 		'list': [] if player==None else [os.path.basename(f) for f in filelist],
+		'timer': Timers[None].desc if (None in Timers and Timers[None].is_alive()) else None,
 	}
 	return json.dumps(obj)
 
@@ -244,7 +247,7 @@ def _play(tm_info, filename=''):
 @app.route('/play/<tm_info>')
 @app.route('/play/<tm_info>/<path:filename>')
 def play(tm_info, filename=''):
-	run_thread(lambda: _play(tm_info, filename))
+	run_thread(_play, tm_info, filename)
 	return 'OK'
 
 @app.route('/pause')
@@ -264,6 +267,51 @@ def togglePause():
 		player.pause()
 	except Exception as e:
 		return str(e)
+	return 'OK'
+
+@app.route('/set_timer/<tm>/')
+@app.route('/set_timer/<tm>/<name>')
+def set_timer(tm='', name=None):
+	# each device can only have one on/off timer; if device is on, set timer to turn it off; otherwise, set timer to turn it on
+	global player
+	if tm==' ':
+		DelTimer(name)
+		return 'Timer deleted OK'
+	if ':' in tm:
+		tm_sec = (pd.Timestamp(tm)-pd.Timestamp.now()).total_seconds()
+		tm_sec = tm_sec+3600*24 if tm_sec<0 else tm_sec
+	else:
+		tm_sec = Try(lambda: pd.to_timedelta(float(tm), unit='H'), lambda: pd.to_timedelta(tm), None)
+		if tm_sec==None:
+			return f'Error: cannot parse time {tm}'
+	tm_til = str(pd.Timestamp.now()+pd.to_timedelta(f'{tm_sec}s'))[:19]
+	if name==None:
+		if player==None:
+			SetTimer(name, tm_sec, lambda: play('0 0 1'), f'将于{tm_til}定时开启音乐播放')
+		else:
+			SetTimer(name, tm_sec, lambda: stop(), f'将于{tm_til}定时关闭音乐播放')
+	elif is_tv_on(name):
+		SetTimer(name, tm_sec, lambda: tv(name, 'off'), f'将于{tm_til}定时关闭电视机{name}')
+	else:
+		tv_name, playlist = (name.split(' ', 1)+[None])[:2]
+		if playlist==None:
+			SetTimer(tv_name, tm_sec, lambda: tv(tv_name, 'on'), f'将于{tm_til}定时开启电视机{name}')
+		else:
+			SetTimer(tv_name, tm_sec, lambda: _tvPlay(tv_name, playlist, os.url_root), f'将于{tm_til}定时开启电视机{name}并播放{playlist}')
+	return 'OK'
+
+def handle_ASR_timer(asr_out, tv_name, lst_filename, url_root):
+	tm = txt2time(asr_out['text'].strip())
+	if tm is None:
+		return play_audio('voice/set_timer_unknown.mp3', True, tv_name)
+	return play_audio('voice/set_timer_okay.mp3' if set_timer(str(tm), tv_name) == 'OK' else 'voice/set_timer_fail.mp3', True, tv_name)
+
+@app.route('/set_spoken_timer', methods=['GET', 'POST'])
+@app.route('/set_spoken_timer/<tv_name>', methods=['GET', 'POST'])
+def set_spoken_timer(tv_name=None):
+	is_post, url_root = save_post_file(), get_url_root(request)
+	run_thread(recog_and_do, '' if is_post else 'voice/set_timer_speak.mp3', None if tv_name=='None' else tv_name, 
+		[], handle_ASR_timer, url_root)
 	return 'OK'
 
 @app.route('/next')
@@ -416,6 +464,14 @@ def loop_mode(mode=1, tv_name=None):
 	player = None
 	return ret
 
+def is_ble_connected(dev_mac):
+	ret = RUN(f'bluetoothctl info {dev_mac}' if sys.platform=='linux' else f'blueutil --info {dev_mac}')
+	for L in ret.splitlines():
+		its = L.split()
+		if its[0].lower().startswith('connected'):
+			return its[1].lower()=='yes'
+	return None
+
 @app.route('/connectble/<device>')
 def connectble(dev_mac):
 	ret = os.system(f'bluetoothctl trust {dev_mac}' if sys.platform=='linux' else f'blueutil --trust {dev_mac}')
@@ -485,23 +541,8 @@ def _report_title(tv_name):
 @app.route('/report_title')
 @app.route('/report_title/<tv_name>')
 def report_title(tv_name=None):
-	run_thread(lambda: _report_title(tv_name))
+	run_thread(_report_title, tv_name)
 	return 'OK'
-
-def send_wol(mac, ip='255.255.255.255'):
-	try:
-		if len(mac) == 17:
-			mac = mac.replace(mac[2], "")
-		elif len(mac) != 12:
-			return "Incorrect MAC address format"
-		s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-		s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-		nsent = s.sendto(bytes.fromhex("F"*12 + mac*16), (ip, 9))
-		s.close()
-		return True
-	except Exception:
-		traceback.print_exc()
-		return False
 
 @app.route('/is_tv_on/<tv_name>')
 def is_tv_on(tv_name):
@@ -515,7 +556,7 @@ def is_tv_ready(tv_name):
 def tv_on_if_off(tv_name, wait_ready=False):
 	tvinfo = tv2lginfo(tv_name)
 	if not is_tv_on(tv_name):
-		send_wol(tvinfo['mac'])
+		send_wol({'data': tvinfo['mac']})
 		if wait_ready:
 			while not is_tv_ready(tv_name):
 				time.sleep(1)
@@ -621,11 +662,21 @@ def load_playable(ip, tm_info, filename):
 	tvd.update({'playlist': lst, 'cur_ii': ii, 'shuffled': randomize})
 	return lst, ii, tm_sec, randomize
 
+@app.route('/webPlay')
 @app.route('/webPlay/<tm_info>')
 @app.route('/webPlay/<tm_info>/<path:filename>')
-def webPlay(tm_info, filename=None):
-	lst, ii, tm_sec, randomize = load_playable(request.remote_addr, tm_info, filename)
-	tvd = ip2tvdata[request.remote_addr]
+def webPlay(tm_info=None, filename=None):
+	if tm_info==None:
+		tvd = get_tv_data(request.remote_addr)
+		if 'last_movie_drama' in tvd:
+			lst, ii, tm_sec = load_playable(request.remote_addr, '-1', tvd['last_movie_drama'])[:3]
+		else:
+			lst = Try(lambda: tvd['playlist'], lambda: json.loads(list(tvd['markers'].keys())[-1]), lambda: getAnyMediaList())
+			if lst:
+				ii, tm_sec = tvd['markers'].get(json.dumps(lst), [tvd.get('cur_ii', 0), 0])
+	else:
+		lst, ii, tm_sec, randomize = load_playable(request.remote_addr, tm_info, filename)
+		tvd = ip2tvdata[request.remote_addr]
 	return render_template('video.html',
 		listname=Try(lambda:''.join(lst[0].split('/')[-2:-1]), '') or '播放列表',
 		playlist=[i.split('/')[-1] for i in lst],
@@ -652,8 +703,7 @@ def _tvPlay(name, listfilename, url_root):
 
 @app.route('/tvPlay/<name>/<path:listfilename>')
 def tvPlay(name, listfilename, url_root=None):
-	url_root = url_root or get_url_root(request)
-	run_thread(lambda: _tvPlay(name, listfilename, url_root))
+	run_thread(_tvPlay, name, listfilename, url_root or get_url_root(request))
 	return 'OK'
 
 last_save_time = time.time()
@@ -742,10 +792,10 @@ def tv_wscmd(name, cmd):
 			args = cmd.split(' ', 2)
 			n_subs = int(args[1])
 			file_path = SHARED_PATH+args[2]
-			run_thread(lambda: _load_subtitles(file_path, n_subs, ip))
+			run_thread(_load_subtitles, file_path, n_subs, ip)
 		elif cmd.startswith('show_mediainfo '):
 			args = cmd.split(' ', 1)
-			run_thread(lambda: _show_mediainfo(args[1], ip))
+			run_thread(_show_mediainfo, args[1], ip)
 		else:
 			if cmd in ['next', 'prev']:
 				tvd['cur_ii'] = (tvd['cur_ii']+(1 if cmd=='next' else -1))%len(tvd['playlist'])
@@ -818,23 +868,33 @@ def get_recorder(devs, wait=3):
 		return res[-1][1]
 	return '0'
 
+def play_ASRchip_voice(name):
+	hex_cmd = ASRchip_voice_hex.get(name, '')
+	if not hex_cmd:
+		return False
+	delay = 0
+	if type(hex_cmd)==tuple:
+		hex_cmd, delay = hex_cmd[:2]
+	requests.get(f'{ASRchip_voice_IP}/asr_write?{hex_cmd}')
+	time.sleep(delay)
+	return True
+
+def play_audio_chip(fn):
+	if not play_ASRchip_voice(os.path.basename(fn).split('.')[0]):
+		return None
+	ev_mutex.set()
+	return ev_mutex
+
 def play_audio(fn, block=False, tv_name=None):
 	ev_mutex.clear()
 	if tv_name:
 		if not is_tv_on(tv_name):
-			hex_cmd = ASRchip_voice_hex.get(os.path.basename(fn).split('.')[0], '')
-			if not hex_cmd:
-				return None
-			delay = 0
-			if type(hex_cmd)==tuple:
-				hex_cmd, delay = hex_cmd[:2]
-			requests.get(f'{ASRchip_voice_IP}/asr_write?{hex_cmd}')
-			time.sleep(delay)
-			ev_mutex.set()
-			return ev_mutex
+			return play_audio_chip(fn)
 		res = tv_wscmd(tv_name, f'play_audio("/{f"voice?{random.randint(0,999999)}" if fn==DEFAULT_T2S_SND_FILE else fn}",true)')
 		assert res == 'OK'
 	else:
+		if not is_ble_connected(MP3_SPEAKER):
+			return play_audio_chip(fn)
 		RUNSYS(f'mplayer -really-quiet -noconsolecontrols {fn}', ev_mutex)
 	if block: ev_mutex.wait()
 	return ev_mutex
@@ -900,7 +960,7 @@ class VoicePrompt:
 
 
 # This function might take very long time, must be run in a separate thread
-def recog_and_play(voice_prompt, tv_name, path_name, handler, url_root, audio_file=DEFAULT_S2T_SND_FILE):
+def recog_and_do(voice_prompt, tv_name, path_name, handler, url_root, audio_file=DEFAULT_S2T_SND_FILE):
 	global player, asr_model, ASR_cloud_running, ASR_server_running
 
 	with VoicePrompt(tv_name) as context:
@@ -952,8 +1012,7 @@ def _play_last(name=None, url_root=None):
 @app.route('/play_last')
 @app.route('/play_last/<tv_name>')
 def play_last(tv_name=None):
-	url_root = get_url_root(request)
-	run_thread(lambda: _play_last(tv_name, url_root))
+	run_thread(_play_last, tv_name, get_url_root(request))
 	return 'OK'
 
 def handle_ASR_indir(asr_out, tv_name, rel_path, url_root):
@@ -1010,11 +1069,8 @@ def save_post_file(fn=DEFAULT_S2T_SND_FILE):
 @app.route('/play_spoken_indir/<tv_name>/<path:rel_path>', methods=['GET', 'POST'])
 def play_spoken_drama(tv_name=None, rel_path=''):
 	is_post, url_root = save_post_file(), get_url_root(request)
-	F = lambda: recog_and_play('' if is_post else 'voice/speak_drama.mp3', None if tv_name=='None' else tv_name,
+	run_thread(recog_and_do, '' if is_post else 'voice/speak_drama.mp3', None if tv_name=='None' else tv_name,
 		rel_path, handle_ASR_indir, url_root)
-	if is_post:
-		return F()
-	run_thread(F)
 	return 'OK'
 
 @app.route('/play_spoken_inlst', methods=['GET', 'POST'])
@@ -1022,15 +1078,15 @@ def play_spoken_drama(tv_name=None, rel_path=''):
 @app.route('/play_spoken_inlst/<tv_name>/<path:lst_filename>', methods=['GET', 'POST'])
 def play_spoken_song(tv_name=None, lst_filename=''):
 	is_post, url_root = save_post_file(), get_url_root(request)
-	threading.Thread(target=recog_and_play, args=('' if is_post else 'voice/speak_song.mp3', None if tv_name=='None' else tv_name, 
-		lst_filename, handle_ASR_inlst, url_root)).start()
+	run_thread(recog_and_do, '' if is_post else 'voice/speak_song.mp3', None if tv_name=='None' else tv_name, 
+		lst_filename, handle_ASR_inlst, url_root)
 	return 'OK'
 
 # Play spoken file recorded locally on the local device
 @app.route('/play_recorded', methods=['POST'])
 def play_recorded():
 	recfn, req = save_post_file(), request._get_current_object()
-	run_thread(lambda: recog_and_play('', req.remote_addr, '', handle_ASR_indir, get_url_root(req), recfn))
+	run_thread(recog_and_do, '', req.remote_addr, '', handle_ASR_indir, get_url_root(req), recfn)
 	return 'OK'
 
 # For Ecovacs
@@ -1040,10 +1096,40 @@ def ecovacs(name='', cmd=''):
 	return RUN(f'./ecovacs-cmd.sh {name} {cmd} &')
 
 # For ceiling fan control
+# autoFanOn levels exclude off state; autoFan levels include keeping the fan off
+# `level` ranges from 1 to # of speed levels, 0 means off, None means auto
+def autoFanLevel(name, level, forceOn):
+	fan_cmds = FAN_DATA[name]
+	if level==None:
+		level = HMC_predict(name, get_weather()['realfeel'])
+	else:
+		HMC_train(name, get_weather()['realfeel'], execRC(fan_cmds['F_GET_SPEED']) if level<0 else level)
+		return
+	# HMC_predict will return None if first time (no training data points)
+	n = (1+len(fan_cmds['LEVELS'])//2) if level==None else level
+	if level>0:
+		if 'ON' in fan_cmds:
+			execRC(fan_cmds['ON'])
+		execRC(fan_cmds['LEVELS'][n-1])
+		if 'S_LEVELS' in fan_cmds:
+			play_ASRchip_voice(fan_cmds['S_LEVELS'][n-1])
+	else:
+		if 'S_OFF' in fan_cmds:
+			play_ASRchip_voice(fan_cmds['S_OFF'])
+		# If predicted_fan=0 should not actively turn off the fan
+		# execRC(fan_cmds['OFF'])
+
 @app.route('/autoFan/<name>')
-@app.route('/autoFan/<name>/<level>')
-def autoFan(name='', level=''):
-	return RUN(f'./ecovacs-cmd.sh {name} {level} &')
+@app.route('/autoFan/<name>/<int:level>')
+def autoFan(name='', level=None):
+	run_thread(autoFanLevel, name, level, False)
+	return 'OK'
+
+@app.route('/autoFanOn/<name>')
+@app.route('/autoFanOn/<name>/<int:level>')
+def autoFanOn(name='', level=None):
+	run_thread(autoFanLevel, name, level, True)
+	return 'OK'
 
 # For OpenHomeKaraoke
 @app.route('/KTV/<cmd>')
@@ -1056,7 +1142,7 @@ def KTV(cmd):
 		if input_id:
 			tv_setInput(tv_name, input_id)
 		set_audio_device(KTV_SPEAKER, 5)
-		P_ktv = subprocess.Popen(['~/projects/pikaraoke/run-cloud.sh'], shell=True, preexec_fn=os.setsid)
+		P_ktv = subprocess.Popen([KTV_EXEC], shell=True, preexec_fn=os.setsid)
 	elif cmd=='off':
 		os.killpg(os.getpgid(P_ktv.pid), signal.SIGKILL)
 		unset_audio_device(KTV_SPEAKER)
@@ -1208,6 +1294,8 @@ if __name__ == '__main__':
 		print('Offline ASR model loaded successfully ...', file=sys.stderr)
 	else:
 		asr_model = None
+
+	os.url_root = f'http://{get_local_IP()}:{port}'
 
 	# Allow tmux/ssh session to display over HDMI output screen
 	xauth_add()

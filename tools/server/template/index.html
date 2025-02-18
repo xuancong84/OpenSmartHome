@@ -229,17 +229,19 @@ input {font-size:15px;}
 	<div id="PlayListMenu" data-draggable="true" data-resizable="true"
 		style="position:fixed; z-index:5; width: 50%; height: 50%; background-color: #fff; display: none; border:4px ridge #149BF3;">
 		<h2 id='PlayListMenuHeader' style="color: lime; background-color: #149BF3; text-align: center; cursor: pointer; margin: 0; padding: 10px;" data-drag-handle="true">
-			Music Playlist
+			音乐播放列表
 			<span onclick="openPlayList()" style="float: right;">❎</span>
 		</h2>
 		<div id="PlayControl" style="margin: 4px;">
-			<button onclick="updatePlayList('/play/0 0 1', 2000);" class="bb">Start &nbsp; ▶</button>
-			<button onclick="updatePlayList('/stop', 1000);" class="bb">Stop &nbsp; ■</button>
-			<button onclick="GET('/togglePause')" class="bb">Pause/Unpause &nbsp; ⏯</button>&nbsp;
+			<button onclick="updatePlayList('/play/0 0 1', 2000);" class="bb">播放 &nbsp; ▶</button>
+			<button onclick="updatePlayList('/stop', 1000);" class="bb">停止 &nbsp; ■</button>
+			<button onclick="GET('/togglePause')" class="bb">暂停/继续 &nbsp; ⏯</button>&nbsp;
 			<label style="white-space: nowrap;">
-				<b>Volume:</b>
+				<b>音量：</b>
 				<input type="range" min="0" max="100" value="50" id="volumeSlider" style="vertical-align:middle" oninput="GET('/volume/'+this.value)">
 			</label>
+			<button onclick="setTimer()" class="bb">定时 &nbsp; ⏰</button>
+			<b id="timerDesc" style="white-space: nowrap; color:red;"></b>
 		</div>
 		<div class="playmenu" id="PlayList" style="overflow: scroll;"></div>
 	</div>
@@ -383,6 +385,12 @@ function addElem(box, html_code){
 function clear_all(t=tb, n=2){
 	while (t.rows.length > n) t.deleteRow(1);
 }
+function setTimer(){
+	var res = prompt(`请输入定时${cur_i>=0?"关":"开"}机时间（例如: '1.5'为一个半小时，'4h35m20s'为4小时35分钟20秒，'14:30'为下午两点半，''(空)为删除当前定时）`);
+	if(res==null) return;
+	if(res=='') res = ' ';
+	GET(`/set_timer/${res}/`, (e)=>{updatePlayList()}, (e)=>{alert(e.target.statusText)});
+}
 function load(hub_url){
 	try {
 		cur_hub_pfx = hub_url.replace(/\/$/, '');
@@ -395,7 +403,7 @@ function load(hub_url){
 			var row = add_new_row();
 			for (var x = 0; x < Math.min(its.length, row.childElementCount); x++)
 				row.children[x+1].textContent = its[x];
-			row.children[row.childElementCount-1].children[0].style.display = its[its.length-1].includes('/play_spoken_')?"inline":"none";
+			row.children[row.childElementCount-1].children[0].style.display = its[its.length-1].includes('_spoken_')?"inline":"none";
 		}
 	} catch (err) {
 		alert(err);
@@ -523,6 +531,7 @@ ${'<td contenteditable="true" class="wrap"></td>'.repeat(tb.rows[0].childElement
 	return row;
 }
 var playListMenu = getById('PlayListMenu'), playList =  getById('PlayList');
+var cur_i = -1;
 function updatePlayList(url, delay){
 	if(url!=null){
 		GET(url);
@@ -532,8 +541,10 @@ function updatePlayList(url, delay){
 			(ev)=>{
 				playListMenu.style.display = 'block';
 				var obj = JSON.parse(ev.target.responseText);
-				var lst = ('list' in obj?obj.list:[]), paused = ('paused' in obj?obj.paused:null), cur_i = ('cur_i' in obj?obj.cur_i:null);
+				var lst = ('list' in obj?obj.list:[]), paused = ('paused' in obj?obj.paused:null);
 				var css = "style='color:red; font-weight:bold;'";
+				getById('timerDesc').textContent = obj.timer;
+				cur_i = ('cur_i' in obj?obj.cur_i:-1);
 				playList.innerHTML = '';
 				for(var i=0; i<lst.length; i++)
 					playList.innerHTML += `<p class="hand" onclick="GET('/playFromN/${i}');updatePlayList()" ${i==cur_i?css:""}>${lst[i]}</p>`;
@@ -598,6 +609,9 @@ var g_asrInit = false;
 const wav_win = getById('waveform'), updateFreq = 5;
 RA = f => 12194 ** 2 * f ** 4 /((f ** 2 + 20.6 ** 2) * Math.sqrt((f ** 2 + 107.7 ** 2) * (f ** 2 + 737.9 ** 2)) * (f ** 2 + 12194 ** 2));
 A = f => 20 * Math.log10(RA(f)) + 2.0;
+var asr_prompts = ["Please speak the voice command and click OK:",
+	"Please speak the name of the media and click OK:",
+	"Please speak the timer duration or scheduled time and click OK:"];
 function ASR(func=''){
 	if(!g_asrInit){
 		g_asrInit = true;
@@ -628,7 +642,7 @@ function ASR(func=''){
 		return alert("Please grant the permission to access microphone!");
 
 	asr_func = func;
-	getById('asr_prompt').textContent = (asr_func?"Please speak the name of the media and click OK:":"Please speak the voice command and click OK!");
+	getById('asr_prompt').textContent = asr_prompts[asr_func.includes('set_spoken')?2:(asr_func.includes('play_spoken')?1:0)];
 	getByClass('asr', '.style.display="block"');
 
 	if(siriWave==null)

@@ -1,6 +1,9 @@
 import os, sys, io, re, time, string, json, threading, yt_dlp, gzip, multiprocessing
 import pykakasi, pinyin, logging, requests, shutil, subprocess, asyncio, socket
+import pandas as pd
+import jionlp as jio
 from unidecode import unidecode
+from hanziconv import HanziConv
 from urllib.parse import unquote
 from werkzeug import local
 from natsort import natsorted
@@ -9,6 +12,7 @@ from lib.ChineseNumber import *
 from lib.settings import *
 from device_config import *
 from contextlib import redirect_stdout, redirect_stderr
+from lib.HMC_model import Model as HMC_model
 
 ggl_translator = Translator()
 KKS = pykakasi.kakasi()
@@ -48,6 +52,18 @@ mrl2path = lambda t: unquote(t).replace('file://', '').strip() if t.startswith('
 is_json_lst = lambda s: s.startswith('["') and s.endswith('"]')
 load_m3u = lambda fn: [i for L in Open(fn).readlines() for i in [mrl2path(L)] if i]
 LOG = lambda s: print(f'LOG: {s}') if DEBUG_LOG else None
+
+Timers = {}
+
+def SetTimer(name, period, F, desc=''):
+	DelTimer(name) if name in Timers else None
+	Timers[name] = tt = threading.Timer(period, F)
+	tt.start()
+	tt.name, tt.desc, tt.start_time = name, desc, pd.Timestamp.now()
+
+def DelTimer(name):
+	if name in Timers:
+		Timers.pop(name).cancel()
 
 def get_url_root(r):
 	os.last_url_root = r.url_root.rstrip('/') if r.url_root.count(':')>=2 else r.url_root.rstrip('/')+f':{r.server[1]}'
@@ -93,9 +109,6 @@ def fuzzy(txt, dct=FUZZY_PINYIN):
 	for src, tgt in dct.items():
 		txt = txt.replace(src, tgt)
 	return txt
-
-_json2pyc = {'null': 'None', 'false': 'False', 'true': 'True'}
-json2pyc = lambda t: fuzzy(t, _json2pyc)
 
 fn2dur = {}
 def getDuration(fn):
@@ -337,24 +350,117 @@ def xauth_add(key=None):
 
 
 # Weather API
-last_wt_tms = 0
-last_wt = [None]*4
 def _get_weather():
-	obj = Try(lambda: eval(json2pyc(requests.get(ACCUWEATHER_API_GET).text))[0], {})
-	tempDegC = Try(lambda: obj['Temperature']['Metric']['Value'], None)
-	humidity = Try(lambda: obj['RelativeHumidity'], None)
-	realfeel = Try(lambda: obj['RealFeelTemperatureShade']['Metric']['Value'], None)
-	weatherT = Try(lambda: obj['WeatherText'], None)
-	return [tempDegC, humidity, realfeel, weatherT]
+	obj = Try(lambda: json.parse(requests.get(ACCUWEATHER_API_GET).text)[0], {})
+	wt = {
+		'temperature': Try(lambda: obj['Temperature']['Metric']['Value'], None),
+		'humidity': Try(lambda: obj['RelativeHumidity'], None),
+		'realfeel': Try(lambda: obj['RealFeelTemperatureShade']['Metric']['Value'], None),
+		'weatherText': Try(lambda: obj['WeatherText'], None)
+	}
+	return wt
 
 def get_weather():
-	global last_wt, last_wt_tms
-	curr_tms = time.time()
-	if curr_tms-last_wt_tms>3600:
-		last_wt_tms = curr_tms
-		last_wt = _get_weather()
+	now = pd.Timestamp.now()
+	try:
+		last_wt = os.sys_state['_weather_']['last_wt']
+		last_wt_tms = pd.Timestamp(os.sys_state['_weather_']['last_wt_tms'])
+		refresh = now-last_wt_tms>pd.to_timedelta('1H')
+	except:
+		refresh = True
+	if refresh:
+		os.sys_state['_weather_']['last_wt'] = last_wt = _get_weather()
+		os.sys_state['_weather_']['last_wt_tms'] = now
+		os.save_state()
 	return last_wt
 
+# HMC models
+hmc_models = {}
+hmc_lastT = {}
+def HMC_predict(name, x):
+	if name not in hmc_models:
+		hmc_models[name] = HMC_model(name)
+	m = hmc_models[name]
+	return m.predict(x)
+
+def HMC_train(name, x, y):
+	if name not in hmc_models:
+		hmc_models[name] = HMC_model(name)
+	m = hmc_models[name]
+	tms = time.time()
+	m.add(x, y, overwrite_last=(tms-hmc_lastT[name]<AUTO_LEARN_OWL_SEC))
+	hmc_lastT[name] = tms
+
+
+# DysonFan API
+def dysonFanGetPower(name):
+	try:
+		fan = FAN_DATA[name]
+		ser = fan['sn'].encode()
+		msg1 = b'\x82\x99\x01\x00\x01\x00"438/{SER}/status/current\x01\x00#438/{SER}/status/software\x01\x00%438/{SER}/status/connection\x01\x00!438/{SER}/status/faults\x01'.replace(b'{SER}', ser)
+		msg2 = b'2\xa4\x01\x00\x1b438/{SER}/command\x00\x02{\n  "g": "438/{SER}/command",\n  "mode-reason": "LAPP",\n  "msg": "REQUEST-CURRENT-STATE",\n  "time": "2024-01-01T13:25:18Z"\n}'.replace(b'{SER}', ser)
+		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		s.settimeout(5)
+		s.connect((fan['IP'], fan['PORT']))
+		s.sendall(msg1)
+		s.recv(256)
+		s.sendall(msg2)
+		all=b''
+		for i in range(10):
+			data = s.recv(1024)
+			all += data
+			if b'"fpwr"' in data:
+				p = data.find(b'"fpwr"')
+				return data[p:p+16], all
+		return 'Speed value not found'
+	except Exception as e:
+		return str(e)
+os.dysonFanGetPower = dysonFanGetPower
+
+def dysonFanGetSpeed(name):
+	try:
+		fan = FAN_DATA[name]
+		ser = fan['sn'].encode()
+		msg1 = b'\x82\x99\x01\x00\x01\x00"438/{SER}/status/current\x01\x00#438/{SER}/status/software\x01\x00%438/{SER}/status/connection\x01\x00!438/{SER}/status/faults\x01'.replace(b'{SER}', ser)
+		msg2 = b'2\xa4\x01\x00\x1b438/{SER}/command\x00\x02{\n  "g": "438/{SER}/command",\n  "mode-reason": "LAPP",\n  "msg": "REQUEST-CURRENT-STATE",\n  "time": "2024-01-01T13:25:18Z"\n}'.replace(b'{SER}', ser)
+		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		s.settimeout(5)
+		s.connect((fan['IP'], fan['PORT']))
+		s.sendall(msg1)
+		s.recv(256)
+		s.sendall(msg2)
+		for i in range(10):
+			data = s.recv(1024)
+			if b'"fnsp"' in data:
+				p = data.find(b'"fnsp"')
+				return int(b''.join([data[p+i:p+i+1] for i in range(6,13) if data[p+i:p+i+1].isdigit()]))
+		return 'Speed value not found'
+	except Exception as e:
+		return str(e)
+os.dysonFanGetSpeed = dysonFanGetSpeed
+
+def dysonFanSetSpeed(name, speed):
+	try:
+		fan = FAN_DATA[name]
+		ser = fan['sn'].encode()
+		msg = b'2\xbc\x01\x00\x1b438/{SER}/command\x00\x04{\n  "data": {\n    "fnsp": "%04d"\n  },\n  "h": "438/{SER}/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T10:26:49Z"\n}'.replace(b'{SER}', ser)
+		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		s.settimeout(5)
+		s.connect((fan['IP'], fan['PORT']))
+		s.sendall(msg % speed)
+		s.close()
+		return 'OK'
+	except Exception as e:
+		return str(e)
+os.dysonFanSetSpeed = dysonFanSetSpeed
+
+def dysonFanAdjSpeed(name, adjust):
+	speed = dysonFanGetSpeed(name)
+	if type(speed) != int:
+		return speed
+	return dysonFanSetSpeed(name, speed+adjust)
+os.dysonFanAdjSpeed = dysonFanAdjSpeed
+	
 
 # Imported from Micropython lib
 url_string = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~/?'
@@ -403,8 +509,9 @@ def send_wol(obj):
 		if len(mac) == 17:
 			mac = mac.replace(mac[2], "")
 		elif len(mac) != 12:
-			return "Incorrect MAC address format"
+			return f"Incorrect MAC address format: {mac}"
 		s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 		nsent = s.sendto(bytes.fromhex("F"*12 + mac*16), (obj.get('IP', '255.255.255.255'), obj.get('PORT', 9)))
 		s.close()
 		return f'OK, sent {nsent} bytes'
@@ -446,7 +553,9 @@ def execRC(s, stack=0):
 	LOG(f'execRC({stack}): {str(s)}')
 	if s is None: return 'OK'
 	try:
-		if type(s) == list:
+		if callable(s):
+			return s()
+		elif type(s)==list:
 			res = []
 			for i in s:
 				res += [execRC(i, stack+1)]
@@ -473,6 +582,24 @@ def execRC(s, stack=0):
 		return str(e)
 	return str(s)
 
+def get_local_IP():
+	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	s.connect(("8.8.8.8", 80))
+	ret = s.getsockname()[0]
+	s.close()
+	return ret
+
+def txt2time(txt):
+	try:
+		zhs = HanziConv.toSimplified(txt)
+		obj = jio.ner.extract_time(zhs)[0]['detail']['time']
+		if type(obj)==list:
+			tm = pd.Timestamp(obj[0])
+		elif type(obj)==dict:
+			tm = pd.Timestamp.now() + pd.to_timedelta(sum([pd.to_timedelta(str(v)+k).total_seconds() for k,v in obj.items()]), 's')
+		return tm
+	except:
+		return None
 
 if __name__ == '__main__':
 	res = findMedia('朱罗记公园1', lang='zh', base_path='~/mnt/Movies')

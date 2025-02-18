@@ -7,6 +7,7 @@ from collections import defaultdict
 # all fields must be set, if absent put ''
 KTV_SPEAKER='10:3C:88:17:20:78'
 KTV_SCREEN='livingTV:HDMI_1'
+KTV_EXEC='~/projects/pikaraoke/run-cloud.sh'
 MP3_SPEAKER='54:B7:E5:9E:F4:14'
 MP3_DFTLIST='Desktop/musics.m3u'
 MP4_SPEAKER=['hdmi', 'audio.stereo']
@@ -41,6 +42,24 @@ ASRchip_voice_hex = {
 	'asr_found': ('a5000a', 3),
 	'asr_found_drama': ('a5000a', 3),
 	'asr_found_file': ('a5000a', 3),
+	'set_timer_speak': ('a5660a', 4),
+	'set_timer_okay': ('a50a0a', 3),
+	'set_timer_fail': ('a50b0a', 3),
+	'set_timer_unknown': ('a50b0a', 3),
+	'set_timer_cancel': ('a50c0a', 3),
+	
+	'fan1': ('a55b0a', 0),
+	'fan2': ('a55c0a', 0),
+	'fan3': ('a55d0a', 0),
+	'fan4': ('a55e0a', 0),
+	'fan5': ('a55f0a', 0),
+	'fan6': ('a5600a', 0),
+	'fanL': ('a5510a', 0),
+	'fanM': ('a5520a', 0),
+	'fanH': ('a5530a', 0),
+	'ceilfan0': ('a55a0a', 0),
+	'floorfan0': ('a5500a', 0),
+	'anyfan0': ('a5460a', 0),
 }
 
 VOICE_CMD_FFWD_DCT = {
@@ -71,27 +90,45 @@ VOICE_CMD_FFWD_DCT = {
 	'客人房电视机快退': 'commonTV',
 }
 
-FAN_CMDS = {
+# For AutoFan control
+# For auto-learning fan levels, this is the duration within it will OverWrite-Last value
+AUTO_LEARN_OWL_SEC = 300
+# - 'OFF' button is compulsory for every fan
+# - Fans with 'ON' button must be powered on first before setting speed level
+# - 'S_' means for speech reporting
+FAN_DATA = {
 	'dinningFan': {
-		'OFF': 'http://192.168.50.4/rc_run?DFS',
+		'type': '433',
+		'OFF': f'{ASRchip_voice_IP}/rc_run?DFS',
+		'S_OFF': 'ceilfan0',
 		'LEVELS': [
-			'http://192.168.50.4/rc_run?DFL',
-			'http://192.168.50.4/rc_run?DFM',
-			'http://192.168.50.4/rc_run?DFH']
+			f'{ASRchip_voice_IP}/rc_run?DFL',
+			f'{ASRchip_voice_IP}/rc_run?DFM',
+			f'{ASRchip_voice_IP}/rc_run?DFH'],
+		'S_LEVELS': ['fanL', 'fanM', 'fanH']
 	},
 	'sofaFan': {
-		'OFF': 'http://192.168.50.4/rc_run?SFS',
+		'type': '433',
+		'OFF': f'{ASRchip_voice_IP}/rc_run?SFS',
+		'S_OFF': 'ceilfan0',
 		'LEVELS': [
-			'http://192.168.50.4/rc_run?SF1',
-			'http://192.168.50.4/rc_run?SF2',
-			'http://192.168.50.4/rc_run?SF3',
-			'http://192.168.50.4/rc_run?SF4',
-			'http://192.168.50.4/rc_run?SF5',
-			'http://192.168.50.4/rc_run?SF6']
+			f'{ASRchip_voice_IP}/rc_run?SF1',
+			f'{ASRchip_voice_IP}/rc_run?SF2',
+			f'{ASRchip_voice_IP}/rc_run?SF3',
+			f'{ASRchip_voice_IP}/rc_run?SF4',
+			f'{ASRchip_voice_IP}/rc_run?SF5',
+			f'{ASRchip_voice_IP}/rc_run?SF6'],
+		'S_LEVELS': ['fan1', 'fan2', 'fan3', 'fan4', 'fan5', 'fan6']
 	},
 	'roomFloorFan': {
-		'OFF': 'http://192.168.50.4/rc_run?RFF',
-		'ON': 'http://192.168.50.4/rc_run?RFN',
+		'type': 'dyson',
+		'sn': 'E1G-SG-NGA0425A',
+		'IP': '192.168.50.12',
+		'PORT': 1883,
+		'GET_SPEED': (lambda: os.dysonFanGetSpeed('roomFloorFan')),
+		'OFF': f'{ASRchip_voice_IP}/rc_run?RFF',
+		'S_OFF': 'floorfan0',
+		'ON': f'{ASRchip_voice_IP}/rc_run?RFN',
 		'LEVELS': [
 			{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00\x04{\n  "data": {\n    "fnsp": "0001"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T11:02:20Z"\n}'},
 			{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00\x04{\n  "data": {\n    "fnsp": "0002"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T11:02:20Z"\n}'},
@@ -105,8 +142,14 @@ FAN_CMDS = {
 			{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00\x04{\n  "data": {\n    "fnsp": "0010"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T11:02:20Z"\n}'}]
 	},
 	'livingFloorFan': {
-		'OFF': 'http://192.168.50.4/rc_run?LFF',
-		'ON': 'http://192.168.50.4/rc_run?LFN',
+		'type': 'dyson',
+		'sn': 'E1G-SG-NGA0301A',
+		'IP': '192.168.50.11',
+		'PORT': 1883,
+		'GET_SPEED': (lambda: os.dysonFanGetSpeed('livingFloorFan')),
+		'OFF': f'{ASRchip_voice_IP}/rc_run?LFF',
+		'S_OFF': 'floorfan0',
+		'ON': f'{ASRchip_voice_IP}/rc_run?LFN',
 		'LEVELS': [
 			{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00\x04{\n  "data": {\n    "fnsp": "0001"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T10:26:49Z"\n}'},
 			{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00\x04{\n  "data": {\n    "fnsp": "0002"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T10:26:49Z"\n}'},

@@ -1,3 +1,5 @@
+hanziconv
+jionlp
 pydub
 python-vlc
 deebot-t8
@@ -6,6 +8,7 @@ flask
 flask-sock
 jinja2
 openai-whisper
+faster-whisper
 pinyin
 pykakasi
 gTTS
