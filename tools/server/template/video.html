@@ -1,7 +1,9 @@
 <!doctype html>
 <html>
 <head><title>{{title}}</title>
+<script src="/static/siriwave.umd.min.js"></script>
 <style>
+:root { --edge-pad: 100px; }
 .overlay {
   position: absolute;
   /*  object-fit is not supported on IE  */
@@ -19,7 +21,11 @@
   -ms-user-select: none;
   user-select: none;
 }
-:root { --edge-pad: 100px; }
+.dark_fsoverlay{
+	position: fixed; top: 0%; left: 0%; width: 100%; height: 100%; background-color: black; z-index:100; -moz-opacity: 0.8;
+	opacity:.8; display: none; filter: alpha(opacity=80);
+}
+.above_overlay{ position:fixed; width:80%; height:40%; left:50%; top: 50%; transform: translate(-50%, -50%); z-index: 200; display: none; }
 .hoverShow { opacity: 0; }
 .hoverShow:hover { opacity: 1; }
 video {
@@ -61,10 +67,20 @@ h1 {
 .larger { font-size: larger; }
 .vsb { margin-top: 8px; }
 .z50 { z-index: 50; }
+.hand {cursor: pointer;}
 </style>
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body style="background-color:black; overflow: hidden;">
+<div id="ASR" class="asr dark_fsoverlay"></div>
+<div id="ASRpanel" class="asr above_overlay">
+  <h2 id="asr_prompt" style="color: white; font-size: xx-large; margin: 0.5em; line-height: 1.5; font-weight: bold;"></h2>
+  <div id="waveform" style="width:100%; height: 50%; border-radius: 2em; border: solid 4px blue; background-color: #00000080;"></div>
+  <h2 style="font-size: 64pt; justify-content: space-around; display: flex;" >
+    <span class="hand" style="color:lime" onclick="use_recorded=true;recorder.stop();">☑</span>
+    <span class="hand" style="color:red" onclick="recorder.stop();">☒</span>
+  </h2>
+</div>
  <div id="vcontainer" onfullscreenchange="on_fs_chg(this)">
   <video id='video0' autoplay controls onended="ws_send('next')" onclick="clickvid(event)"
       onseeked="markCounter=0" ontouchmove="timerRst()" onmousemove="timerRst()">
@@ -73,8 +89,8 @@ h1 {
   <div id="banner0" class="overlay" style="font-size: xx-large; left:50%; top:50%; transform: translate(-50%, -50%); z-index: 100 !important; display: none; max-width: 50%;
     background-color: #222; opacity: 90%;">正在处理，完毕后将重新开始播放...</div>
   <div id="controls" style="display: none; z-index: 100;">
-    <div class="overlay z50" style="left:25%; top:0; transform: translateX(-50%);" onclick="handleKey('<')" title="浏览文件夹">🏃-</div>
-    <div class="overlay z50" style="left:75%; top:0; transform: translateX(-50%);" onclick="handleKey('>')" title="浏览文件夹">🏃+</div>
+    <div class="overlay z50" style="left:25%; top:0; transform: translateX(-50%);" onclick="handleKey('-')" title="浏览文件夹">🏃-</div>
+    <div class="overlay z50" style="left:75%; top:0; transform: translateX(-50%);" onclick="handleKey('=')" title="浏览文件夹">🏃+</div>
     <div class="overlay z50 xlarge" style="left:0; top:calc(20% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowLeft',0)" title="-4s">❬&nbsp;&nbsp;</div>
     <div class="overlay z50 xlarge" style="left:0; top:calc(30% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowLeft',1)" title="-8s">❬❬&nbsp;</div>
     <div class="overlay z50 xlarge" style="left:0; top:calc(40% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowLeft',2)" title="-15s">❬❬❬</div>
@@ -106,7 +122,7 @@ h1 {
   <div class="overlay" id="menuIcon1" style="left:50%; bottom:var(--edge-pad); transform: translateX(-50%);" onclick="toggle_menu(2)" title="浏览文件夹">📁</div>
  </div>
  <div id="recButtons" class="overlay hoverShow" style="left:0; top:0;" >
-  <span id="recButton" title="播放指定文件（本地录音）" onclick="play_recorded()" class="icon-mic-local"></span>
+  <span id="recButton" title="播放指定文件（本地录音）" onclick="ASR()" class="icon-mic-local"></span>
   <span title="播放指定文件（树莓派录音）" onclick="ws_send('play_spoken_indir')" class="icon-mic-station"></span>
  </div>
  <div class="overlay" style="left:0px; bottom:var(--edge-pad);">
@@ -166,6 +182,7 @@ h1 {
 <script>
 const pass = () => {};
 function getById(id_str) { return document.getElementById(id_str); }
+function getByClass(cls_str, cmd) { for(var e of document.getElementsByClassName(cls_str))eval('e'+cmd); }
 var idleTime = 0;
 var menuMode = 0;
 var passCounter = 0, markCounter = 0;
@@ -294,25 +311,83 @@ function play_audio(fn, reply=false){
     aud.onended = ()=>{ws_send('\taudio_ended')};
   aud.play();
 }
-function play_recorded(){
-  if(recorder.state=='inactive'){
-    v.pause();
-    recButtons.classList.remove('hoverShow');
-    audios = [];
-    var aud = new Audio('/voice/speak_file_click.mp3');
-    aud.onended = ()=>{
-      recorder.start();
-      recButton.style.opacity=1;
-      recButton.style.color='red';
-      recButton.style.backgroundColor='green';
-      start_time=Date.now();
-      recorder_timeout = setTimeout("recorder.stop()", 31000);
-    };
-    aud.play();
-  }else{
-    recorder.stop();
-    clearTimeout(recorder_timeout);
-  }
+var siriWave, g_stream;
+const wav_win = getById('waveform'), updateFreq = 5;
+RA = f => 12194 ** 2 * f ** 4 /((f ** 2 + 20.6 ** 2) * Math.sqrt((f ** 2 + 107.7 ** 2) * (f ** 2 + 737.9 ** 2)) * (f ** 2 + 12194 ** 2));
+A = f => 20 * Math.log10(RA(f)) + 2.0;
+var asr_prompts = ["请说出想要播放的媒体文件名称然后点击确定："];
+function ASR(func=''){
+	asr_func = func;
+  v.last_pause_state = v.paused;
+  v.pause();
+	getById('asr_prompt').textContent = asr_prompts[0];
+	getByClass('asr', '.style.display="block"');
+
+	if(siriWave==null)
+		siriWave = new SiriWave({container: wav_win, cover: true, height: wav_win.offsetHeight, style: "ios9"});
+
+	var context = new (window.AudioContext || window.webkitAudioContext)();
+	source = context.createMediaStreamSource(g_stream);
+	var analyser = context.createAnalyser();
+	var trackSettings = g_stream.getAudioTracks()[0].getSettings();
+	var sampleRate = trackSettings.sampleRate || context.sampleRate;
+	var totalNumberOfSamples = sampleRate / updateFreq;
+	analyser.fftSize = 2 ** Math.floor(Math.log2(totalNumberOfSamples));
+	const uint8TodB = byteLevel => (byteLevel / 255) * (analyser.maxDecibels - analyser.minDecibels) + analyser.minDecibels;
+	const weightings = [-100];
+	for (let i = 1; i < analyser.frequencyBinCount; i++)
+		weightings[i] = A(i * sampleRate / 2 / analyser.frequencyBinCount);
+	spectrum = new Uint8Array(analyser.frequencyBinCount);
+	dBASpectrum = new Float32Array(analyser.frequencyBinCount);
+	var waveForm = new Uint8Array(analyser.frequencyBinCount);
+	source.connect(analyser);
+	siriWave.start();
+
+	const updateAnimation = function (idleDeadline) {
+		taskHandle = requestIdleCallback(updateAnimation, { timeout: 1000 / updateFreq });
+
+		//copy frequency data to spectrum from analyser.
+		// holds Number.NEGATIVE_INFINITY, [0 = -100dB, ..., 255 = -30 dB]
+		analyser.getByteFrequencyData(spectrum);
+
+		spectrum.forEach((byteLevel, idx) => {
+			dBASpectrum[idx] = uint8TodB(byteLevel) + weightings[idx];
+		});
+
+		const 
+			highestPerceptibleFrequencyBin = dBASpectrum.reduce((acc, y, idx) => y > -90 ? idx : acc, 0),
+			// S = ∑ s_i
+			totaldBAPower = dBASpectrum.reduce((acc, y) => acc + y),
+
+			// s⍉ = ∑ s_i ∙ i / ∑ s_i
+			meanFrequencyBin = dBASpectrum.reduce((acc, y, idx) => acc + y * idx) / totaldBAPower,
+			highestPowerBin = dBASpectrum.reduce(([maxPower, iMax], y, idx) => y > maxPower ? [y, idx] : [maxPower, iMax], [-120, 0])[1],
+			highestDetectedFrequency = highestPerceptibleFrequencyBin * (sampleRate / 2 / analyser.frequencyBinCount),
+			meanFrequency = meanFrequencyBin * (sampleRate / 2 / analyser.frequencyBinCount),
+			maxPowerFrequency = highestPowerBin * (sampleRate / 2 / analyser.frequencyBinCount);
+
+		// set the speed for siriwave, scaled to [0..22kHz] -> [0..1]
+		siriWave.setSpeed(maxPowerFrequency / 10e+3);
+		const averagedBAPower = totaldBAPower / analyser.frequencyBinCount;
+
+		// find the max amplituded the zero level is at 128
+		analyser.getByteTimeDomainData(waveForm);
+
+		// find the maximum not considering negative values (without loss of generality)
+		const amplitude = waveForm.reduce((acc, y) => Math.max(acc, y), 128) - 128;
+
+		//scale amplituded from [0, 128] to [0, 10].
+		siriWave.setAmplitude(amplitude / 128 * 10);
+	};
+
+	taskHandle = requestIdleCallback(updateAnimation, { timeout: 1000 / updateFreq });
+
+	audios = [];
+	recorder = new MediaRecorder(g_stream, {mimeType: 'audio/webm'});
+	recorder.ondataavailable = (e) => { audios.push(e.data); if(recorder.state=='inactive') onRecStop(); };
+	recorder.start();
+	recorder_timeout = setTimeout("recorder.stop()", 15000);
+	use_recorded = false;
 }
 var flash_tmr;
 function show_flashmsg(msg, delay=2000){
@@ -322,15 +397,18 @@ function show_flashmsg(msg, delay=2000){
   flash_tmr = setTimeout(()=>{flashmsg.style.display = 'none'}, delay);
 }
 function onRecStop(){
-  recButtons.classList.add('hoverShow');
-  v.play();
-  recButton.style.opacity='';
-  recButton.style.color='';
-  recButton.style.backgroundColor='';
-  if(Date.now()-start_time>30000) return;
-  var blob = new Blob(audios, { type: "audio/webm" });
-  const req = new XMLHttpRequest();
+	getByClass('asr', '.style.display="none"');
+	cancelIdleCallback(taskHandle);
+	source.disconnect();
+	siriWave.stop();
+	clearTimeout(recorder_timeout);
+	recorder = null;
+  if(!v.last_pause_state) v.play();
+	if(!use_recorded) return;
+	var blob = new Blob(audios, { type: "audio/webm" });
+	const req = new XMLHttpRequest();
   req.open("POST", '/play_recorded', true);
+  req.onerror = (e)=>{ alert(req.responseText); }
   req.send(blob);
 }
 function lsdir(tgtDir=null){
@@ -551,9 +629,7 @@ document.styleSheets[0].cssRules[0].style.fontSize=`${scr_size/20}px`;
 setInterval(timerInc, 2000);
 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
   navigator.mediaDevices.getUserMedia({audio: true, deviceId:'default'},)
-    .then((stream) => {
-      recorder = new MediaRecorder(stream, {mimeType: 'audio/webm'}); recButton.style.display='inline';
-      recorder.ondataavailable = (e) => { audios.push(e.data); if(recorder.state=='inactive') onRecStop(); };})
+    .then((stream) => {g_stream = stream; recButton.style.display='inline';})
     .catch((err) => { console.error(`getUserMedia error: ${err}`); recButton.style.display='none';
   });
 } else {

@@ -581,11 +581,13 @@ def tv(name='', cmd=''):
 def tvVolume(name='', vol=''):
 	try:
 		vol = str(vol)
-		value = int(vol)
+		is_perc = vol.endswith('%')
+		value = int(vol.rstrip('%'))
 		if not vol[0].isdigit():
 			ret = RUN(f'{LG_TV_BIN} --name {name} audioVolume')
 			L = ret[ret.find('"volume":'):]
-			value += int(L[L.find(' '):L.find(',')])
+			cur_vol = int(L[L.find(' '):L.find(',')])
+			value = cur_vol + (max(1, round(cur_vol*value/100)) if is_perc else value)
 		return RUN(f'{LG_TV_BIN} --name {name} setVolume {value}')
 	except:
 		pass
