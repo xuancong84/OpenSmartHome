@@ -14,7 +14,6 @@ from pydub import AudioSegment as AudSeg
 from gtts import gTTS
 from lingua import LanguageDetectorBuilder
 from langcodes import Language as LC
-
 from lib.DefaultRevisionDict import *
 from lib.gTranslateTTS import gTransTTS
 from lib.settings import *
@@ -47,7 +46,6 @@ isFirst = True
 isVideo = None
 subtitle = True
 last_get_file_ip = ''
-CANCEL_FLAG = False
 isJustAfterBoot = True if sys.platform=='darwin' else float(open('/proc/uptime').read().split()[0])<120
 random.seed(time.time())
 ASR_server_running = ASR_cloud_running = False
@@ -97,19 +95,6 @@ def play_TTS(txt, tv_name=None):
 	for seg in txts:
 		prepare_TTS(seg)
 		play_audio(DEFAULT_T2S_SND_FILE, True, tv_name)
-
-# Abort transcription thread
-def cancel_transcription():
-    global CANCEL_FLAG
-    CANCEL_FLAG = True
-
-# Function to check if cancellation is requested
-def cancel_requested():
-	global CANCEL_FLAG
-	if CANCEL_FLAG:
-		CANCEL_FLAG = False
-		return True
-	return False
 
 def isVideoFile(fn):
 	for ext in video_file_exts:
@@ -269,13 +254,14 @@ def togglePause():
 		return str(e)
 	return 'OK'
 
-@app.route('/set_timer/<tm>/')
+@app.route('/set_timer/<tm>')
 @app.route('/set_timer/<tm>/<name>')
-def set_timer(tm='', name=None):
+@app.route('/set_timer/<tm>/<name>/<path:filename>')
+def set_timer(tm='', tv_name=None, filename=None):
 	# each device can only have one on/off timer; if device is on, set timer to turn it off; otherwise, set timer to turn it on
 	global player
 	if tm==' ':
-		DelTimer(name)
+		DelTimer(tv_name)
 		return 'Timer deleted OK'
 	if ':' in tm:
 		tm_sec = (pd.Timestamp(tm)-pd.Timestamp.now()).total_seconds()
@@ -285,33 +271,34 @@ def set_timer(tm='', name=None):
 		if tm_sec==None:
 			return f'Error: cannot parse time {tm}'
 	tm_til = str(pd.Timestamp.now()+pd.to_timedelta(f'{tm_sec}s'))[:19]
-	if name==None:
+	if tv_name==None:
 		if player==None:
-			SetTimer(name, tm_sec, lambda: play('0 0 1'), f'将于{tm_til}定时开启音乐播放')
+			SetTimer(tv_name, tm_sec, lambda: play('0 0 1'), f'将于{tm_til}定时开启音乐播放')
 		else:
-			SetTimer(name, tm_sec, lambda: stop(), f'将于{tm_til}定时关闭音乐播放')
-	elif is_tv_on(name):
-		SetTimer(name, tm_sec, lambda: tv(name, 'off'), f'将于{tm_til}定时关闭电视机{name}')
+			SetTimer(tv_name, tm_sec, lambda: stop(), f'将于{tm_til}定时关闭音乐播放')
+	elif is_tv_on(tv_name):
+		SetTimer(tv_name, tm_sec, lambda: tv(tv_name, 'off'), f'将于{tm_til}定时关闭电视机{tv_name}')
 	else:
-		tv_name, playlist = (name.split(' ', 1)+[None])[:2]
-		if playlist==None:
-			SetTimer(tv_name, tm_sec, lambda: tv(tv_name, 'on'), f'将于{tm_til}定时开启电视机{name}')
+		if filename==None:
+			SetTimer(tv_name, tm_sec, lambda: tv(tv_name, 'on'), f'将于{tm_til}定时开启电视机{tv_name}')
 		else:
-			SetTimer(tv_name, tm_sec, lambda: _tvPlay(tv_name, playlist, os.url_root), f'将于{tm_til}定时开启电视机{name}并播放{playlist}')
+			SetTimer(tv_name, tm_sec, lambda: _tvPlay(tv_name, playlist, os.url_root), f'将于{tm_til}定时开启电视机{tv_name}并播放{filename}')
 	return 'OK'
 
-def handle_ASR_timer(asr_out, tv_name, lst_filename, url_root):
+def handle_ASR_timer(asr_out, tv_name, filename, url_root):
 	tm = txt2time(asr_out['text'].strip())
 	if tm is None:
 		return play_audio('voice/set_timer_unknown.mp3', True, tv_name)
-	return play_audio('voice/set_timer_okay.mp3' if set_timer(str(tm), tv_name) == 'OK' else 'voice/set_timer_fail.mp3', True, tv_name)
+	return play_audio('voice/set_timer_okay.mp3' if set_timer(str(tm), tv_name, filename) == 'OK' else 'voice/set_timer_fail.mp3', True, tv_name)
 
 @app.route('/set_spoken_timer', methods=['GET', 'POST'])
 @app.route('/set_spoken_timer/<tv_name>', methods=['GET', 'POST'])
-def set_spoken_timer(tv_name=None):
+@app.route('/set_spoken_timer/<tv_name>/<path:filename>', methods=['GET', 'POST'])
+def set_spoken_timer(tv_name=None, filename=None):
+	tv_name = None if tv_name==' ' else tv_name
 	is_post, url_root = save_post_file(), get_url_root(request)
-	run_thread(recog_and_do, '' if is_post else 'voice/set_timer_speak.mp3', None if tv_name=='None' else tv_name, 
-		[], handle_ASR_timer, url_root)
+	run_thread(recog_and_do, '' if is_post else 'voice/set_timer_speak.mp3',
+		None if tv_name=='None' else tv_name, filename, handle_ASR_timer, url_root)
 	return 'OK'
 
 @app.route('/next')
@@ -570,6 +557,8 @@ def tv_setInput(tv_name, input_id):
 
 @app.route('/tv/<name>/<cmd>')
 def tv(name='', cmd=''):
+	if cmd.lower() == 'on':
+		return tv_on_if_off(name)
 	for i in range(3):
 		try:
 			return RUN(f'{LG_TV_BIN} --name {name} {cmd}')
@@ -908,8 +897,7 @@ def record_audio(tm_sec=5, file_path=DEFAULT_S2T_SND_FILE):
 # For ASR server
 def get_ASR_offline(audio_fn=asr_input):
 	try:
-		CANCEL_FLAG = False
-		obj = asr_model.transcribe(os.path.expanduser(audio_fn), cancel_func=cancel_requested)
+		obj = asr_model.transcribe(audio_fn)
 		return obj
 	except Exception as e:
 		traceback.print_exc()
@@ -973,6 +961,7 @@ def recog_and_do(voice_prompt, tv_name, path_name, handler, url_root, audio_file
 			record_audio()
 
 		# try cloud ASR
+		asr_output = None
 		if ASR_CLOUD_URL and not ASR_cloud_running:
 			ASR_cloud_running = True
 			asr_output = get_ASR_online(audio_file)
@@ -980,14 +969,11 @@ def recog_and_do(voice_prompt, tv_name, path_name, handler, url_root, audio_file
 
 		# try offline ASR if cloud ASR fails
 		if type(asr_output)==str or not asr_output:
-			if asr_model == None:
+			if not asr_model:
 				return play_audio('voice/offline_asr_not_available.mp3', True, tv_name) if voice_prompt else "Offline ASR not available!"
 			if ASR_server_running:
 				return play_audio('voice/unfinished_offline_asr.mp3', True, tv_name) if voice_prompt else "Another offline ASR is running!"
-			if voice_prompt:
-				play_audio('voice/wait_for_asr.mp3', False, tv_name)
-
-			context.restore()
+			run_thread(lambda: [play_audio('voice/wait_for_asr.mp3', True, tv_name), context.restore()])
 			asr_output = get_ASR_offline(audio_file)
 
 		print(f'ASR result: {asr_output}', file=sys.stderr)
@@ -1267,8 +1253,9 @@ if __name__ == '__main__':
 			formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument('--port', '-p', type=int, default=8883, help='server port number')
 	parser.add_argument('--ssl', '-ssl', help='server port number', action='store_true')
-	parser.add_argument('--asr', '-a', help='host ASR server', action='store_true')
-	parser.add_argument('--asr-model', '-am', default='base', help='ASR model to load')
+	parser.add_argument('--asr', '-a', default='auto', help='load local ASR model: yes, no, auto (default: yes if ASR_CLOUD_URL is empty)')
+	parser.add_argument('--asr-backend', '-ab', default='faster_whisper:int8', help='ASR backend: whisper, faster_whisper:float32, faster_whisper:int8 (default), ...')
+	parser.add_argument('--asr-model', '-am', default='base', help='ASR model to load: tiny, base (default), small, medium, large, ...')
 	parser.add_argument('--no-console', '-nc', help='do not open console', action='store_true')
 	parser.add_argument('--no-xauth', '-nx', help='do not xauth add magic key', action='store_true')
 	parser.add_argument('--hide-subtitle', '-nosub', help='whether to hide subtitles', action='store_true')
@@ -1290,12 +1277,8 @@ if __name__ == '__main__':
 	else:
 		cookies_opt = ['--cookies-from-browser', browser_cookies]
 
-	if asr:
-		import whisper
-		asr_model = whisper.load_model(asr_model)
-		print('Offline ASR model loaded successfully ...', file=sys.stderr)
-	else:
-		asr_model = None
+	if asr.lower().startswith('y') or (asr=='auto' and not ASR_CLOUD_URL):
+		asr_model = ASR(model_name=asr_model, backend=asr_backend, verbose=True)
 
 	os.url_root = f'http://{get_local_IP()}:{port}'
 
