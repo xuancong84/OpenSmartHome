@@ -525,7 +525,7 @@ ${'<td contenteditable="true" class="wrap"></td>'.repeat(tb.rows[0].childElement
 	<input type='button' onclick='deleteRow(${rid})' value='Delete' title="Delete this row">
 </td>`;
 	row.children[row.childElementCount-2].onblur = (e)=>{
-		e.target.nextElementSibling.children[0].style.display = e.target.textContent.includes('/play_spoken_')?"inline":"none";
+		e.target.nextElementSibling.children[0].style.display = e.target.textContent.includes('_spoken_')?"inline":"none";
 	};
 	rid++;
 	return row;

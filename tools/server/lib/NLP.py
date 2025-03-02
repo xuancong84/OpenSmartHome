@@ -8,6 +8,8 @@ from urllib.parse import unquote
 from werkzeug import local
 from natsort import natsorted
 from googletrans import Translator
+
+sys.path.append('.')
 from lib.ChineseNumber import *
 from lib.settings import *
 from device_config import *
@@ -601,6 +603,41 @@ def txt2time(txt):
 	except:
 		return None
 
+
+class ASR:
+	def __init__(self, model_name='base', backend='faster_whisper:int8', verbose=True) -> None:
+		bk_name, bk_bit = (backend.split(':')+['int8'])[:2]
+		if bk_name == 'faster_whisper':
+			from faster_whisper import WhisperModel
+			self.model = WhisperModel(model_name, compute_type=bk_bit)
+			self.transcribe = self._transcribe_faster_whisper
+			if verbose:print(f'Offline {backend} ASR model `{model_name}` loaded successfully ...', file=sys.stderr)
+		elif bk_name == 'whisper':
+			import whisper
+			self.model = whisper.load_model(model_name, in_memory=True)
+			self.transcribe = self._transcribe_whisper
+			if verbose:print(f'Offline {backend} ASR model `{model_name}` loaded successfully ...', file=sys.stderr)
+		else:
+			if verbose:print(f'Unknown backend {backend}, offline ASR model not loaded', file=sys.stderr)
+
+	def __bool__(self):
+		return hasattr(self, 'model')
+
+	def transcribe(self, filepath):
+		return {}
+
+	def _transcribe_whisper(self, filepath):
+		obj = self.model.transcribe(os.path.expanduser(filepath))
+		return obj
+
+	def _transcribe_faster_whisper(self, filepath):
+		segs, info = self.model.transcribe(os.path.expanduser(filepath))
+		txt = ' '.join([seg.text for seg in segs])
+		return {'text': txt, 'language': info.language}
+
+
 if __name__ == '__main__':
+	aa = ASR('','')
+	print(True if aa else False)
 	res = findMedia('朱罗记公园1', lang='zh', base_path='~/mnt/Movies')
 	print(res)
