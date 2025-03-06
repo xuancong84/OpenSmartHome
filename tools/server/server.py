@@ -262,6 +262,8 @@ def set_timer(tm='', tv_name=None, filename=None):
 	global player
 	if tm==' ':
 		DelTimer(tv_name)
+		if is_tv_on(tv_name):
+			tv_wscmd(tv_name, 'clear_countdown()')
 		return 'Timer deleted OK'
 	if ':' in tm:
 		tm_sec = (pd.Timestamp(tm)-pd.Timestamp.now()).total_seconds()
@@ -278,6 +280,7 @@ def set_timer(tm='', tv_name=None, filename=None):
 			SetTimer(tv_name, tm_sec, lambda: stop(), f'将于{tm_til}定时关闭音乐播放')
 	elif is_tv_on(tv_name):
 		SetTimer(tv_name, tm_sec, lambda: tv(tv_name, 'off'), f'将于{tm_til}定时关闭电视机{tv_name}')
+		tv_wscmd(tv_name, f'set_countdown({tm_sec})')
 	else:
 		if filename==None:
 			SetTimer(tv_name, tm_sec, lambda: tv(tv_name, 'on'), f'将于{tm_til}定时开启电视机{tv_name}')

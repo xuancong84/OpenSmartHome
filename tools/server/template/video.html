@@ -85,6 +85,7 @@ h1 {
   <video id='video0' autoplay controls onended="ws_send('next')" onclick="clickvid(event)"
       onseeked="markCounter=0" ontouchmove="timerRst()" onmousemove="timerRst()">
   </video>
+  <div id="countDownMsg" class="overlay" style="font-size: xx-large; left:50%; top:0; transform: translateX(-50%); z-index: 100 !important; display: none; color: yellow; background-color: red; opacity: 1;"></div>
   <div id="flashmsg" class="overlay" style="font-size: xx-large; left:50%; top:20%; transform: translate(-50%, -50%); z-index: 100 !important; display: none;"></div>
   <div id="banner0" class="overlay" style="font-size: xx-large; left:50%; top:50%; transform: translate(-50%, -50%); z-index: 100 !important; display: none; max-width: 50%;
     background-color: #222; opacity: 90%;">正在处理，完毕后将重新开始播放...</div>
@@ -196,7 +197,7 @@ var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator
 
 // Set global object handles
 for(var vname of ['ovl', 'ovl2', 'menu1', 'menu2', 'menu3', 'menu4', 'list1', 'list2', 'list3', 'S2Tframe', 'T2Sframe', 'INFOframe', 'EDITframe', 'S2Tlang',
-  'showAudioTracks', 'T2Slang', 'S2Ttext', 'T2Stext', 'S2Tmatch', 'recButton', 'QRcontainer', 'showSubtt', 'recButtons', 'flashmsg', 'controls', 'banner0'])
+  'showAudioTracks', 'T2Slang', 'S2Ttext', 'T2Stext', 'S2Tmatch', 'recButton', 'QRcontainer', 'showSubtt', 'recButtons', 'flashmsg', 'controls', 'banner0', 'countDownMsg'])
   window.eval(`var ${vname} = getById("${vname}")`);
 
 function create_wsock(){
@@ -499,10 +500,13 @@ function timerInc() {
   if(ws==null || ws.readyState>1) ws = create_wsock();
 
   // show overlay upon mouse move
-  ovl.style.display = (idleTime>1&&!menuMode)?"none":"";
-  ovl2.style.display = (idleTime>1&&!menuMode)?"none":"";
-  document.body.style.overflow = idleTime>1?"hidden":"";
   idleTime += 1;
+  if(idleTime>=2 && (idleTime-1)<2){
+    if(countdown_timer!=null) countDownMsg.style.display = (!menuMode)?"none":"";
+    ovl.style.display = (!menuMode)?"none":"";
+    ovl2.style.display = (!menuMode)?"none":"";
+    document.body.style.overflow = "hidden";
+  }
   markCounter += (1-v.paused);
   passCounter += v.paused;
   if(markCounter>60){
@@ -514,9 +518,8 @@ function timerInc() {
   }
 }
 function timerRst() {
-  ovl.style.display = "";
-  ovl2.style.display = "";
-  document.body.style.overflow = "";
+  if(countdown_timer!=null) countDownMsg.style.display = "";
+  ovl.style.display = ovl2.style.display = document.body.style.overflow = "";
   idleTime = 0;
 }
 function gotoFile(ev, i){
@@ -620,6 +623,39 @@ function norm_vol(){
   v.pause();
   ws_send('norm_vol ' + cur_file);
   show_banner(1);
+}
+function pad(num, size) {
+    num = num.toString();
+    return "0".repeat(size-num.length) + num;
+}
+countdown_timer = null;
+function set_countdown(dt_tm){
+  clear_countdown();
+  if(typeof dt_tm=='number'){
+    var t = new Date();
+    t.setSeconds(t.getSeconds() + dt_tm);
+    dt_tm = t;
+  }
+  countdown_timer = setInterval(()=>{
+    var now = new Date().getTime();
+    var distance = Math.round((new Date(dt_tm).getTime() - now)/1000);
+    var days = Math.floor(distance / (60 * 60 * 24));
+    var hours = Math.floor((distance % (60 * 60 * 24)) / (60 * 60));
+    var minutes = Math.floor((distance % (60 * 60)) / 60);
+    var seconds = Math.floor(distance % 60);
+    countDownMsg.textContent = '电视机将于'+(days?days+'天':'')+pad(hours,2)+':'+pad(minutes,2)+':'+pad(seconds,2)+'后关闭';
+    if(distance < 60) countDownMsg.style.display = '';
+    if(distance < 0) clear_countdown();
+  }, 1000);
+  countDownMsg.style.display = '';
+  setTimeout(()=>{countDownMsg.style.display = 'none';}, 10000);
+}
+function clear_countdown(){
+  if(countdown_timer!=null){
+    clearInterval(countdown_timer);
+    countdown_timer = null;
+    countDownMsg.style.display = 'none';
+  }
 }
 
 setvsrc("{{file_path|safe}}", {{cur_ii}});
