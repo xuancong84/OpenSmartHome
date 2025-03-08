@@ -8,7 +8,9 @@
 #include <WiFiClient.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <AsyncElegantOTA.h>
+#define ELEGANTOTA_USE_ASYNC_WEBSERVER 1
+// You MUST also manually modify ~/Arduino/libraries/ElegantOTA/src/ElegantOTA.h, otherwise link will fail
+#include <ElegantOTA.h>
 #include <NTPClient.h>
 #include <DNSServer.h>
 #include <WiFiUdp.h>
@@ -23,17 +25,11 @@
 #include "secret.h" // put your WIFI credentials in this file, or comment this line out
 #endif
 
-#define PIN_CONTROL_OUTPUT D2
-#define PIN_MOTION_SENSOR D3
-#define PIN_LED_MASTER D1
-#define PIN_LED_ADJ D5
-#define PIN_AMBIENT_PULLUP D7
-#define PIN_AMBIENT_INPUT A0
 #define SENSOR_LOG_MAX  120
 #define LOGFILE_MAX_SIZE  200000
 #define LOGFILE_MAX_NUM  8
 #define FlashButtonPIN 0
-#define WIFI_NAME "OpenSmartLight"
+#define WIFI_NAME_PREFIX "OpenSmartLight"
 #define UDP_PORT 18888      // for LAN broadcast and inform own existence
 #define TEST_ALIVE 1000000  // interval (in ms) to contact each known node to check whether they are still alive
 
@@ -48,6 +44,12 @@ void blink_halt(){
 
 // Saved parameters
 float timezone = 8;
+unsigned int PIN_CONTROL_OUTPUT = D2;
+unsigned int PIN_MOTION_SENSOR = D3;
+unsigned int PIN_LED_MASTER = D1;
+unsigned int PIN_LED_ADJ = D5;
+unsigned int PIN_AMBIENT_PULLUP = D7;
+unsigned int PIN_AMBIENT_INPUT = A0;
 unsigned int ENABLE_LOG = 0;
 unsigned int DARK_TH_LOW = 960;
 unsigned int DARK_TH_HIGH = 990;
@@ -62,6 +64,8 @@ unsigned int LED_END = 125;
 unsigned int GLIDE_TIME = 800;
 String midnight_starts[7] = { "23:00", "23:00", "23:00", "23:00", "00:00", "00:00", "23:00" };
 String midnight_stops[7] = { "07:00", "07:00", "07:00", "07:00", "07:00", "07:00", "07:00" };
+String smartctl_starts[7] = { "00:00", "00:00", "00:00", "00:00", "00:00", "00:00", "00:00" };
+String smartctl_stops[7] = { "23:59", "23:59", "23:59", "23:59", "23:59", "23:59", "23:59" };
 
 // WIFI parameters
 #ifndef WIFI_SSID
@@ -114,7 +118,7 @@ bool motion_sensor = false;
 bool control_output = false;
 bool DEBUG = false;
 bool SYSLED = false;
-String sensor_log, svr_reply, params_hash;
+String sensor_log, svr_reply, params_hash, WIFI_NAME=String(WIFI_NAME_PREFIX)+"_"+WiFi.macAddress();
 
 File fp_hist;
 int do_glide = 0;
@@ -174,6 +178,12 @@ enum VAL_TYPE{
 };
 
 std::map <String, std::pair<VAL_TYPE, void*> > g_params = {
+  {"PIN_CONTROL_OUTPUT",  {T_INT, &PIN_CONTROL_OUTPUT}},
+  {"PIN_MOTION_SENSOR",   {T_INT, &PIN_MOTION_SENSOR}},
+  {"PIN_LED_MASTER",      {T_INT, &PIN_LED_MASTER}},
+  {"PIN_LED_ADJ",         {T_INT, &PIN_LED_ADJ}},
+  {"PIN_AMBIENT_PULLUP",  {T_INT, &PIN_AMBIENT_PULLUP}},
+  {"PIN_AMBIENT_INPUT",   {T_INT, &PIN_AMBIENT_INPUT}},
   {"ENABLE_LOG",    {T_INT, &ENABLE_LOG}},
   {"DARK_TH_LOW",   {T_INT, &DARK_TH_LOW}},
   {"DARK_TH_HIGH",  {T_INT, &DARK_TH_HIGH}},
@@ -208,7 +218,23 @@ std::map <String, std::pair<VAL_TYPE, void*> > g_params = {
   {"midnight_start5", {T_STRING, &midnight_starts[5]}},
   {"midnight_stop5",  {T_STRING, &midnight_stops[5]}},
   {"midnight_start6", {T_STRING, &midnight_starts[6]}},
-  {"midnight_stop6",  {T_STRING, &midnight_stops[6]}}
+  {"midnight_stop6",  {T_STRING, &midnight_stops[6]}},
+
+  {"smartctl_start0", {T_STRING, &smartctl_starts[0]}},
+  {"smartctl_stop0",  {T_STRING, &smartctl_stops[0]}},
+  {"smartctl_start1", {T_STRING, &smartctl_starts[1]}},
+  {"smartctl_stop1",  {T_STRING, &smartctl_stops[1]}},
+  {"smartctl_start2", {T_STRING, &smartctl_starts[2]}},
+  {"smartctl_stop2",  {T_STRING, &smartctl_stops[2]}},
+  {"smartctl_start3", {T_STRING, &smartctl_starts[3]}},
+  {"smartctl_stop3",  {T_STRING, &smartctl_stops[3]}},
+  {"smartctl_start4", {T_STRING, &smartctl_starts[4]}},
+  {"smartctl_stop4",  {T_STRING, &smartctl_stops[4]}},
+  {"smartctl_start5", {T_STRING, &smartctl_starts[5]}},
+  {"smartctl_stop5",  {T_STRING, &smartctl_stops[5]}},
+  {"smartctl_start6", {T_STRING, &smartctl_starts[6]}},
+  {"smartctl_stop6",  {T_STRING, &smartctl_stops[6]}}
+
 };
 
 std::map <String, std::pair<String, unsigned long> > g_nodeList;
@@ -341,7 +367,7 @@ bool load_config(){
   // load the config file
   int n_success = 0;
   for(auto it=g_params.begin(); it!=g_params.end(); ++it)
-    if(set_value(it->first, doc[it->first])) n_success++;
+    if(doc.containsKey(it->first)) if(set_value(it->first, doc[it->first])) n_success++;
   if(n_success!=g_params.size() && DEBUG)
     Serial.printf("Not all parameters loaded successfully: only %d out of %d\n", n_success, g_params.size());
   
@@ -454,6 +480,17 @@ bool is_midnight(){
   return midnight_time>=midnight_start || midnight_time<=midnight_stop;
 }
 
+bool is_smartctl(){
+  int weekday = (timeClient->getDay()+6)%7;
+  String smartctl_start = smartctl_starts[weekday], smartctl_stop = smartctl_stops[weekday];
+  int hours = timeClient->getHours(), minutes = timeClient->getMinutes();
+  String smartctl_time = getTimeString().substring(0, 5);
+  if(smartctl_start.isEmpty() || smartctl_stop.isEmpty()) return false;
+  if(smartctl_stop > smartctl_start) // midnight starts after 0am
+    return smartctl_time>=smartctl_start && smartctl_time<=smartctl_stop;
+  return smartctl_time>=smartctl_start || smartctl_time<=smartctl_stop;
+}
+
 void smartlight_on(){
   log_event("smartlight on");
   is_midnight() ? glide_onboard_led(true) : set_output(true);
@@ -482,6 +519,7 @@ void add_status(JsonObject &obj, JsonObject &obj1){
   obj["control_output"] = control_output;
   obj["sensor_output"] = sensor_log;
   obj["is_midnight"] = is_midnight();
+  obj["is_smartctl"] = is_smartctl();
   obj["board_info"] = getBoardInfo();
   for(auto it=g_nodeList.begin(); it!=g_nodeList.end(); ++it)
     obj1[it->first] = it->second.first;
@@ -606,7 +644,7 @@ void deleteALL(){
 
 String get_udp_bc_msg(){
   DynamicJsonDocument doc(1024);
-  doc["APP"] = WIFI_NAME;
+  doc["APP"] = WIFI_NAME_PREFIX;
   doc["node_name"] = node_name;
   doc["node_ip"] = WiFi.localIP().toString();
   String udp_bc_msg;
@@ -640,7 +678,7 @@ void udpListen(){
         Serial.printf("Received UDP from %s:%u (%u bytes)\n", packet.remoteIP().toString().c_str(), packet.localPort(), packet.length());
       DynamicJsonDocument doc(1024);
       if(deserializeJson(doc, packet.data())!=DeserializationError::Ok) return;
-      if(doc["APP"]!=WIFI_NAME) return;
+      if(doc["APP"]!=WIFI_NAME_PREFIX) return;
       if(!doc.containsKey("node_ip") || !doc.containsKey("node_name")) return;
       
       // check for valid IP
@@ -717,8 +755,8 @@ void initServer(){
   });
   server.onNotFound([](AsyncWebServerRequest *request){request->send(404, "text/plain", "Content not found.");});
   server.serveStatic("/logs/", LittleFS, "/");
-  AsyncElegantOTA.begin(&server);
   server.begin();
+  ElegantOTA.begin(&server);
   g_nodeList[WiFi.localIP().toString()] = std::make_pair(node_name, millis());
   udpListen();
   udpBroadcast();
@@ -884,7 +922,7 @@ void loop() {
       }
     }else{  // when light/led is off
       if(s_mask & 4){
-        smartlight_on();
+        if(is_smartctl())smartlight_on();
         elapse = millis()+DELAY_ON_MOV;
       }else if(ambient_level<DARK_TH_LOW && millis()-tm_smartlight_off>5000){ // return to day mode
         set_sensor(false);
@@ -892,7 +930,7 @@ void loop() {
       }
     }
   }else{ // in day
-    if(ambient_level>DARK_TH_HIGH){
+    if(ambient_level>DARK_TH_HIGH && is_smartctl()){
       set_sensor(true);
       is_dark_mode = true;
     }

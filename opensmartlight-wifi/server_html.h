@@ -142,7 +142,7 @@ input {font-size:15px;}
   </div>
 <div style="height:100%; width:calc(75% - 4px); overflow:auto; position:absolute; border: 2px; right:0">
 <h2>OpenSmartLight (Open-source Smart Light Controller) &nbsp;
-  Updating: <label class="toggle"><input id='isActive' type="checkbox" onchange='isActive=this.checked' checked>
+  Updating: <label class="toggle"><input id='isActive' type="checkbox" checked>
   <span class="slider"></span><span class="labels" data-on="ON" data-off="OFF"></span></label>
   <span id='svr_reply' style='color:red'></span></h2>
 <p>Date Time: <input type='text' id='datetime' size=32 style="width:auto" readonly>&nbsp;
@@ -162,6 +162,16 @@ input {font-size:15px;}
     <input type="range" min="0" max="255" value="0" style="width:200px" oninput='GET2("sys_led_level?level="+this.value)'>
   </span></td>
 </tr></table></p>
+<hr>
+<h3>PIN configuration</h3>
+<table><tbody>
+  <tr><td>PIN_CONTROL_OUTPUT</td><td> <input type='number' id='PIN_CONTROL_OUTPUT' onchange='set_value(this)'> </td><td> PIN for controlling output light. </td></tr>
+  <tr><td>PIN_MOTION_SENSOR</td><td> <input type='number' id='PIN_MOTION_SENSOR' onchange='set_value(this)'> </td><td> PIN for controlling motion sensor. </td></tr>
+  <tr><td>PIN_LED_MASTER</td><td> <input type='number' id='PIN_LED_MASTER' onchange='set_value(this)'> </td><td> PIN for controlling LED main gate. </td></tr>
+  <tr><td>PIN_LED_ADJ</td><td> <input type='number' id='PIN_LED_ADJ' onchange='set_value(this)'> </td><td> PIN for adjusting LED brightness. </td></tr>
+  <tr><td>PIN_AMBIENT_PULLUP</td><td> <input type='number' id='PIN_AMBIENT_PULLUP' onchange='set_value(this)'> </td><td> PIN for ambient light sensor PULL_UP. </td></tr>
+  <tr><td>PIN_AMBIENT_INPUT</td><td> <input type='number' id='PIN_AMBIENT_INPUT' onchange='set_value(this)'> </td><td> PIN for reading ambient light value. </td></tr>
+</tbody></table>
 <hr>
 <h3>Ambient Light Threshold Adjustment &nbsp;&nbsp; Current Level: <input type='text' id='ambient' readonly></h3>
 <table><tbody>
@@ -205,6 +215,29 @@ input {font-size:15px;}
     <td><input type="time" id="midnight_stop5" onblur='set_value(this)'></td>
     <td><input type="time" id="midnight_stop6" onblur='set_value(this)'></td>
     <td><input type="time" id="midnight_stop"  onchange='changeALL(this)' onblur='set_times(this)'></td></tr>
+</table>
+<hr>
+<p><h3>Smart-contol Start/Stop Times &nbsp;&nbsp;&nbsp; Is smart-control on? <input type='text' id='is_smartctl' readonly></h3>
+<table>
+  <tr><th>Day of Week</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th><th>Saturday</th><th>Sunday</th><th><b>Everyday</b></th></tr>
+  <tr><td>Start Time</td>
+    <td><input type="time" id="smartctl_start0" onblur='set_value(this)'></td>
+    <td><input type="time" id="smartctl_start1" onblur='set_value(this)'></td>
+    <td><input type="time" id="smartctl_start2" onblur='set_value(this)'></td>
+    <td><input type="time" id="smartctl_start3" onblur='set_value(this)'></td>
+    <td><input type="time" id="smartctl_start4" onblur='set_value(this)'></td>
+    <td><input type="time" id="smartctl_start5" onblur='set_value(this)'></td>
+    <td><input type="time" id="smartctl_start6" onblur='set_value(this)'></td>
+    <td><input type="time" id="smartctl_start" onchange='changeALL(this)' onblur='set_times(this)'></td></tr>
+  <tr><td>End Time</td>
+    <td><input type="time" id="smartctl_stop0" onblur='set_value(this)'></td>
+    <td><input type="time" id="smartctl_stop1" onblur='set_value(this)'></td>
+    <td><input type="time" id="smartctl_stop2" onblur='set_value(this)'></td>
+    <td><input type="time" id="smartctl_stop3" onblur='set_value(this)'></td>
+    <td><input type="time" id="smartctl_stop4" onblur='set_value(this)'></td>
+    <td><input type="time" id="smartctl_stop5" onblur='set_value(this)'></td>
+    <td><input type="time" id="smartctl_stop6" onblur='set_value(this)'></td>
+    <td><input type="time" id="smartctl_stop"  onchange='changeALL(this)' onblur='set_times(this)'></td></tr>
 </table>
 <hr>
 <h3>Motion Sensor &nbsp;&nbsp; Status: <label class="toggle"><input id='motion_sensor' type="checkbox" onchange='set_ckbox(this)'>
@@ -255,12 +288,12 @@ input {font-size:15px;}
 
 <script>
 var this_ip = null;
-var isActive = true;
 var countDown = 0;
 var svr_reply = getById('svr_reply');
 var current_logfile = "";
 var xmlHttp = new XMLHttpRequest();
 function getById(id_str){return document.getElementById(id_str);}
+function isActive(){return getById('isActive').checked;}
 function GET1(url){
   xmlHttp.open('GET', "/"+url, false);
   xmlHttp.send(null);
@@ -275,7 +308,6 @@ function GET2(url, cb=null){
 function GET(url){
   while(true){
     try{ return GET1(url); }catch(err){
-      isActive = false;
       getById('isActive').checked = false;
     }
   }
@@ -310,7 +342,7 @@ function update_status(cmd='status', force=false){
   if(--countDown>0) svr_reply.innerText += '.';
   else svr_reply.innerText = "";
 
-  if(!isActive && !force) return;
+  if(!isActive() && !force) return;
   if(statusRC>0) return;
   statusRC++;
   GET2(cmd, (e)=>{
