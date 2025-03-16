@@ -304,7 +304,9 @@ input {font-size:15px;}
 		return xmlHttp.responseText;
 	}
 	function toast(msg) {
-		if(!isString(msg))
+		if(msg instanceof Error)
+			msg = msg.name + ' : ' + msg.message;
+		else if(!isString(msg))
 			msg = msg.target.responseText || (msg.target.statusText+' '+msg.target.status);
 		var randint = Math.round(Math.random()*10000);
 		var e = document.createElement('div');

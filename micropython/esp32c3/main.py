@@ -23,7 +23,7 @@ def dft_eval(s, dft):
 	try:
 		return eval(s, globals(), globals())
 	except:
-		return dft
+		return 'dft_eval' + dft
 g.dft_eval = dft_eval
 
 def connect_wifi():
@@ -172,7 +172,22 @@ def run_module(obj):
 		gc.collect()
 		return res
 	except Exception as e:
-		return str(e)
+		return 'run_module: ' + str(e)
+
+# For custom timers
+timer_trap = None
+def clr_trap():
+	global timer_trap
+	timer_trap = None
+def set_timer(obj):
+	global timer_trap
+	timer_trap = obj
+	SetTimer(None, obj['timeout'], False, clr_trap)
+def run_timer(key):
+	DelTimer(None)
+	if 'exec' in timer_trap:
+		execRC(eval(timer_trap['exec'], globals(), locals()))
+		timer_trap = None
 
 # Remote control execute
 def execRC(s, stack=0):
@@ -183,6 +198,7 @@ def execRC(s, stack=0):
 		s = s.decode()
 	prt(f'execRC({stack}): {str(s)}')
 	if s is None: return 'OK'
+	if err and type(s)==str: return s
 	try:
 		if type(s) == list:
 			res = []
@@ -218,11 +234,13 @@ def execRC(s, stack=0):
 				return run_python(s)
 			elif p=='MOD':
 				return run_module(s)
+			elif p=='TMR':
+				return set_timer(s)
 
 	except Exception as e:
 		err = True
 		prt(e)
-		return str(e)
+		return f'{s} : {e}'
 	return str(s)
 
 g.execRC = execRC
@@ -237,11 +255,13 @@ def execRL(s, SRC=''):
 	return execRC(s) if run else 'SKIP'
 
 def Exec(cmd):
+	global err
 	try:
 		exec(cmd, globals(), globals())
 		return 'OK'
 	except Exception as e:
-		return str(e)
+		err = True
+		return str(e)+'\n'+cmd
 	
 def Eval(cmd):
 	global err
@@ -249,7 +269,7 @@ def Eval(cmd):
 		return eval(cmd, globals(), globals())
 	except Exception as e:
 		err = True
-		return str(e)
+		return str(e)+' : '+cmd
 
 def setParams(query_line):
 	try:
@@ -292,8 +312,8 @@ class WebServer:
 			( "/set_cmd", "GET", lambda clie, resp: self.set_cmd(clie.GetRequestQueryString(True)) ),
 			( "/wifi_save", "POST", lambda clie, resp: save_file('secret.py', clie.YieldRequestContent()) ),
 			( "/wifi_load", "GET", lambda clie, resp: resp.WriteResponseJSONOk(read_py_obj('secret.py')) ),
-			( "/rf_record", "GET", lambda *_: str(rfc.recv()) ),
-			( "/ir_record", "GET", lambda *_: str(irc.recv()) ),
+			( "/rf_record", "GET", lambda clie, resp: resp.WriteResponseJSONOk(rfc.recv()) ),
+			( "/ir_record", "GET", lambda clie, resp: resp.WriteResponseJSONOk(irc.recv()) ),
 			( "/rc_run", "GET", lambda cli, *arg: execRC(cli.GetRequestQueryString(True))),
 			( "/rc_exec", "POST", lambda cli, *arg: execRC(cli.ReadRequestContent())),
 			( "/rl_run", "GET", lambda cli, *arg: execRL(cli.GetRequestQueryString(True), cli._addr)),
@@ -348,7 +368,10 @@ class WebServer:
 		key = self.uart_ASR.readline().strip()
 		key = key.decode() if type(key)==bytes else key
 		prt(f'RX-ASR received {key}')
-		execRL(key, 'localASR')
+		if timer_trap:
+			run_timer(key)
+		else:
+			execRL(key, 'localASR')
 		flashLED()
 
 	def set_cmd(self, vn):
@@ -365,35 +388,35 @@ class WebServer:
 
 	def run(self):
 		while True:
-			now = time.time()
-			dlist = []
-			poll_tmout = self.poll_tmout
-			for tn,tm in g.Timers.items():
-				diff = now-tm[0]-tm[1]
-				if diff>=0:
-					try:
+			try:
+				now = time.time()
+				dlist = []
+				poll_tmout = self.poll_tmout
+				for tn,tm in g.Timers.items():
+					diff = now-tm[0]-tm[1]
+					if diff>=0:
 						tm[3]()
-					except Exception as e:
-						prt(e)
-					if tm[2]:
-						tm[0] = now
+						if tm[2]:
+							tm[0] = now
+						else:
+							dlist += [tn]
+						poll_tmout = tm[1] if poll_tmout<0 else min(poll_tmout, tm[1])
 					else:
-						dlist += [tn]
-					poll_tmout = tm[1] if poll_tmout<0 else min(poll_tmout, tm[1])
-				else:
-					poll_tmout = abs(diff) if poll_tmout<0 else min(poll_tmout, abs(diff))
-			for tn in dlist:
-				del g.Timers[tn]
-			tps = self.poll.poll(poll_tmout*1000)
-			for tp in tps:
-				self.sock_map[tp[0]]()
-				gc.collect()
-				time.sleep(0.1)
-				if self.cmd:
-					Exec(self.cmd)
-					self.cmd = ''
-			if hasattr(g, 'LD1115H'):
-				g.LD1115H.run1()
+						poll_tmout = abs(diff) if poll_tmout<0 else min(poll_tmout, abs(diff))
+				for tn in dlist:
+					del g.Timers[tn]
+				tps = self.poll.poll(poll_tmout*1000)
+				for tp in tps:
+					self.sock_map[tp[0]]()
+					gc.collect()
+					time.sleep(0.1)
+					if self.cmd:
+						Exec(self.cmd)
+						self.cmd = ''
+				if hasattr(g, 'LD1115H'):
+					g.LD1115H.run1()
+			except Exception as e:
+				prt(e)
 
 # Load global rc
 build_rc()

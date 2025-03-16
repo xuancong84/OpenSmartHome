@@ -25,11 +25,14 @@ class RC():
 		p = self.rx_pin
 		arr = array('I',  [0]*nedges)
 
-		# ** Time critical **
+		# Switch to maximum frequency if not
 		cur_freq = machine.freq()
-		machine.freq(160000000)
-		sleep(0.1)
-		# st_irq = machine.disable_irq()
+		if cur_freq!=160000000:
+			machine.freq(160000000)
+			sleep(0.1)
+
+		# ** Time critical **
+		st_irq = machine.disable_irq()
 		tm_til = ticks_us()+self.recv_dur
 		init_level = v = p()
 		for x in range(nedges):
@@ -37,9 +40,13 @@ class RC():
 			arr[x] = ticks_us()
 			if arr[x]>tm_til: break
 			v = p()
-		# machine.enable_irq(st_irq)
-		machine.freq(cur_freq)
+		machine.enable_irq(st_irq)
 		# ** End of time critical **
+
+		# Restore original frequency
+		if cur_freq!=160000000:
+			machine.freq(cur_freq)
+			sleep(0.1)
 
 		if x <= self.min_nframes*2:
 			return 'No signal received'

@@ -53,7 +53,7 @@ ls_subdir = lambda fullpath: [g.rstrip('/') for f in listdir(fullpath) for g in 
 mrl2path = lambda t: unquote(t).replace('file://', '').strip() if t.startswith('file://') else (t.strip() if t.startswith('/') else '')
 is_json_lst = lambda s: s.startswith('["') and s.endswith('"]')
 load_m3u = lambda fn: [i for L in Open(fn).readlines() for i in [mrl2path(L)] if i]
-LOG = lambda s: print(f'LOG: {s}') if DEBUG_LOG else None
+LOG = lambda *args, **kwargs: print('LOG:', *args, **kwargs) if DEBUG_LOG else None
 
 Timers = {}
 
@@ -66,6 +66,11 @@ def SetTimer(name, period, F, desc=''):
 def DelTimer(name):
 	if name in Timers:
 		Timers.pop(name).cancel()
+
+def DelTimers(prefix):
+	del_list = [name for name in Timers if name.startswith(prefix+'\t')]
+	for tmr in del_list:
+		Timers.pop(tmr).cancel()
 
 def get_url_root(r):
 	os.last_url_root = r.url_root.rstrip('/') if r.url_root.count(':')>=2 else r.url_root.rstrip('/')+f':{r.server[1]}'
@@ -111,6 +116,11 @@ def fuzzy(txt, dct=FUZZY_PINYIN):
 	for src, tgt in dct.items():
 		txt = txt.replace(src, tgt)
 	return txt
+
+def url_is_ip(url, ip):
+	s1 = ''.join([c for c in url if c.isdigit() or c=='.'])
+	s2 = ''.join([c for c in ip if c.isdigit() or c=='.'])
+	return s1==s2
 
 fn2dur = {}
 def getDuration(fn):
@@ -637,6 +647,7 @@ class ASR:
 
 
 if __name__ == '__main__':
+	execRC({'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xba\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00?{\n  "data": {\n    "fpwr": "ON"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-07-20T05:22:15Z"\n}'})
 	aa = ASR('','')
 	print(True if aa else False)
 	res = findMedia('朱罗记公园1', lang='zh', base_path='~/mnt/Movies')

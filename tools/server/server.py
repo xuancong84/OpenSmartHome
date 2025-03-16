@@ -77,6 +77,7 @@ def tv2lginfo(tv_name):
 	return ret
 get_tv_ip = lambda t: Try(lambda: tv2lginfo(t)['ip'], t)
 get_tv_data = lambda t: ip2tvdata[Try(lambda: tv2lginfo(t)['ip'], t)]
+get_hub_url = lambda name: HUBS.get(name, name if [s for s in HUBS.values() if url_is_ip(name, s)] else '')
 
 # Detect language, invoke Google-translate TTS and play the speech audio
 def prepare_TTS(txt, fn=DEFAULT_T2S_SND_FILE):
@@ -257,13 +258,15 @@ def togglePause():
 @app.route('/set_timer/<tm>')
 @app.route('/set_timer/<tm>/<name>')
 @app.route('/set_timer/<tm>/<name>/<path:filename>')
-def set_timer(tm='', tv_name=None, filename=None):
+def set_timer(tm='', name=None, filename=None):
 	# each device can only have one on/off timer; if device is on, set timer to turn it off; otherwise, set timer to turn it on
+	# if name is in `HUB`, it will send execRC command to the hub
 	global player
+	tmr_name = f'{name}\t{filename}'
 	if tm==' ':
-		DelTimer(tv_name)
-		if is_tv_on(tv_name):
-			tv_wscmd(tv_name, 'clear_countdown()')
+		DelTimers(name) if filename=='*' else DelTimer(tmr_name)
+		if is_tv_on(name):
+			tv_wscmd(name, 'clear_countdown()')
 		return 'Timer deleted OK'
 	if ':' in tm:
 		tm_sec = (pd.Timestamp(tm)-pd.Timestamp.now()).total_seconds()
@@ -273,19 +276,21 @@ def set_timer(tm='', tv_name=None, filename=None):
 		if tm_sec==None:
 			return f'Error: cannot parse time {tm}'
 	tm_til = str(pd.Timestamp.now()+pd.to_timedelta(f'{tm_sec}s'))[:19]
-	if tv_name==None:
+	if name==None:
 		if player==None:
-			SetTimer(tv_name, tm_sec, lambda: play('0 0 1'), f'将于{tm_til}定时开启音乐播放')
+			SetTimer(tmr_name, tm_sec, lambda: play('0 0 1'), f'将于{tm_til}定时开启音乐播放')
 		else:
-			SetTimer(tv_name, tm_sec, lambda: stop(), f'将于{tm_til}定时关闭音乐播放')
-	elif is_tv_on(tv_name):
-		SetTimer(tv_name, tm_sec, lambda: tv(tv_name, 'off'), f'将于{tm_til}定时关闭电视机{tv_name}')
-		tv_wscmd(tv_name, f'set_countdown({tm_sec})')
+			SetTimer(tmr_name, tm_sec, lambda: stop(), f'将于{tm_til}定时关闭音乐播放')
+	elif get_hub_url(name):
+		SetTimer(tmr_name, tm_sec, lambda: send_hub_cmd(name, filename), f'将于{tm_til}定时向{name}发送指令{name}')
+	elif is_tv_on(name):
+		SetTimer(tmr_name, tm_sec, lambda: tv(name, 'off'), f'将于{tm_til}定时关闭电视机{name}')
+		tv_wscmd(name, f'set_countdown({tm_sec})')
 	else:
 		if filename==None:
-			SetTimer(tv_name, tm_sec, lambda: tv(tv_name, 'on'), f'将于{tm_til}定时开启电视机{tv_name}')
+			SetTimer(tmr_name, tm_sec, lambda: tv(name, 'on'), f'将于{tm_til}定时开启电视机{name}')
 		else:
-			SetTimer(tv_name, tm_sec, lambda: _tvPlay(tv_name, playlist, os.url_root), f'将于{tm_til}定时开启电视机{tv_name}并播放{filename}')
+			SetTimer(tmr_name, tm_sec, lambda: _tvPlay(name, filename, os.url_root), f'将于{tm_til}定时开启电视机{name}并播放{filename}')
 	return 'OK'
 
 def handle_ASR_timer(asr_out, tv_name, filename, url_root):
@@ -303,6 +308,9 @@ def set_spoken_timer(tv_name=None, filename=None):
 	run_thread(recog_and_do, '' if is_post else 'voice/set_timer_speak.mp3',
 		None if tv_name=='None' else tv_name, filename, handle_ASR_timer, url_root)
 	return 'OK'
+
+def send_hub_cmd(hub_name, cmd):
+	get_http(get_hub_url(hub_name) + f'/rc_run?{cmd}')
 
 @app.route('/next')
 def play_next():
@@ -1042,7 +1050,7 @@ def handle_ASR_inlst(asr_out, tv_name, lst_filename, url_root):
 	else:
 		play_audio('voice/asr_found.mp3', True, tv_name)
 		if lst_filename:
-			_tvPlay(f'{tv_name} 0 {ii}', lst_filename or json.dumps(lst), url_root) if tv_name else play(f'0 {ii}', json.dumps(lst), url_root)
+			_tvPlay(f'{tv_name} 0 {ii}', lst_filename or json.dumps(lst), url_root) if tv_name else play(f'0 {ii}', json.dumps(lst))
 		else:
 			playFrom(ii) if tv_name==None else tv_wscmd(tv_name, f'goto_idx {ii}')
 		setInfo(tv_name, asr_out["text"], asr_out['language'], 'S2T', '' if ii==None else lst[ii][len(SHARED_PATH):], wait=True)

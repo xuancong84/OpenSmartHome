@@ -186,7 +186,7 @@ def prt(*args, **kwarg):
 	if P['SAVELOG']:
 		LOGFILE = P['LOGFILE']
 		try:
-			if os.stat(LOGFILE)[6]>1000000:
+			if os.stat(LOGFILE)[6]>500000:
 				os.rename(LOGFILE, LOGFILE+'.old')
 		except:
 			pass

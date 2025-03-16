@@ -1,13 +1,13 @@
 DLS	餐厅吊灯开关|餐桌吊灯开关	嗯	1		[{'data': [8283, 792, 190, 789, 194, 785, 197, 782, 200, 780, 203, 776, 208, 289, 692, 291, 697, 776, 206, 774, 208, 770, 212, 768, 214, 766, 218, 278, 702, 765, 218, 761, 229, 275, 706, 761, 221, 758, 224, 272, 709, 758, 226, 272, 709, 274, 708, 275, 713, 277, 703, 763, 220, 276, 705, 279, 703, 280, 700, 766, 215, 765, 217, 763, 220, 277], 'init_level': 0, 'protocol': 'RF433'}, 'exec("g.DL=0")']
-DLN	餐厅吊灯开启|餐桌吊灯开启	嗯	1		[(['DLS','DLS','DLS'] if (getTimeString()<'08:00:00' or getTimeString()>'18:30:00') else 'DLS'), 'exec("g.DL=1")'] if g.DL<=0 else None
-DLF	餐厅吊灯关闭|餐桌吊灯关闭	嗯	1		['DLS', 'exec("g.DL=-1")'] if g.DL>=0 else None
+DLN	餐厅吊灯开启|餐桌吊灯开启	嗯	1		[['DLS','sleep(0.2)','DLS','sleep(0.2)','DLS'] if (getTimeString()<'08:00:00' or getTimeString()>'18:00:00') else 'DLS', 'exec("g.DL=1")']
+DLF	餐厅吊灯关闭|餐桌吊灯关闭	嗯	1		['DLS', 'exec("g.DL=-1")']
 SLS	沙发吊灯开关	嗯	1		[{'data': [6676, 431, 1047, 433, 1046, 1154, 325, 431, 1048, 1152, 327, 1149, 332, 1144, 336, 419, 1063, 422, 1055, 424, 1054, 1148, 333, 1142, 338, 1139, 341, 1135, 345, 411, 1066, 1134, 351, 409, 1068, 1133, 347, 409, 1069, 1132, 354, 409, 1069, 1131, 348, 408, 1069, 1132, 355, 1128, 359, 404, 1074, 1127, 352, 404, 1073, 1127, 353, 403], 'init_level': 0, 'protocol': 'RF433'}, 'exec("g.SL=0")']
-SLN	沙发吊灯开启	嗯	1		['SLS', 'exec("g.SL=1")'] if g.SL<=0 else None
-SLF	沙发吊灯关闭	嗯	1		['SLS', 'exec("g.SL=-1")'] if g.SL>=0 else None
+SLN	沙发吊灯开启	嗯	1		['SLS', 'exec("g.SL=1")']
+SLF	沙发吊灯关闭	嗯	1		['SLS', 'exec("g.SL=-1")']
 PLS	钢琴房吊灯开关	嗯	1		[{'data': [8142, 794, 174, 314, 654, 313, 653, 316, 651, 792, 176, 312, 656, 312, 653, 790, 184, 787, 182, 307, 659, 785, 182, 783, 186, 302, 665, 779, 187, 777, 191, 298, 677, 297, 668, 776, 192, 773, 195, 293, 673, 772, 196, 292, 676, 293, 674, 294, 679, 297, 670, 774, 194, 294, 672, 772, 195, 770, 197, 767, 201, 288, 679, 764, 202, 289], 'init_level': 0, 'protocol': 'RF433'}, 'exec("g.PL=0")']
 PLN	钢琴房吊灯开启	嗯	1		['PLS', 'exec("g.PL=1")'] if g.PL<=0 else None
 PLF	钢琴房吊灯关闭	嗯	1		['PLS', 'exec("g.PL=-1")'] if g.PL>=0 else None
-PLC	钢琴房吊灯换色	嗯	1	PLC	['PLF','sleep(0.1)','PLN']
+PLC	钢琴房吊灯换色	嗯	1	PLC	['PLF','sleep(0.2)','PLN']
 DFN	餐厅吊扇开启｜餐桌吊扇开启	好的	1		'DFM'
 DFS	餐厅吊扇关闭｜餐桌吊扇关闭	好的	1		{'data': [8128, 799, 182, 797, 186, 793, 189, 790, 191, 788, 195, 785, 198, 297, 684, 299, 688, 784, 197, 782, 200, 779, 202, 777, 205, 775, 208, 288, 693, 773, 208, 772, 218, 285, 696, 771, 211, 768, 214, 282, 701, 282, 698, 769, 212, 768, 216, 280, 708, 282, 698, 284, 697, 286, 695, 287, 694, 773, 208, 772, 212, 284, 697, 770, 212, 285], 'init_level': 0, 'protocol': 'RF433'}
 DFM	餐厅吊扇中档｜餐桌吊扇中档	好的	1		{'data': [8149, 783, 200, 780, 202, 777, 205, 775, 208, 771, 212, 769, 215, 281, 701, 282, 705, 769, 213, 767, 216, 764, 219, 762, 221, 759, 224, 272, 709, 758, 224, 756, 234, 269, 712, 756, 226, 754, 229, 267, 715, 268, 713, 271, 709, 758, 225, 755, 236, 268, 712, 756, 227, 269, 713, 756, 226, 753, 230, 750, 234, 263, 717, 751, 232, 265], 'init_level': 0, 'protocol': 'RF433'}
@@ -49,8 +49,8 @@ MTVN	主人房电视机开启	好的	1		[{'protocol': 'WOL', 'data': '74:e6:b8:2
 MTVF	主人房电视机关闭	好的	1		{'protocol': 'CAP', 'filename': 'masterTVoff.tcp'}
 CTVN	客人房电视机开启	好的	1		[{'protocol': 'WOL', 'data': '7c:64:6c:b9:05:6e'},{'protocol': 'WOL', 'data': 'b8:16:5f:72:06:6c'}]
 CTVF	客人房电视机关闭	好的	1		'http://192.168.50.3:8883/tv/commonTV/off'
-_KF	进入用餐模式	好的	1		['SFS','LFN','DLN','DFM']
-_CW	退出用餐模式	好的	1		['LFF', 'DLF', 'DFS']
+_KF	进入用餐模式	好的	1		['SFS','LFN','DFM']+([] if g.DL==1 else ['DLN'])
+_CW	退出用餐模式	好的	1		['LFF','DFS']+([] if g.DL==-1 else ['DLF'])
 _KF1	开饭喽	已进入用餐模式	2		'_KF'
 _CW1	吃完喽	已退出用餐模式	2		'_CW'
 ALLN	客厅全部灯开启	好的	1		['DLN', 'SLN', 'PLN', 'MLN', 'CRLN', 'S1N', 'S2N', 'S3N']
@@ -74,10 +74,10 @@ LLN	客厅灯带开启	嗯	1		{'protocol': 'TCP', 'IP': '192.168.50.22', 'PORT':
 LLF	客厅灯带关闭	嗯	1		{'protocol': 'TCP', 'IP': '192.168.50.22', 'PORT': 5577, 'data': 0x3b240000000000000032000091}
 LLC	客厅灯带换色	好的	1	LLC	[{'protocol': 'TCP', 'IP': '192.168.50.22', 'PORT': 5577, 'data': bytes(g.Cmsg+[sum(g.Cmsg)&0xff])}, Exec('g.C=(1 if g.C+1>=8 else g.C+1);g.Cmsg=[0x31, 0xee if g.C&1 else 0, 0xee if g.C&2 else 0, 0xee if g.C&4 else 0, 0, 0, 0xf]')]
 LLT	客厅灯带不断变色	好的	1		{'protocol': 'TCP', 'IP': '192.168.50.22', 'PORT': 5577, 'data': b'8%\x012\x90'}
-__init__	系统初始化		9		exec('machine.freq(80000000);g.DL=g.SL=g.PL=0;PIN_RF_IN=7;PIN_RF_OUT=6;PIN_ASR_IN=1;PIN_DEBUG_LED=12;use_BLE=True;g.C=1;g.Cmsg=[0x31, 0xee if g.C&1 else 0, 0xee if g.C&2 else 0, 0xee if g.C&4 else 0, 0, 0, 0xf]')
-__postinit__	后期初始化		9		SetTimer('pianoFan', 300, True, lambda: execRC('PFF' if '08:00:00'<getTimeString()<'22:00:00' else '')),Exec('g.D=False')
-DLC	餐桌吊灯换色	好的	1	DLC	['DLS','sleep(0.1)','DLS']
-SLC	沙发吊灯换色	好的	1	SLC	['SLS','sleep(0.1)','SLS']
+__init__	系统初始化		9		exec('machine.freq(160000000);PIN_RF_IN=7;PIN_RF_OUT=6;PIN_ASR_IN=1;PIN_DEBUG_LED=12;use_BLE=True;g.C=1;g.Cmsg=[0x31, 0xee if g.C&1 else 0, 0xee if g.C&2 else 0, 0xee if g.C&4 else 0, 0, 0, 0xf]')
+__postinit__	后期初始化		9		Exec('g.D=False;g.DL=g.SL=g.PL=0')
+DLC	餐桌吊灯换色	好的	1	DLC	['DLS','sleep(0.2)','DLS']
+SLC	沙发吊灯换色	好的	1	SLC	['SLS','sleep(0.2)','SLS']
 BLN	客厅阳台灯开启	嗯	1		'http://192.168.50.3:8883/py_exec/ble_gap_advertise("0201011bffff00ee1bc878f64a44915e273c58fcd3e9eb928cf4d66d2a11e0",0.35)'
 BLF	客厅阳台灯关闭	嗯	1		'http://192.168.50.3:8883/py_exec/ble_gap_advertise("0201011bffff00ee1bc878f64a449144273c58fc5f65661e00785ae1a62ad3",0.35)'
 BLC	客厅阳台灯换色	嗯	1	BLC	'http://192.168.50.3:8883/py_exec/ble_gap_advertise("0201011bffff00ee1bc878f64a449144273c58fc5f65661e00785ae1a62ad3",0.35),ble_gap_advertise("0201011bffff00ee1bc878f64a44915e273c58fcd3e9eb928cf4d66d2a11e0",0.35)'
@@ -122,7 +122,7 @@ MPSF	播放器隐藏字幕	好的	1		'http://192.168.50.3:8883/subtitle/False'
 VLCVU	播放软件音量增加	好的	1	VLCV	'http://192.168.50.3:8883/vlcvolme/up'
 VLCVD	播放软件音量降低	好的	1	VLCV	'http://192.168.50.3:8883/vlcvolme/down'
 MPAVN	播放器调整当前歌曲音量		1		'http://192.168.50.3:8883/normalize_vol/'
-PPS	播放器播放指定歌曲｜播放器播放指定音乐		1		'http://192.168.50.3:8883/play_spoken_inlst'
+PPS	播放器播放指定歌曲｜播放器播放指定音乐		1		'http://192.168.50.3:8883/play_spoken_inlst/None/Desktop/musics.m3u'
 PPSD	播放器播放指定电视剧｜播放器播放指定电影		1		'http://192.168.50.3:8883/play_spoken_indir'
 KTVN	进入卡拉OK模式	好的	1		['KTVPN','http://192.168.50.3:8883/KTV/on']
 KTVF	退出卡拉OK模式	好的	1		['http://192.168.50.3:8883/KTV/off','KTVPF']
@@ -213,3 +213,31 @@ CTLL	客人房电视机退出单曲循环	好的	1		'http://192.168.50.3:8883/lo
 GRL9	客人房吊灯调至最亮	好的	1		{'protocol': 'BLE', 'cmd': 'gap_advertise', 'data':'0201011afff9084913f069254e3151ba3e178d5bb4fa097133ca55d6030a'}
 GRL5	客人房吊灯调至中等	好的	1		{'protocol': 'BLE', 'cmd': 'gap_advertise', 'data':'0201011afff9084913f069254e3151ba3e178d245afa15715da455b895e7'}
 GRL1	客人房吊灯调至最暗	好的	1		{'protocol': 'BLE', 'cmd': 'gap_advertise', 'data':'0201011afff9084913f069254e3151ba3e178d2493fab971c0395525a95c'}
+_TVPV	电视机播放音乐歌曲|电视机播放歌曲音乐	好的	1		'LTVPV'
+_TVPD	电视机播放电视剧|电视机播放电影	好的	1		'LTVPD'
+_TVPSV	电视机播放指定音乐|电视机播放指定歌曲	好的	1		'LTVPSV'
+_TVPSD	电视机播放指定电视剧|电视机播放指定电影	好的	1		'LTVPSD'
+_TVPS	电视机暂停播放	好的	1		'LTVPS'
+_TVRS	电视机继续播放	好的	1		'LTVRS'
+_TVNX	电视机跳到下一集|电视机跳到下一曲	好的	1		'LTVNX'
+_TVPR	电视机跳回上一集|电视机跳回上一曲	好的	1		'LTVPR'
+_TVPSF	电视机播放指定文件	好的	1		'LTVPSF'
+_TVRCP	电视机播报当前视频名称|电视机播报当前歌曲名称	好的	1		'LTVRCP'
+_TVRW	电视机从头开始播放	好的	1		'LTVRW'
+_TVLS	电视机单曲循环	好的	1		'LTVLS'
+_TVLL	电视机退出单曲循环	好的	1		'LTVLL'
+MPSSM	蓝牙音乐定时播放催眠曲|蓝牙音响定时播放催眠曲	好的	1		['http://192.168.50.3:8883/play/0 0 1/Desktop/sleep.m3u', 'http://192.168.50.3:8883/set_timer/23:00']
+MPTS	蓝牙音乐定时开关|蓝牙音响定时开关	好的	1		'http://192.168.50.3:8883/set_spoken_timer'
+MPTC	蓝牙音乐取消定时|蓝牙音响取消定时	好的	1		'http://192.168.50.3:8883/set_timer/ /'
+LTVTS	客厅电视机定时开关	好的	1		'http://192.168.50.3:8883/set_spoken_timer/livingTV/Desktop/videos.m3u'
+LTVTC	客厅电视机取消定时	好的	1		'http://192.168.50.3:8883/set_timer/ /livingTV'
+MTVTS	主人房电视机定时开关	好的	1		'http://192.168.50.3:8883/set_spoken_timer/masterTV/Desktop/videos.m3u'
+MTVTC	主人房电视机取消定时	好的	1		'http://192.168.50.3:8883/set_timer/ /masterTV'
+CTVTS	客人房电视机定时开关	好的	1		'http://192.168.50.3:8883/set_spoken_timer/commonTV/Desktop/videos.m3u'
+CTVTC	客人房电视机取消定时	好的	1		'http://192.168.50.3:8883/set_timer/ /commonTV'
+_TVTS	电视机定时开关	好的	1		'http://192.168.50.3:8883/set_spoken_timer/livingTV/Desktop/videos.m3u'
+_TVTC	电视机取消定时	好的	1		'http://192.168.50.3:8883/set_timer/ /livingTV'
+TMSS	设置定时开关	好的	1		{'protocol': 'TMR', 'timeout': 10, 'voice':asr_write("a5670a"), 'exec': 'f"http://192.168.50.3:8883/set_spoken_timer/{wifi[\'config\'][0]}/{key}"'}
+TMCS	取消定时开关	好的	1		{'protocol': 'TMR', 'timeout': 10, 'exec': f"http://192.168.50.3:8883/set_timer/ /{wifi[\'config\'][0]}/{key}"}
+TMCA	取消所有定时开关	好的	1		f"http://192.168.50.3:8883/set_timer/ /{wifi['config'][0]}/*"
+					f"http://192.168.50.3:8883/set_spoken_timer/{wifi['config'][0]}/SLS"
