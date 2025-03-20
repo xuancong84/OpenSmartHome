@@ -520,7 +520,7 @@ def setInfo(tv_name, text, lang, prefix, match=None, wait=False):
 	langName = LC.get(lang).display_name('zh')
 	ip = get_tv_ip(tv_name)
 	ip2tvdata[ip].update({f'{prefix}_lang': langName, f'{prefix}_text': text}|({} if match==None else {f'{prefix}_match': match}))
-	if ip:
+	if ip and is_tv_on(tv_name):
 		wait_for_ws(tv_name) if wait else None
 		ip2websock[ip].send(f'{prefix}lang.textContent="{langName}";{prefix}text.textContent="{text}";'+(f'{prefix}match.textContent="{match}"' if match!=None else ''))
 

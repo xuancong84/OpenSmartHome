@@ -116,10 +116,10 @@ input {font-size:15px;}
 			alert(err);
 		}
 	}
-	function flash(rid){
+	function flash(rid, event){
 		var fn = getById('R'+rid).children[0].textContent;
 		var bn = fn.split('/').at(-1);
-		if(fn.endsWith('.mpy')) GET(`/eval?esp.add_frozen("${fn}","${bn}")`, (e)=>{alert(e.target.responseText)});
+		if(fn.endsWith('.mpy')) GET((event.shiftKey?`/exec?esp.add_frozen("${fn}","${bn}");reset()`:`/eval?esp.add_frozen("${fn}","${bn}")`), (e)=>{alert(e.target.responseText)});
 		else if(fn.endsWith('.bin')) GET(`/exec?import inisetup;inisetup.fwupdate("${fn}")`);
 	}
 	function preventDefaults(e){e.preventDefault();}
@@ -163,7 +163,7 @@ input {font-size:15px;}
 <td style="text-align:center">`+ (its[0].endsWith('/')?
 	`<input type='button' onclick='mkdir(${rid})' value='mkdir' title="Create a new folder under this folder">`
 	:`<input type='button' onclick='download(${rid})' value='Download' title="Download this file">`)
-	+((its[0].endsWith('.mpy')||its[0].endsWith('.bin'))?`<input type='button' onclick='flash(${rid})' value='Flash' title="Flash firmware">`:``)
+	+((its[0].endsWith('.mpy')||its[0].endsWith('.bin'))?`<input type='button' onclick='flash(${rid}, event)' value='Flash' title="Flash firmware: hold SHIFT and click to reboot after flashing MPY">`:``)
 	+`<input type='button' onclick='rename(${rid})' value='Rename' title="Rename this file/folder">
 	<input type='button' onclick='deleteFile(${rid})' value='Delete' title="Delete this file/folder">
 </td>`;

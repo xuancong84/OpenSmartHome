@@ -35,7 +35,6 @@
 .toast {
   visibility: hidden;
   min-width: 250px;
-  margin-left: -125px;
   background-color: #777;
   color: #fff;
   text-align: center;
@@ -46,6 +45,7 @@
   left: 50%;
   bottom: 30px;
   font-size: 17px;
+  transform: translate(-50%, -50%);
 }
 
 .toast.show {
@@ -219,7 +219,7 @@ input {font-size:15px;}
 				<button onclick="GET('/load_P',(e)=>{toast(e); update(2)},toast)" title="Load parameter settings from storage" class="bb">LOAD</button> &nbsp;
 			</h3>
 		</span>
-		<span style="width:10%; margin:10px"><textarea id="g.LD1115H.sensor_log" rows=10 cols=16 style="display: none;" readonly></textarea></span>
+		<span style="width:10%; margin:10px"><textarea id="g.MSENSOR.sensor_log" rows=10 cols=16 style="display: none;" readonly></textarea></span>
 	</span>
 	<h3>Remote Control Mapping Table</h3>
 	<table id="rc-table" style="width:100%; table-layout:fixed; display: block">
@@ -303,7 +303,7 @@ input {font-size:15px;}
 		xmlHttp.send(data);
 		return xmlHttp.responseText;
 	}
-	function toast(msg) {
+	function toast(msg, isHTML=false) {
 		if(msg instanceof Error)
 			msg = msg.name + ' : ' + msg.message;
 		else if(!isString(msg))
@@ -312,14 +312,18 @@ input {font-size:15px;}
 		var e = document.createElement('div');
 		e.id = `toast${randint}`;
 		e.className = 'toast show';
-		e.innerHTML = msg;
+		e.tabIndex = 0;
+		if(isHTML)e.innerHTML = msg;
+		else e.innerText = msg;
+		e.timeout = setTimeout(function(){ getById(`toast${randint}`).remove() }, 3000);
+		e.onfocus = (ev)=>{clearTimeout(ev.target.timeout);}
+		e.onblur = (ev)=>{ev.target.remove();}
 		document.body.appendChild(e);
-		setTimeout(function(){ getById(`toast${randint}`).remove() }, 3000);
 	}
 	function set_value2(id, value, cmd='exec'){
 		if(id.startsWith('F_')||id.includes('.F_')) value='"'+value+'"';
-		GET(`/${cmd}?${id}=${value}`, (xhr)=>{toast("<font color=lime><b>Value set successfully!</b></font>")},
-			()=>{toast("<font color=red><b>Set value failed!</b></font>")});
+		GET(`/${cmd}?${id}=${value}`, (xhr)=>{toast("<font color=lime><b>Value set successfully!</b></font>", true)},
+			()=>{toast("<font color=red><b>Set value failed!</b></font>", true)});
 	}
 	function set_value(obj, cmd='exec'){ set_value2(obj.id, obj.value, cmd); }
 	function set_active(cb){
@@ -362,7 +366,9 @@ input {font-size:15px;}
 			var obj = getById(prefix+k);
 			if(obj==null){
 				if(v==null) continue;
-				if(k.endsWith('_dpin')){
+				if(k.endsWith('_page')){
+					addElem(box, `<button onclick="window.open('${v}', '_blank')" title="Open new page" class="bb">${k.split('_').slice(0,-1).join(' ')}</button> &nbsp;&nbsp;`);
+				}else if(k.endsWith('_dpin')){
 					addElem(box, `<span>${k}: </span> <label class="toggle"><input id="${prefix}${k}" type="checkbox"
 						onchange='get_exec("${prefix}${k}("+(this.checked?1:0)+")")' ${v?"checked":""}> <span class="slider"></span>
 						<span class="labels" data-on="ON" data-off="OFF"></span></label> &nbsp;&nbsp;`);
@@ -374,7 +380,7 @@ input {font-size:15px;}
 					addElem(box, `<span>${k}: </span> <label class="toggle"><input id="${prefix}${k}" type="checkbox" onchange='set_ckbox(this, "${cmd}")' ${v?"checked":""}>
 		<span class="slider"></span><span class="labels" data-on="ON" data-off="OFF"></span></label> &nbsp;&nbsp;`);
 				}else if(v.constructor == Object){ // is a dictionary
-					addElem(box, `<span class="expand" id="${prefix}${k}">${k}: { </span>`);
+					addElem(box, `<hr><span class="expand" id="${prefix}${k}">${k}: { </span>`);
 					set_fields2(box, v, `${prefix}${k}.`);
 					addElem(box, `<span>}</span> &nbsp;`);
 				}else{
@@ -502,7 +508,7 @@ input {font-size:15px;}
 					var n = tb_ble.rows.length;
 					var row = tb_ble.insertRow(n);
 					row.innerHTML = `<td>${n}</td><td>${o1[0]}</td><td>${o1[1]}</td><td>${o1[2]}</td><td>${o1[3]}</td>
-					<td contenteditable="true">${o1[4]}</td><td>${o1[4].length/2}</td>
+					<td contenteditable>${o1[4]}</td><td>${o1[4].length/2}</td>
 					<td style="text-align:center">
 						<input type='button' onclick='sendBLE(${n})' value='Send' title="Send this BLE signal to test whether it can control your device">
 						<input type='button' onclick='closeBLE(${n})' value='Pick' title="Choose this one and close the window">
@@ -532,7 +538,7 @@ input {font-size:15px;}
 		var row = tb.insertRow(insp);
 		row.setAttribute('id', 'R'+rid);
 		row.innerHTML = `<th class="ptr" draggable=true ondragstart="drag_rid=${rid};" ondrop="drop(${rid})" ondragover="allowDrop(event)">${insp}</th>
-${'<td contenteditable="true" class="wrap"></td>'.repeat(tb.rows[0].childElementCount-2)}
+${'<td contenteditable class="wrap"></td>'.repeat(tb.rows[0].childElementCount-2)}
 <td style="text-align:center">
 	<input type='button' onclick='recordRF(${rid})' value='Record-RF' title="Record 433MHz remote controller signal">
 	<input type='button' onclick='recordIR(${rid})' value='Record-IR' title="Record infrared remote controller signal">

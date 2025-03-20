@@ -12,19 +12,12 @@ gc.collect()
 RCFILE = 'rc-codes.txt'
 wifi = {}
 err = False
+MSENSOR = None
 
 # Namespace for global variable
 import lib_common as g
 from lib_common import *
 
-
-# None (=>null): the control will not be shown; to disable, set to empty string
-def dft_eval(s, dft):
-	try:
-		return eval(s, globals(), globals())
-	except:
-		return 'dft_eval' + dft
-g.dft_eval = dft_eval
 
 def connect_wifi():
 	global wifi
@@ -243,8 +236,6 @@ def execRC(s, stack=0):
 		return f'{s} : {e}'
 	return str(s)
 
-g.execRC = execRC
-
 # Relay execute
 lastCMD, lastTMS, lastSRC = '', 0, ''
 def execRL(s, SRC=''):
@@ -263,13 +254,13 @@ def Exec(cmd):
 		err = True
 		return str(e)+'\n'+cmd
 	
-def Eval(cmd):
+def Eval(cmd, dft=None):
 	global err
 	try:
 		return eval(cmd, globals(), globals())
 	except Exception as e:
 		err = True
-		return str(e)+' : '+cmd
+		return (str(e)+' : '+cmd) if dft is None else dft
 
 def setParams(query_line):
 	try:
@@ -277,13 +268,20 @@ def setParams(query_line):
 		p, ks = P, k.split('.')
 		for i in ks[0:-1]:
 			p = p[i]
-		p[ks[-1]] = dft_eval(v, '')
+		val = Try(lambda: eval(v, globals(), globals()), v)
+		if val is None:
+			del p[ks[-1]]
+			return 'OK Deleted'
+		else:
+			p[ks[-1]] = val
 		return 'OK'
 	except Exception as e:
 		return str(e)
 
-asr_write = lambda t: Try(lambda: f'{g.server.uart_ASR_out.write(bytes.fromhex(t))} bytes sent')
-asr_print = lambda t: Try(lambda: [print(t, file=g.server.uart_ASR_out), 'message sent'][-1])
+g.execRC = execRC
+g.dft_eval = Eval
+asr_write = lambda t: Try(lambda: f'{g.server.uart_ASR.write(bytes.fromhex(t))} bytes sent')
+asr_print = lambda t: Try(lambda: [print(t, file=g.server.uart_ASR), 'message sent'][-1])
 def asr_block(fn, t):
 	ret = fn(t)
 	g.server.uart_ASR.readline()
@@ -302,7 +300,7 @@ class WebServer:
 				'heap_free': f'{gc.mem_free()} {heap_free()}',
 				'stack_free': Try(lambda: 14336-micropython.stack_use()),
 				'flash_size': esp.flash_size(),
-				'LD1115H': g.LD1115H.status() if hasattr(g, 'LD1115H') else None,
+				'MSENSOR': g.MSENSOR.status() if hasattr(g, 'MSENSOR') else None,
 				})) ),
 			( "/get_params", "GET", lambda clie, resp: resp.WriteResponseJSONOk(P) ),
 			( "/set_params", "GET", lambda clie, resp: setParams(clie.GetRequestQueryString(True)) ),
@@ -338,9 +336,8 @@ class WebServer:
 		self.poll = select.poll()
 		self.poll.register(self.sock_web, select.POLLIN)
 		self.poll_tmout = -1
-		set_uart = lambda p: (sys.stdin, sys.stdout) if p==20 else (UART(1, 115200, tx=0, rx=1, timeout_char=100) if p==1 else None,)*2
-		self.uart_ASR, self.uart_ASR_out = set_uart(P['PIN_ASR_IN'])
-		self.uart_LD1115H, self.uart_LD1115H_out = set_uart(P['PIN_LD1115H'])
+		self.uart_ASR = set_uart(P['PIN_ASR'])
+		self.uart_MSENSOR = set_uart(P['PIN_MSENSOR'])
 		self.sock_map = {self.sock_web: self.mws.run_once}
 		self.cpIP = captivePortalIP
 		if captivePortalIP:
@@ -354,15 +351,15 @@ class WebServer:
 
 		if not P['SMART_CTRL']:
 			return
-		if is_valid_pin('PIN_ASR_IN'):
+		if is_valid_pin('PIN_ASR'):
 			self.poll.register(self.uart_ASR, select.POLLIN)
 			self.sock_map[self.uart_ASR] = self.handleASR
-		if is_valid_pin('PIN_LD1115H'):
-			g.LD1115H = LD1115H(self.uart_LD1115H)
+		if self.uart_MSENSOR:
+			g.MSENSOR = MSENSOR.MSENSOR(self.uart_MSENSOR, mws=self.mws)
 			gc.collect()
 			self.poll_tmout = 1
-			self.poll.register(self.uart_LD1115H, select.POLLIN)
-			self.sock_map[self.uart_LD1115H] = g.LD1115H.handleUART
+			self.poll.register(self.uart_MSENSOR, select.POLLIN)
+			self.sock_map[self.uart_MSENSOR] = g.MSENSOR.handleUART
 
 	def handleASR(self):
 		key = self.uart_ASR.readline().strip()
@@ -372,7 +369,7 @@ class WebServer:
 			run_timer(key)
 		else:
 			execRL(key, 'localASR')
-		flashLED()
+		g.flashLED()
 
 	def set_cmd(self, vn):
 		prt(f'Setting cmd to :{vn}')
@@ -413,8 +410,8 @@ class WebServer:
 					if self.cmd:
 						Exec(self.cmd)
 						self.cmd = ''
-				if hasattr(g, 'LD1115H'):
-					g.LD1115H.run1()
+				if hasattr(g, 'MSENSOR'):
+					g.MSENSOR.run1()
 			except Exception as e:
 				prt(e)
 
@@ -426,8 +423,7 @@ if '__init__' in g.rc_set:
 # Load global params
 load_params(g)
 
-MWS.DEBUG = P['DEBUG']
-flashLED=lambda **kw:None
+MWS.DEBUG = P.get('DEBUG_MWS', False)
 if is_valid_pin('DEBUG_dpin_num'):
 	g.DEBUG_dpin(1)
 	def flashLED(intv=0.2, N=3):
@@ -436,15 +432,15 @@ if is_valid_pin('DEBUG_dpin_num'):
 			time.sleep(intv)
 			g.DEBUG_dpin(0)
 			time.sleep(intv)
-
+	g.flashLED = flashLED
 gc.collect()
 
 if P['use_BLE']:
 	from lib_BLE import *
-if is_valid_pin('PIN_ASR_IN'):
+if is_valid_pin('PIN_ASR'):
 	from lib_TCPIP import *
-if is_valid_pin('PIN_LD1115H'):
-	from lib_LD1115H import *
+if is_valid_pin('PIN_MSENSOR') and P['CLS_MSENSOR']:
+	MSENSOR = Try(lambda: __import__('lib_'+P['CLS_MSENSOR']), None)
 if True in [is_valid_pin(i) for i in 'PIN_RF_IN PIN_RF_OUT PIN_IR_IN PIN_IR_OUT'.split()]:
 	from lib_RC import *
 if is_valid_pin('PIN_RF_IN') or is_valid_pin('PIN_RF_OUT'):

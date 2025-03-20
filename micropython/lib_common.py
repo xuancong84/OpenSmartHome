@@ -1,7 +1,6 @@
-import os, time, ntptime, network
-from machine import Timer, ADC, Pin, PWM
+import os, sys, time, ntptime, network, gc
+from machine import Timer, ADC, Pin, PWM, UART
 
-LOGFILE = 'static/log.txt'
 Timers = {}	# {'timer-name': [last-stamp-sec, period-in-sec, True (is periodic or oneshot), callback_func]}
 A0 = ADC(0)
 
@@ -11,33 +10,28 @@ P = {
 	'SMART_CTRL': True,
 	'SAVELOG': False,
 	'timezone': 8,
+	'RL_MAX_DELAY': 10,
+	'LOGFILE': 'static/log.txt',
 	'DEBUG_dpin_num': '',	# only GPIO 2 or None: for debug blinking
 	'PIN_RF_IN': '',		# GPIO5 tested working
 	'PIN_RF_OUT': '',		# GPIO4 tested working
 	'PIN_IR_IN': '',		# GPIO14 tested working
 	'PIN_IR_OUT': '',		# GPIO12 tested working
-	'PIN_ASR_IN': '',		# GPIO 13 or 3: generic ASR chip sending UART output upon voice commands
-	'PIN_LD1115H': '',		# GPIO 13 or 3: HLK-LD1115H motion sensor
+	'PIN_ASR': '',			# GPIO 13 or 3: generic ASR chip sending UART output upon voice commands
+	'PIN_MSENSOR': '',		# GPIO 13 or 3: HLK-LD1115H motion sensor
+	'CLS_MSENSOR': '',		# e.g., LD1115H or LD2402, will be passed to `import lib_{CLS_MSENSOR}` and eval(CLS_MSENSOR)
 	}
 
 url_string = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~/?'
-is_valid_pin = lambda pin, P=P: type(P.get(pin, ''))==int
+is_valid_pin = lambda pin, P=P: type(P.get(pin, ''))==int or P.get(pin, '')
 read_py_obj = lambda f: Try(lambda: eval(open(f).read()), '')
-execRC = lambda *args: None
-
-# None (=>null): the control will not be shown; to disable, set to empty string
-def dft_eval(s, dft):
-	try:
-		return eval(s, globals(), globals())
-	except:
-		return dft
+execRC = dft_eval = flashLED = lambda **kw:None
 
 def Try(*args):
 	exc = ''
 	for arg in args:
 		try:
-			if callable(arg):
-				return arg()
+			return arg() if callable(arg) else arg
 		except Exception as e:
 			exc = e
 	return str(exc)
@@ -154,7 +148,8 @@ def syncNTP():
 			ntptime.settime()
 			break
 		except:
-			pass
+			time.sleep(1)
+			gc.collect()
 	t = time.time()-t
 	for k, v in Timers.items():
 		v[0] += t
@@ -188,8 +183,9 @@ def prt(*args, **kwarg):
 		print(getFullDateTime(), end=' ')
 		print(*args, **kwarg)
 	if P['SAVELOG']:
+		LOGFILE = P['LOGFILE']
 		try:
-			if os.stat(LOGFILE)[6]>1000000:
+			if os.stat(LOGFILE)[6]>500000:
 				os.rename(LOGFILE, LOGFILE+'.old')
 		except:
 			pass
@@ -224,3 +220,16 @@ def save_params():
 		return 'OK'
 	except Exception as e:
 		return str(e)
+
+def set_uart(p):
+	try:
+		p = eval(p) if type(p) is str else p
+		p = p[0] if type(p) is tuple else p
+		if p in [1, 3]:
+			return sys.stdin.buffer	# this is the same as sys.stdout.buffer (bound to RX0/TX0)
+		elif p in [13, 15]:
+			os.dupterm(None, 1)
+			return UART(0, 115200, rx=13, tx=15, timeout_char=10, rxbuf=256)
+	except:
+		pass
+	return None

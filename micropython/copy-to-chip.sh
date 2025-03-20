@@ -32,6 +32,17 @@ copy_if() {
 	done
 }
 
+if [ $# -gt 0 ]; then
+	for f in "$@"; do
+		mpy-cross $f
+		fmpy=${f::-3}.mpy
+		pyboard -f cp $fmpy :firmware/
+		pyboard -c "import esp;esp.add_frozen('firmware/$fmpy','$fmpy')"
+	done
+	exit
+fi
+
+
 set +e
 pyboard -f mkdir firmware
 set -e

@@ -1,10 +1,10 @@
-import os, time, ntptime, network, gc
-from machine import Timer, ADC, Pin, PWM
+import os, sys, time, ntptime, network, gc
+from machine import Timer, ADC, Pin, PWM, UART
 
 Timers = {}	# {'timer-name': [last-stamp-sec, period-in-sec, True (is periodic or oneshot), callback_func]}
 A0, A1, A2, A3, A4 = [ADC(i) for i in range(5)]
 
-# global savable parameters
+# Global savable parameters, any variable MUST NOT be None, setting it to None will delete the variable
 P = {
 	'DEBUG': False,
 	'SMART_CTRL': True,
@@ -18,21 +18,21 @@ P = {
 	'PIN_RF_OUT': '',		# GPIO4 tested working
 	'PIN_IR_IN': '',		# GPIO14 tested working
 	'PIN_IR_OUT': '',		# GPIO12 tested working
-	'PIN_ASR_IN': '',		# GPIO 13 or 3: generic ASR chip sending UART output upon voice commands
-	'PIN_LD1115H': '',		# GPIO 13 or 3: HLK-LD1115H motion sensor
+	'PIN_ASR': '',			# GPIO 20/21 or tuple: generic ASR chip
+	'PIN_MSENSOR': '',		# GPIO 20/21 or tuple: motion sensor pin
+	'CLS_MSENSOR': '',		# e.g., LD1115H or LD2402, will be passed to `import lib_{CLS_MSENSOR}` and eval(CLS_MSENSOR)
 	}
 
 url_string = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~/?'
-is_valid_pin = lambda pin, P=P: type(P.get(pin, ''))==int
+is_valid_pin = lambda pin, P=P: type(P.get(pin, ''))==int or P.get(pin, '')
 read_py_obj = lambda f: Try(lambda: eval(open(f).read()), '')
-execRC = dft_eval = None
+execRC = dft_eval = flashLED=lambda **kw:None
 
 def Try(*args):
 	exc = ''
 	for arg in args:
 		try:
-			if callable(arg):
-				return arg()
+			return arg() if callable(arg) else arg
 		except Exception as e:
 			exc = e
 	return str(exc)
@@ -221,3 +221,16 @@ def save_params():
 		return 'OK'
 	except Exception as e:
 		return str(e)
+
+def set_uart(p):
+	try:
+		p = eval(p) if type(p) is str else p
+		if type(p) is int:
+			if p in [20, 21]:
+				return sys.stdin.buffer	# this is the same as sys.stdout.buffer (bound to RX0/TX0)
+			return UART(1, 115200, rx=p, tx=21, timeout_char=100)
+		elif type(p) is tuple:
+			return UART(1, 115200, tx=p[1], rx=p[0], timeout_char=100)
+	except:
+		pass
+	return None

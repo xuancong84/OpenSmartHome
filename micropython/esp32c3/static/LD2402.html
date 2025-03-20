@@ -1,0 +1,204 @@
+<html>
+<head>
+<title>LD2402 Calibration</title>
+<style>
+.toast {
+  visibility: hidden;
+  min-width: 250px;
+  margin-left: -125px;
+  background-color: #777;
+  color: #fff;
+  text-align: center;
+  border-radius: 2px;
+  padding: 16px;
+  position: fixed;
+  z-index: 100;
+  left: 50%;
+  bottom: 30px;
+  font-size: 17px;
+}
+.toast.show {
+  visibility: visible;
+  -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
+  animation: fadein 0.5s, fadeout 0.5s 2.5s;
+}
+
+button {
+	align-items: center;
+	appearance: none;
+	background-color: #3EB2FD;
+	background-image: linear-gradient(1deg, #4F58FD, #149BF3 99%);
+	background-size: calc(100% + 20px) calc(100% + 20px);
+	border-radius: 100px;
+	border-width: 0;
+	box-shadow: none;
+	box-sizing: border-box;
+	color: #FFFFFF;
+	cursor: pointer;
+	display: inline-flex;
+	font-family: CircularStd, sans-serif;
+	font-size: 1rem;
+	height: auto;
+	justify-content: center;
+	line-height: 1;
+	padding: 6px 20px;
+	position: relative;
+	text-align: center;
+	text-decoration: none;
+	transition: background-color .2s, background-position .2s;
+	user-select: none;
+	-webkit-user-select: none;
+	touch-action: manipulation;
+	vertical-align: middle;
+	white-space: nowrap;
+}
+
+button:active,
+button:focus {outline: none;}
+button:hover {background-position: -20px -20px;}
+button:focus:not(:active) {box-shadow: rgba(40, 170, 255, 0.25) 0 0 0 .125em;}
+
+table, th, td {border: 1px solid; border-collapse: collapse; text-align: center;}
+</style>
+</head>
+<body>
+<button onclick="calib_start()">Start Measure</button>&nbsp;
+<button onclick="calib_stop()">Stop Measure</button>&nbsp;
+<button onclick="computeAll()">Compute Gate Thresholds</button>&nbsp;
+<button onclick="uploadGT()">Upload Gate Thresholds</button>
+<br>
+<h3>Energy Value at Distance Gate (1-16 are motion gates, 17-32 are micro-motion gates):</h3>
+<table id="tb_monitor" style="width:100%"></table>
+<hr>
+<h3>Energy Values when human is absent and <span style="color: red;">light is ON</span>: <button onclick="obj_absent=obj_last;fill_table('tb_absent',obj_last)">Set Values</button></h3>
+<table id="tb_absent" style="width:100%"></table>
+<hr>
+<h3>Energy Values when human is present: <button onclick="obj_present=obj_last;fill_table('tb_present',obj_last)">Set Values</button></h3>
+<table id="tb_present" style="width:100%"></table>
+<hr>
+<h3>Gate Thresholds (R1: threshold ratio for sustain, R2: threshold ratio for trigger):</h3>
+<table id="tb_compute" style="width:100%"></table>
+<div style="font-weight: bold;">R1_max=<span id='r1_max' style="color: red;"></span> &nbsp;&nbsp;R2_max=<span id='r2_max' style="color: red;"></span> &nbsp;&nbsp;R21=<span contenteditable id="r21" style="color: red;"></span></div>
+<script>
+function getById(id_str) { return document.getElementById(id_str); }
+function isString(s){return typeof s === 'string' || s instanceof String;}
+function toast(msg) {
+	if(msg instanceof Error)
+		msg = msg.name + ' : ' + msg.message;
+	else if(!isString(msg))
+		msg = msg.target.responseText || (msg.target.statusText+' '+msg.target.status);
+	var randint = Math.round(Math.random()*10000);
+	var e = document.createElement('div');
+	e.id = `toast${randint}`;
+	e.className = 'toast show';
+	e.innerText = msg;
+	document.body.appendChild(e);
+	setTimeout(function(){ getById(`toast${randint}`).remove() }, 3000);
+}
+async function GET(url) {
+	return fetch(url).then(r => r.text()).then(t => toast(t))
+}
+var obj_last = {}, obj_absent = {}, obj_present = {};
+function fill_table(tid, obj={}, row_names=['Gate', 'Max', 'Mean', 'Min'], id_prefix=null){
+	obj_last = obj;
+	var html = '';
+	for(var r=0; r<row_names.length; r++){
+		html += '<tr>';
+		var rdata = r==1?obj.max:(r==2?obj.mean:(r==3?obj.min:null));
+		for(var c=0; c<33; c++){
+			var cid = id_prefix?`id="${id_prefix}_${r}_${c}"`:'';
+			var tag = (!r||!c)?`<th ${cid} style='width:3%'>`:`<td ${cid} contenteditable>`;
+			var tagE = (!r||!c)?"</th>":"</td>";
+			html += `${tag}${c?(rdata==null?(r?'':c):rdata[c-1]):(row_names[r])}${tagE}`;
+		}
+		html += '</tr>';
+	}
+	getById(tid).innerHTML = html;
+}
+var tmr_calib, get_calib_ok=true;
+function calib_get(){
+	if(get_calib_ok){
+		get_calib_ok = false;
+		fetch('/LD2402_calib_get').then(r=>r.json())
+		.then((j)=>{fill_table('tb_monitor', j); get_calib_ok=true;});
+	}
+}
+function calib_start(){
+	if(tmr_calib) clearInterval(tmr_calib);
+	GET('/LD2402_calib_begin');
+	tmr_calib = setInterval(calib_get, 1000);
+}
+function calib_stop(){
+	if(tmr_calib){
+		clearInterval(tmr_calib);
+		tmr_calib = null;
+	}
+	fetch('/LD2402_calib_end').then(r=>r.json())
+	.then((j)=>{fill_table('tb_monitor', j); get_calib_ok=true;});
+}
+function calc_th(a_max, p_max, p_min, p_mean){
+	var v;
+	if(!a_max || !p_max || !p_min || !p_mean) return Math.max(a_max, p_max);
+	if(p_min>=a_max) v=(a_max+p_mean)/2;
+	else if(p_mean>=a_max) v=(a_max+(p_mean+p_max)/2)/2;
+	else if(p_max>=a_max) v=(a_max+p_max)/2;
+	else v=a_max;
+	return Math.max(v, a_max+0.3);
+}
+function calc_th2(a_max, p_max){
+	return Math.max(p_max, a_max+0.6);
+}
+function computeAll(){
+	fill_table('tb_compute', {}, ['Gate', 'th_v1', 'th_r1', 'th_r2', '', 'th1_lin', 'th2_lin'], 'tc');
+	var a_max = obj_absent.max, p_max = obj_present.max, p_min = obj_present.min, p_mean = obj_present.mean;
+	if(!a_max || !p_max || !p_min || !p_mean) return alert('Both energy value tables for absent and present must be filled in first!');
+	a_max = a_max.map(v=>Number(v));
+	p_max = p_max.map(v=>Number(v));
+	p_min = p_min.map(v=>Number(v));
+	p_mean = p_mean.map(v=>Number(v));
+	var th1s=[], thr_max_val=0, thr2_max_val=0;
+	var div = (a,b) => {return (!a||!b)?1:(a/b)};
+	for(var i=0; i<32; i++){
+		th = calc_th(a_max[i], p_max[i], p_min[i], p_mean[i]);
+		th1s.push(th);
+		th2 = calc_th2(a_max[i], p_max[i]);
+		thr_val = div(th, a_max[i]);
+		thr2_val = div(th2, a_max[i]);
+		thr_max_val = Math.max(thr_val, thr_max_val);
+		thr2_max_val = Math.max(thr2_val, thr2_max_val);
+		getById(`tc_1_${i+1}`).textContent = th.toFixed(1);
+		getById(`tc_2_${i+1}`).textContent = thr_val.toFixed(3);
+		getById(`tc_3_${i+1}`).textContent = thr2_val.toFixed(3);
+		getById(`tc_4_${i+1}`).innerHTML = `<input type="checkbox" id="cb_${i}" checked>`;
+	}
+	getById('tc_4_0').innerHTML = `<input type="checkbox" onchange="for(var i=0;i<32;i++)getById('cb_'+i).checked=this.checked" checked>`;
+	getById('r1_max').textContent = thr_max_val.toFixed(6);
+	getById('r2_max').textContent = thr2_max_val.toFixed(6);
+	var r21 = thr2_max_val/thr_max_val;
+	getById('r21').textContent = r21.toFixed(6);
+	for(var i=0; i<32; i++){
+		var th1 = th1s[i];
+		var th2 = th1*r21;
+		getById(`tc_5_${i+1}`).textContent = Math.round(10**(th1/10)-1);
+		getById(`tc_6_${i+1}`).textContent = Math.round(10**(th2/10)-1);
+		getById(`tc_5_${i+1}`).style.fontSize = getById(`tc_6_${i+1}`).style.fontSize = 'small';
+	}
+}
+async function uploadGT(){
+	var ge=[], th1=[], th2=[];
+	for(var i=0; i<32; i++){
+		th1.push(Number(getById(`tc_5_${i+1}`).textContent));
+		th2.push(Number(getById(`tc_6_${i+1}`).textContent));
+		if(getById('cb_'+i).checked) ge.push(i);
+	}
+	await GET(`/set_params?LD2402.TH_SUSTAIN=[${th1}]`);
+	await GET(`/set_params?LD2402.TH_TRIGGER=[${th2}]`);
+	await GET(`/set_params?LD2402.GATE_ENABLED=[${ge}]`);
+}
+fill_table('tb_monitor');
+fill_table('tb_absent');
+fill_table('tb_present');
+fill_table('tb_compute', {}, ['Gate', 'th_v1', 'th_r1', 'th_r2']);
+</script>
+</body>
+</html>
