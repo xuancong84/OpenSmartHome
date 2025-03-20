@@ -1,5 +1,5 @@
 DLS	餐厅吊灯开关|餐桌吊灯开关	嗯	1		[{'data': [8283, 792, 190, 789, 194, 785, 197, 782, 200, 780, 203, 776, 208, 289, 692, 291, 697, 776, 206, 774, 208, 770, 212, 768, 214, 766, 218, 278, 702, 765, 218, 761, 229, 275, 706, 761, 221, 758, 224, 272, 709, 758, 226, 272, 709, 274, 708, 275, 713, 277, 703, 763, 220, 276, 705, 279, 703, 280, 700, 766, 215, 765, 217, 763, 220, 277], 'init_level': 0, 'protocol': 'RF433'}, 'exec("g.DL=0")']
-DLN	餐厅吊灯开启|餐桌吊灯开启	嗯	1		[['DLS','sleep(0.2)','DLS','sleep(0.2)','DLS'] if (getTimeString()<'08:00:00' or getTimeString()>'18:00:00') else 'DLS', 'exec("g.DL=1")']
+DLN	餐厅吊灯开启|餐桌吊灯开启	嗯	1		[['DLS','sleep(0.2)','DLS','sleep(0.2)','DLS'] if (getTimeString()<'08:30:00' or getTimeString()>'18:00:00') else 'DLS', 'exec("g.DL=1")']
 DLF	餐厅吊灯关闭|餐桌吊灯关闭	嗯	1		['DLS', 'exec("g.DL=-1")']
 SLS	沙发吊灯开关	嗯	1		[{'data': [6676, 431, 1047, 433, 1046, 1154, 325, 431, 1048, 1152, 327, 1149, 332, 1144, 336, 419, 1063, 422, 1055, 424, 1054, 1148, 333, 1142, 338, 1139, 341, 1135, 345, 411, 1066, 1134, 351, 409, 1068, 1133, 347, 409, 1069, 1132, 354, 409, 1069, 1131, 348, 408, 1069, 1132, 355, 1128, 359, 404, 1074, 1127, 352, 404, 1073, 1127, 353, 403], 'init_level': 0, 'protocol': 'RF433'}, 'exec("g.SL=0")']
 SLN	沙发吊灯开启	嗯	1		['SLS', 'exec("g.SL=1")']
@@ -177,9 +177,9 @@ MTVPS	主人房电视机暂停播放	好的			'http://192.168.50.3:8883/tv_wscmd
 MTVRS	主人房电视机继续播放	好的			'http://192.168.50.3:8883/tv_wscmd/masterTV/resume'
 MTVNX	主人房电视机跳到下一集|主人房电视机跳到下一曲	好的		MTVNP	'http://192.168.50.3:8883/tv_wscmd/masterTV/next'
 MTVPR	主人房电视机跳回上一集|主人房电视机跳回上一曲	好的		MTVNP	'http://192.168.50.3:8883/tv_wscmd/masterTV/prev'
-LTVPSV	电视机播放指定歌曲｜电视机播放指定音乐	好的			'http://192.168.50.3:8883/play_spoken_inlst/livingTV/Desktop/videos.m3u'
+LTVPSV	电视机播放指定歌曲｜电视机播放指定音乐	好的			'http://192.168.50.3:8883/play_spoken_indir/livingTV/KTV'
 LTVPSD	电视机播放指定电视剧|电视机播放指定电影	好的			'http://192.168.50.3:8883/play_spoken_indir/livingTV'
-MTVPSV	主人房电视机播放指定歌曲｜主人房电视机播放指定音乐	好的			'http://192.168.50.3:8883/play_spoken_inlst/masterTV/Desktop/videos.m3u'
+MTVPSV	主人房电视机播放指定歌曲｜主人房电视机播放指定音乐	好的			'http://192.168.50.3:8883/play_spoken_indir/masterTV/KTV'
 MTVPSD	主人房电视机播放指定电视剧|主人房电视机播放指定电影	好的			'http://192.168.50.3:8883/play_spoken_indir/masterTV'
 MACAIRPD	苹果笔记本播放电视剧｜苹果电脑播放电视剧	好的			'http://192.168.50.3:8883/custom_cmdline/macair_play'
 LTVRCP	电视机播报当前视频名称|电视机播报当前歌曲名称	好的			'http://192.168.50.3:8883/report_title/livingTV'
@@ -192,7 +192,7 @@ CTVPS	客人房电视机暂停播放	好的			'http://192.168.50.3:8883/tv_wscmd
 CTVRS	客人房电视机继续播放	好的			'http://192.168.50.3:8883/tv_wscmd/commonTV/resume'
 CTVNX	客人房电视机跳到下一集|客人房电视机跳到下一曲	好的		CTVNP	'http://192.168.50.3:8883/tv_wscmd/commonTV/next'
 CTVPR	客人房电视机跳回上一集|客人房电视机跳回上一曲	好的		CTVNP	'http://192.168.50.3:8883/tv_wscmd/commonTV/prev'
-CTVPSV	客人房电视机播放指定歌曲｜客人房电视机播放指定音乐	好的			'http://192.168.50.3:8883/play_spoken_inlst/commonTV/Desktop/videos.m3u'
+CTVPSV	客人房电视机播放指定歌曲｜客人房电视机播放指定音乐	好的			'http://192.168.50.3:8883/play_spoken_indir/commonTV/KTV'
 CTVPSD	客人房电视机播放指定电视剧|客人房电视机播放指定电影	好的			'http://192.168.50.3:8883/play_spoken_indir/commonTV'
 CTVRCP	客人房电视机播报当前视频名称|客人房电视机播报当前歌曲名称	好的			'http://192.168.50.3:8883/report_title/commonTV'
 LTVRW	电视机重新开始播放	好的	1		'http://192.168.50.3:8883/rewind/livingTV'
