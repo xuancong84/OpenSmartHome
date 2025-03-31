@@ -4,7 +4,7 @@ from machine import Timer, ADC, Pin, PWM, UART
 Timers = {}	# {'timer-name': [last-stamp-sec, period-in-sec, True (is periodic or oneshot), callback_func]}
 A0 = ADC(0)
 
-# global savable parameters
+# Global savable parameters, any variable MUST NOT be None, setting it to None will delete the variable
 P = {
 	'DEBUG': False,
 	'SMART_CTRL': True,
@@ -68,37 +68,41 @@ class PIN:
 		self.type = dtype
 
 	def __call__(self, *args):
-		prt(self.pin_name, ':', args)
-		if self.invert:
-			if type(self.pin)==PWM:
-				if self.type == int:
-					return self.pin.duty(1023-args[0]) if args else 1023-self.pin.duty()
-				return self.pin.duty((1-args[0])*1023) if args else 1-self.pin.duty()/1023
-			elif type(self.pin)==Pin:
-				return self.pin(1-args[0]) if args else 1-self.pin()
-			elif type(self.pin)==ADC:
-				return 1023-self.pin.read() if self.type==int else 1.0-self.pin.read_u16()/65535
-			elif type(self.pin)==int:
-				return Pin(self.pin)(1-args[0]) if args else 1-Pin(self.pin)()
-		else:
-			if type(self.pin)==PWM:
-				if self.type == int:
-					return self.pin.duty(args[0]) if args else self.pin.duty()
-				return self.pin.duty(args[0]*1023) if args else self.pin.duty()/1023
-			elif type(self.pin)==Pin:
-				return self.pin(*args)
-			elif type(self.pin)==ADC:
-				return self.pin.read() if self.type==int else self.pin.read_u16()/65535
-			elif type(self.pin)==int:
-				return Pin(self.pin)(*args)
-
-		if type(self.pin) in [tuple,list]:
-			if not args:
-				return self.state
-			self.state = args[0]
-			return execRC(self.pin[self.state])
-
-		return self.pin(*args) if callable(self.pin) else None
+		try:
+			if args:
+				prt(self.pin_name, ':', args)
+			if self.invert:
+				if type(self.pin)==PWM:
+					if self.type == int:
+						return self.pin.duty(1023-args[0]) if args else 1023-self.pin.duty()
+					return self.pin.duty((1-args[0])*1023) if args else 1-self.pin.duty()/1023
+				elif type(self.pin)==Pin:
+					return self.pin(1-args[0]) if args else 1-self.pin()
+				elif type(self.pin)==ADC:
+					return 1023-self.pin.read() if self.type==int else 1.0-self.pin.read_u16()/65535
+				elif type(self.pin)==int:
+					return Pin(self.pin)(1-args[0]) if args else 1-Pin(self.pin)()
+			else:
+				if type(self.pin)==PWM:
+					if self.type == int:
+						return self.pin.duty(args[0]) if args else self.pin.duty()
+					return self.pin.duty(args[0]*1023) if args else self.pin.duty()/1023
+				elif type(self.pin)==Pin:
+					return self.pin(*args)
+				elif type(self.pin)==ADC:
+					return self.pin.read() if self.type==int else self.pin.read_u16()/65535
+				elif type(self.pin)==int:
+					return Pin(self.pin)(*args)
+	
+				if type(self.pin) in [tuple,list]:
+					if not args:
+						return self.state
+					self.state = args[0]
+					return execRC(self.pin[self.state])
+	
+				return self.pin(*args) if callable(self.pin) else None
+		except Exception as e:
+			return f'Pin({args}) : {e}'
 
 
 _auto_pins = set()
@@ -226,7 +230,10 @@ def set_uart(p):
 		p = eval(p) if type(p) is str else p
 		p = p[0] if type(p) is tuple else p
 		if p in [1, 3]:
-			return sys.stdin.buffer	# this is the same as sys.stdout.buffer (bound to RX0/TX0)
+			# warning: on ESP8266 development boards, the UART0 ports cannot be used for many devices (such as HLK-LD2402/CI-33T/CI-03T/etc.)
+			# due to ESP8266's design flaw with CH340; even though it can work on some devices, it will be suboptimal and will cause heating.
+			os.dupterm(None, 1)
+			return UART(0, 115200, rx=3, tx=1, timeout_char=10, rxbuf=256)
 		elif p in [13, 15]:
 			os.dupterm(None, 1)
 			return UART(0, 115200, rx=13, tx=15, timeout_char=10, rxbuf=256)

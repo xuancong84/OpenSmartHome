@@ -457,7 +457,7 @@ def run():
 	prt(wifi)
 	g.server = WebServer(captivePortalIP=cpIP)
 	gc.collect()
-	SetTimer('syncNTP', 12*3600, True, syncNTP)
+	SetTimer('syncNTP', 36000, True, syncNTP)
 	g.DEBUG_dpin(0)
 	if '__postinit__' in g.rc_set:
 		execRC('__postinit__')

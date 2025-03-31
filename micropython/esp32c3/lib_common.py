@@ -1,5 +1,6 @@
 import os, sys, time, ntptime, network, gc
 from machine import Timer, ADC, Pin, PWM, UART
+from neopixel import NeoPixel
 
 Timers = {}	# {'timer-name': [last-stamp-sec, period-in-sec, True (is periodic or oneshot), callback_func]}
 A0, A1, A2, A3, A4 = [ADC(i) for i in range(5)]
@@ -18,15 +19,15 @@ P = {
 	'PIN_RF_OUT': '',		# GPIO4 tested working
 	'PIN_IR_IN': '',		# GPIO14 tested working
 	'PIN_IR_OUT': '',		# GPIO12 tested working
-	'PIN_ASR': '',			# GPIO 20/21 or tuple: generic ASR chip
-	'PIN_MSENSOR': '',		# GPIO 20/21 or tuple: motion sensor pin
+	'PIN_ASR': '',			# ESP32 can use any GPIO
+	'PIN_MSENSOR': '',		# ESP32 can use any GPIO
 	'CLS_MSENSOR': '',		# e.g., LD1115H or LD2402, will be passed to `import lib_{CLS_MSENSOR}` and eval(CLS_MSENSOR)
 	}
 
 url_string = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~/?'
 is_valid_pin = lambda pin, P=P: type(P.get(pin, ''))==int or P.get(pin, '')
 read_py_obj = lambda f: Try(lambda: eval(open(f).read()), '')
-execRC = dft_eval = flashLED=lambda **kw:None
+execRC = dft_eval = flashLED = lambda **kw:None
 
 def Try(*args):
 	exc = ''
@@ -45,6 +46,7 @@ class PIN:
 		i: input digital pin
 		p: PWM pin
 		a: ADC pin
+		neo: NeoPixel pin (invert: do not init color (NeoPixel keeps previous color upon reboot but not color buffer))
 	"""
 	def __init__(self, pin, pin_name='', dtype=int, invert=None):
 		self.pin_name = f'PIN({pin})'
@@ -62,6 +64,11 @@ class PIN:
 					self.pin = Try(lambda:Pin(self.pin, Pin.IN), '')
 				elif pt=='a':
 					self.pin = Try(lambda:ADC(self.pin), '')
+				elif pt=='neo':
+					self.pin = Try(lambda:NeoPixel(Pin(self.pin), 1), '')
+					if not self.invert:
+						self.pin.write()
+					self.invert = False
 		else:
 			self.pin = pin
 			self.invert = invert or False
@@ -69,37 +76,48 @@ class PIN:
 		self.type = dtype
 
 	def __call__(self, *args):
-		prt(self.pin_name, ':', args)
-		if self.invert:
-			if type(self.pin)==PWM:
-				if self.type == int:
-					return self.pin.duty(1023-args[0]) if args else 1023-self.pin.duty()
-				return self.pin.duty((1-args[0])*1023) if args else 1-self.pin.duty()/1023
-			elif type(self.pin)==Pin:
-				return self.pin(1-args[0]) if args else 1-self.pin()
-			elif type(self.pin)==ADC:
-				return 1023-self.pin.read() if self.type==int else 1.0-self.pin.read_u16()/65535
-			elif type(self.pin)==int:
-				return Pin(self.pin)(1-args[0]) if args else 1-Pin(self.pin)()
-		else:
-			if type(self.pin)==PWM:
-				if self.type == int:
-					return self.pin.duty(args[0]) if args else self.pin.duty()
-				return self.pin.duty(args[0]*1023) if args else self.pin.duty()/1023
-			elif type(self.pin)==Pin:
-				return self.pin(*args)
-			elif type(self.pin)==ADC:
-				return self.pin.read() if self.type==int else self.pin.read_u16()/65535
-			elif type(self.pin)==int:
-				return Pin(self.pin)(*args)
+		try:
+			if args:
+				prt(self.pin_name, ':', args)
+			if self.invert:
+				if type(self.pin)==PWM:
+					if self.type == int:
+						return self.pin.duty(1023-args[0]) if args else 1023-self.pin.duty()
+					return self.pin.duty((1-args[0])*1023) if args else 1-self.pin.duty()/1023
+				elif type(self.pin)==Pin:
+					return self.pin(1-args[0]) if args else 1-self.pin()
+				elif type(self.pin)==ADC:
+					return 1023-self.pin.read() if self.type==int else 1.0-self.pin.read_u16()/65535
+				elif type(self.pin)==int:
+					return Pin(self.pin)(1-args[0]) if args else 1-Pin(self.pin)()
+			else:
+				if type(self.pin)==PWM:
+					if self.type == int:
+						return self.pin.duty(args[0]) if args else self.pin.duty()
+					return self.pin.duty(args[0]*1023) if args else self.pin.duty()/1023
+				elif type(self.pin)==Pin:
+					return self.pin(*args)
+				elif type(self.pin)==ADC:
+					return self.pin.read() if self.type==int else self.pin.read_u16()/65535
+				elif type(self.pin)==int:
+					return Pin(self.pin)(*args)
+				elif type(self.pin)==NeoPixel:
+					if not args:
+						return self.pin[0]
+					else:
+						self.pin[0] = args[0] if type(args[0]) in [tuple, list] else args
+						self.pin.write()
+						return args[0]
 
-		if type(self.pin) in [tuple,list]:
-			if not args:
-				return self.state
-			self.state = args[0]
-			return execRC(self.pin[self.state])
-
-		return self.pin(*args) if callable(self.pin) else None
+				if type(self.pin) in [tuple,list]:
+					if not args:
+						return self.state
+					self.state = args[0]
+					return execRC(self.pin[self.state])
+	
+				return self.pin(*args) if callable(self.pin) else None
+		except Exception as e:
+			return f'Pin({args}) : {e}'
 
 
 _auto_pins = set()
@@ -228,9 +246,9 @@ def set_uart(p):
 		if type(p) is int:
 			if p in [20, 21]:
 				return sys.stdin.buffer	# this is the same as sys.stdout.buffer (bound to RX0/TX0)
-			return UART(1, 115200, rx=p, tx=21, timeout_char=100)
+			return UART(1, 115200, rx=p, tx=21, timeout_char=10)
 		elif type(p) is tuple:
-			return UART(1, 115200, tx=p[1], rx=p[0], timeout_char=100)
+			return UART(1, 115200, tx=p[1], rx=p[0], timeout_char=10)
 	except:
 		pass
 	return None

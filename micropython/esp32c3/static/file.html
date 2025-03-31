@@ -105,10 +105,10 @@ input {font-size:15px;}
 	}
 	function rename(rid){
 		try {
-			var newfn = prompt('Please enter the new name:');
-			if(newfn==null) return;
 			var elem = getById('R'+rid);
 			var oldfn = elem.children[0].textContent.replace(/\/+$/, '');
+			var newfn = prompt('Please enter the new name:', oldfn.split('/').at(-1));
+			if(newfn==null) return;
 			var newfull = oldfn.split('/').slice(0,-1).join('/') +'/' + newfn;
 			alert(POST('/move_file', oldfn+'\n'+newfull).trim());
 			load();
@@ -119,8 +119,8 @@ input {font-size:15px;}
 	function flash(rid, event){
 		var fn = getById('R'+rid).children[0].textContent;
 		var bn = fn.split('/').at(-1);
-		if(fn.endsWith('.mpy')) GET((event.shiftKey?`/exec?esp.add_frozen("${fn}","${bn}");reset()`:`/eval?esp.add_frozen("${fn}","${bn}")`), (e)=>{alert(e.target.responseText)});
-		else if(fn.endsWith('.bin')) GET(`/exec?import inisetup;inisetup.fwupdate("${fn}")`);
+		if(fn.endsWith('.bin')) GET(`/exec?import inisetup;inisetup.fwupdate("${fn}")`);
+		else if(fn.endsWith('.mpy')) GET((event.shiftKey?`/exec?esp.add_frozen("${fn}","${bn}");reset()`:`/eval?esp.add_frozen("${fn}","${bn}")`), (e)=>{alert(e.target.responseText)});
 	}
 	function preventDefaults(e){e.preventDefault();}
 	function onDrop(e){

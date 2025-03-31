@@ -26,8 +26,13 @@ class MSENSOR:
 	def read_energy(self):
 		try:
 			data = self.uart.read()
-			if data.endswith(b'\r\n'):
-				self.init_eng_mode()
+			if type(data) != bytes:
+				self.uart = set_uart(P['PIN_MSENSOR'])
+				return None
+			if b'\r\n' in data:
+				# During LD2402 initialization, setting engineering mode will cause the chip to stop responding unless UART.init()
+				if (b'distance' in data or b'OFF' in data):
+					self.init_eng_mode()
 				return None
 			while b'\xf4\xf3\xf2\xf1' in data:
 				p1 = data.find(b'\xf4\xf3\xf2\xf1')
@@ -75,7 +80,6 @@ class MSENSOR:
 
 	def __init__(self, uart, mws:MWS):  # Typically ~15 frames
 		# init status
-		# uart.init(115200, timeout_char=10, rxbuf=256)
 		self.tm_last_ambient = round(time.time()*1000)
 		self.elapse = 0
 		self.uart = uart
@@ -95,8 +99,9 @@ class MSENSOR:
 		P['LD2402'] = self.P
 		auto_makepins(self, self.P)
 
-		# must turn on motion sensor first then turn it off, otherwise it will keeps outputing null
-		self.sensor_pwr_dpin(True)
+		# turn on motion sensor if night
+		if self.is_night():
+			self.sensor_pwr_dpin(True)
 
 		# keep PWM capacitor discharged before LED smooth on
 		self.led_discharge_dpin(False)
@@ -153,14 +158,14 @@ class MSENSOR:
 				tm_dif = ticks_ms()-tm0
 			self.led_level_ppin(LED_END)
 		else:
-			# self.led_level_ppin(LED_END)
-			# tm_dif = ticks_ms()-tm0
-			# while tm_dif<GLIDE_TIME and tm_dif>=0:
-			# 	self.led_level_ppin(round(LED_END-spd*tm_dif))
-			# 	tm_dif = ticks_ms()-tm0
+			self.led_level_ppin(LED_END)
+			tm_dif = ticks_ms()-tm0
+			while tm_dif<GLIDE_TIME and tm_dif>=0:
+				self.led_level_ppin(round(LED_END-spd*tm_dif))
+				tm_dif = ticks_ms()-tm0
 			self.led_level_ppin(LED_BEGIN)
-			sleep_ms(GLIDE_TIME)
 			Try(lambda: Pin(self.P['led_discharge_dpin_num'], Pin.OUT)(0))
+			sleep_ms(GLIDE_TIME)
 			self.led_master_dpin(0)
 			self.led_level_ppin(0)
 

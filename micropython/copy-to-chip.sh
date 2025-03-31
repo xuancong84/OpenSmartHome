@@ -37,7 +37,7 @@ if [ $# -gt 0 ]; then
 		mpy-cross $f
 		fmpy=${f::-3}.mpy
 		pyboard -f cp $fmpy :firmware/
-		pyboard -c "import esp;esp.add_frozen('firmware/$fmpy','$fmpy')"
+		pyboard -c "import esp;print('$fmpy', esp.add_frozen('firmware/$fmpy','$fmpy'))"
 	done
 	exit
 fi
@@ -52,7 +52,7 @@ for f in main.py rescue.py lib*.py; do
 	fmpy=${f::-3}.mpy
 	echo "Copying $fmpy ..."
 	pyboard -f cp $fmpy :firmware/
-	pyboard -c "import esp;esp.add_frozen('firmware/$fmpy','$fmpy')"
+	pyboard -c "import esp;print('$fmpy', esp.add_frozen('firmware/$fmpy','$fmpy'))"
 done
 
 copy_if rc-codes.txt

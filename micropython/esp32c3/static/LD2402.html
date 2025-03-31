@@ -143,10 +143,10 @@ function calc_th(a_max, p_max, p_min, p_mean){
 	else if(p_mean>=a_max) v=(a_max+(p_mean+p_max)/2)/2;
 	else if(p_max>=a_max) v=(a_max+p_max)/2;
 	else v=a_max;
-	return Math.max(v, a_max+0.3);
+	return Math.max(v, a_max+1);
 }
 function calc_th2(a_max, p_max){
-	return Math.max(p_max, a_max+0.6);
+	return Math.max(p_max, a_max+2);
 }
 function computeAll(){
 	fill_table('tb_compute', {}, ['Gate', 'th_v1', 'th_r1', 'th_r2', '', 'th1_lin', 'th2_lin'], 'tc');
