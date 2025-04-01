@@ -1,5 +1,6 @@
 import os, sys, time, ntptime, network, gc
 from machine import Timer, ADC, Pin, PWM, UART
+from time import sleep, sleep_ms, ticks_ms
 from neopixel import NeoPixel
 
 Timers = {}	# {'timer-name': [last-stamp-sec, period-in-sec, True (is periodic or oneshot), callback_func]}
@@ -245,6 +246,8 @@ def set_uart(p):
 		p = eval(p) if type(p) is str else p
 		if type(p) is int:
 			if p in [20, 21]:
+				import micropython
+				micropython.kbd_intr(-1)
 				return sys.stdin.buffer	# this is the same as sys.stdout.buffer (bound to RX0/TX0)
 			return UART(1, 115200, rx=p, tx=21, timeout_char=10)
 		elif type(p) is tuple:

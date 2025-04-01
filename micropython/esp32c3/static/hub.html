@@ -322,7 +322,10 @@ input {font-size:15px;}
 		document.body.appendChild(e);
 	}
 	function set_value2(id, value, cmd='exec'){
-		if(id.startsWith('F_')||id.includes('.F_')) value='"'+value+'"';
+		if(id.startsWith('F_')||id.includes('.F_'))
+			value='"'+value+'"';
+		else if(id.endsWith('_starts')||id.endsWith('_stops'))
+			value = JSON.stringify(value.split(','));
 		GET(`/${cmd}?${id}=${value}`, (xhr)=>{toast("<font color=lime><b>Value set successfully!</b></font>", true)},
 			()=>{toast("<font color=red><b>Set value failed!</b></font>", true)});
 	}

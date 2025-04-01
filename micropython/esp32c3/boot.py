@@ -14,9 +14,10 @@ except:
 try:
 	open('debug').close()
 except:
-	import gc, rescue
+	import sys, gc, rescue
 	rescue.rescue()
 	del rescue
+	del sys.modules['rescue']
 	gc.collect()
 
 from main import *

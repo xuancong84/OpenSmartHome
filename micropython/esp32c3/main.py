@@ -291,7 +291,7 @@ def heap_free():
 	return sum([q[1] for q in esp32.idf_heap_info(esp32.HEAP_DATA)])
 
 class WebServer:
-	def __init__(self, host='0.0.0.0', captivePortalIP='', port=80, max_conn=0):
+	def __init__(self, host='0.0.0.0', captivePortalIP='', port=80, max_conn=5):
 		self.cmd = ''
 		routeHandlers = [
 			( "/", "GET", lambda clie, resp: resp.WriteResponseFile('/static/hub.html', "text/html") ),
