@@ -280,7 +280,7 @@ g.execRC = execRC
 g.dft_eval = Eval
 
 class WebServer:
-	def __init__(self, host='0.0.0.0', captivePortalIP='', port=80, max_conn=0):
+	def __init__(self, host='0.0.0.0', captivePortalIP='', port=80, max_conn=3):
 		self.cmd = ''
 		routeHandlers = [
 			( "/", "GET", lambda clie, resp: resp.WriteResponseFile('/static/hub.html', "text/html") ),

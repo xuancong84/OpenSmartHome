@@ -1,4 +1,4 @@
-import os, sys, gc, select, math
+import os, sys, gc, select, math, time
 from machine import Pin, PWM
 from time import sleep, sleep_ms, ticks_ms
 from array import array
@@ -58,6 +58,7 @@ class MSENSOR:
 		'LED_END': 400,
 		'GLIDE_TIME': 1200,
 		'N_CONSEC_TRIG': 1,
+		'sensor_on_block_ms': 3000,
 		'sensor_pwr_dpin_num': '',
 		'ctrl_output_dpin_num': '',
 		'led_master_dpin_num': '',
@@ -80,7 +81,7 @@ class MSENSOR:
 
 	def __init__(self, uart, mws:MWS):  # Typically ~15 frames
 		# init status
-		self.tm_last_ambient = round(time.time()*1000)
+		self.tm_last_ambient = self.sensor_on_block_until = round(time.time()*1000)
 		self.elapse = 0
 		self.uart = uart
 
@@ -288,7 +289,7 @@ class MSENSOR:
 					sleep_ms(400) # wait for light sensor to stablize and refresh lux value
 					self.lux_level = dft_eval(self.P['F_read_lux'], 9999999)
 			else:  # when light/led is off
-				if (acti>=3) and self.lux_level>=self.P['DARK_TH_HIGH']:
+				if (acti>=3) and self.lux_level>=self.P['DARK_TH_HIGH'] and millis>=self.sensor_on_block_until:
 					self.smartlight_dpin(True)
 					self.elapse = millis+self.P['DELAY_ON_MOV']
 				elif (type(self.lux_level)==int and self.lux_level<self.P['DARK_TH_LOW']): # return to day mode
@@ -299,3 +300,4 @@ class MSENSOR:
 			if (type(self.lux_level)==int and self.lux_level>(self.P['DARK_TH_HIGH']+self.P['DARK_TH_LOW'])/2):
 				self.sensor_pwr_dpin(True)
 				self.is_dark_mode = True
+				self.sensor_on_block_until = millis + self.P['sensor_on_block_ms']

@@ -1,4 +1,4 @@
-import machine
+import sys, machine
 from machine import Pin, reset_cause, reset
 
 try:	# initialize
@@ -18,6 +18,7 @@ except:
 	import gc, rescue
 	rescue.rescue()
 	del rescue
+	del sys.modules['rescue']
 	gc.collect()
 
 from main import *
