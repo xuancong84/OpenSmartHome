@@ -14,25 +14,15 @@ class MSENSOR:
 	CMD_MODE_ENG = b'\xfd\xfc\xfb\xfa\x08\x00\x12\x00\x00\x00\x04\x00\x00\x00\x04\x03\x02\x01'
 	# CMD_MODE_TXT = b'\xfd\xfc\xfb\xfa\x08\x00\x12\x00\x00\x00\x64\x00\x00\x00\x04\x03\x02\x01'
 
-	def uart_read(self):
-		if self.uart is not sys.stdin.buffer:
-			return self.uart.read()
-		buf = bytearray(256)
-		n = 0
-		while select.select([self.uart], [], [], 0.01)[0] and n<256:
-			buf[n] = ord(self.uart.read(1))
-			n += 1
-		return bytes(buf[:n])
-
 	def send_cmd(self, cmd, wait=True):
 		self.uart.write(cmd)
 		if wait:
 			sleep(0.1)
-			self.uart_read()
+			self.uart.read()
 
 	def read_energy(self):
 		try:
-			data = self.uart_read()
+			data = self.uart.read()
 			if type(data) != bytes:
 				self.uart = set_uart(P['PIN_MSENSOR'])
 				return None

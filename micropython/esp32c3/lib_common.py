@@ -1,4 +1,4 @@
-import os, sys, time, ntptime, network, gc
+import os, sys, time, ntptime, network, gc, select
 from machine import Timer, ADC, Pin, PWM, UART
 from time import sleep, sleep_ms, ticks_ms
 from neopixel import NeoPixel
@@ -26,7 +26,7 @@ P = {
 	}
 
 url_string = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~/?'
-is_valid_pin = lambda pin, P=P: type(P.get(pin, ''))==int or P.get(pin, '')
+is_valid_pin = lambda pin, P=P: (type(P.get(pin, '')) in [int, tuple]) or P.get(pin, '')
 read_py_obj = lambda f: Try(lambda: eval(open(f).read()), '')
 execRC = dft_eval = flashLED = lambda **kw:None
 
@@ -241,6 +241,25 @@ def save_params():
 	except Exception as e:
 		return str(e)
 
+
+class UART_buf:
+	def __init__(self, obj):
+		self.uart = obj
+		for attr in dir(obj):
+			if not hasattr(self, attr):
+				setattr(self, attr, getattr(obj, attr))
+
+	def any(self):
+		return bool(select.select([self.uart], [], [], 0)[0])
+	
+	def read(self):
+		buf = bytearray(256)
+		n = 0
+		while select.select([self.uart], [], [], 0.001)[0] and n<256:
+			buf[n] = ord(self.uart.read(1))
+			n += 1
+		return bytes(buf[:n])
+
 def set_uart(p):
 	try:
 		p = eval(p) if type(p) is str else p
@@ -248,10 +267,10 @@ def set_uart(p):
 			if p in [20, 21]:
 				import micropython
 				micropython.kbd_intr(-1)
-				return sys.stdin.buffer	# this is the same as sys.stdout.buffer (bound to RX0/TX0)
-			return UART(1, 115200, rx=p, tx=21, timeout_char=10)
+				return UART_buf(sys.stdin.buffer)	# the same as sys.stdout.buffer (bound to RX0/TX0)
+			return UART(1, 115200, rx=p, tx=21, timeout_char=1)
 		elif type(p) is tuple:
-			return UART(1, 115200, tx=p[1], rx=p[0], timeout_char=10)
+			return UART(1, 115200, tx=p[1], rx=p[0], timeout_char=1)
 	except:
 		pass
 	return None

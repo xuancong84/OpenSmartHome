@@ -334,32 +334,34 @@ class WebServer:
 		self.mws.CommonHeader = {'Access-Control-Allow-Origin': '*'}
 		self.sock_web = self.mws.run(max_conn=max_conn, loop_forever=False)
 		self.poll = select.poll()
-		self.poll.register(self.sock_web, select.POLLIN)
+		self.sock_map = {}
+		self.register(self.sock_web, self.mws.run_once)
 		self.poll_tmout = -1
 		self.uart_ASR = set_uart(P['PIN_ASR'])
 		self.uart_MSENSOR = set_uart(P['PIN_MSENSOR'])
-		self.sock_map = {self.sock_web: self.mws.run_once}
 		self.cpIP = captivePortalIP
 		if captivePortalIP:
 			self.sock_dns = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 			self.sock_dns.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 			self.sock_dns.bind((captivePortalIP, 53))
-			self.poll.register(self.sock_dns, select.POLLIN)
-			self.sock_map[self.sock_dns] = self.handleDNS
+			self.register(self.sock_dns, self.handleDNS)
 		else:
 			self.sock_dns = None
 
 		if not P['SMART_CTRL']:
 			return
-		if is_valid_pin('PIN_ASR'):
-			self.poll.register(self.uart_ASR, select.POLLIN)
-			self.sock_map[self.uart_ASR] = self.handleASR
-		if self.uart_MSENSOR:
+		if self.uart_ASR is not None:
+			self.register(self.uart_ASR, self.handleASR)
+		if self.uart_MSENSOR is not None:
 			g.MSENSOR = MSENSOR.MSENSOR(self.uart_MSENSOR, mws=self.mws)
 			gc.collect()
 			self.poll_tmout = 1
-			self.poll.register(self.uart_MSENSOR, select.POLLIN)
-			self.sock_map[self.uart_MSENSOR] = g.MSENSOR.handleUART
+			self.register(self.uart_MSENSOR, g.MSENSOR.handleUART)
+
+	def register(self, maybe_stream, handler):
+		stream = getattr(maybe_stream, 'uart', maybe_stream)
+		self.poll.register(stream, select.POLLIN)
+		self.sock_map[stream] = handler
 
 	def handleASR(self):
 		key = self.uart_ASR.readline().strip()
