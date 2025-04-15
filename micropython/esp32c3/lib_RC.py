@@ -3,9 +3,10 @@ from machine import Pin
 from time import ticks_us, ticks_diff, sleep
 from math import sqrt
 from array import array
+from lib_common import Critical
 
 class RC():
-	def __init__(self, rx_pin, tx_pin, nedges, nrepeat, min_nframes, gap_tol, recv_dur, proto={}):  # Typically ~15 frames
+	def __init__(self, rx_pin, tx_pin, nedges, nrepeat, min_nframes, gap_tol, recv_dur, var_lens=False, proto={}):  # Typically ~15 frames
 		# negative PIN number means inverted output, HIGH=unpowered, LOW=powered
 		self.rx_pin, self.rx_inv = (None, False) if type(rx_pin)!=int else (Pin(abs(rx_pin), Pin.IN, Pin.PULL_UP), rx_pin<0)
 		self.tx_pin, self.tx_inv = (None, False) if type(tx_pin)!=int else (Pin(abs(tx_pin), Pin.OUT), tx_pin<0)
@@ -16,7 +17,14 @@ class RC():
 		self.min_nframes = min_nframes
 		self.gap_tol = gap_tol
 		self.recv_dur = recv_dur
+		self.var_lens = var_lens
 		self.proto = proto
+
+	def fuzzy_comp(self, a, b, tol=0.1):
+		for i in range(1, min(len(a), len(b))):
+			if abs(a[i]-b[i])/max(a[i], b[i]) > tol:
+				return False
+		return True
 
 	def recv(self):
 		#print('Receiving RC data ...')
@@ -25,28 +33,16 @@ class RC():
 		p = self.rx_pin
 		arr = array('I',  [0]*nedges)
 
-		# Switch to maximum frequency if not
-		cur_freq = machine.freq()
-		if cur_freq!=160000000:
-			machine.freq(160000000)
-			sleep(0.1)
-
-		# ** Time critical **
-		st_irq = machine.disable_irq()
-		tm_til = ticks_us()+self.recv_dur
-		init_level = v = p()
-		for x in range(nedges):
-			while v == p() and ticks_us()<tm_til: pass
-			arr[x] = ticks_us()
-			if arr[x]>tm_til: break
-			v = p()
-		machine.enable_irq(st_irq)
-		# ** End of time critical **
-
-		# Restore original frequency
-		if cur_freq!=160000000:
-			machine.freq(cur_freq)
-			sleep(0.1)
+		with Critical():
+			# ** Time critical **
+			tm_til = ticks_us()+self.recv_dur
+			init_level = v = p()
+			for x in range(nedges):
+				while v == p() and ticks_us()<tm_til: pass
+				arr[x] = ticks_us()
+				if arr[x]>tm_til: break
+				v = p()
+			# ** End of time critical **
 
 		if x <= self.min_nframes*2:
 			return 'No signal received'
@@ -77,7 +73,17 @@ class RC():
 		len_most = [i for i,j in cnter.items() if j==cnt_max][0]
 		N_old = len(segs)
 		seg0id = [ii for ii,seg in enumerate(segs) if len(seg)==len_most][0]
-		segs = [seg for seg in segs if len(seg)==len_most]
+		if self.var_lens:	# allow variable length sequences (infra-red remote control holding button will keep sending trailing characters)
+			segs = [seg for seg in segs if len(seg)>len_most*0.9 and self.fuzzy_comp(seg, segs[seg0id])]
+			lengths = [len(seg) for seg in segs]
+			minlen = min(lengths)
+			if lengths.count(minlen)==1 and lengths[-1]==minlen:
+				segs.pop(-1)
+				lengths.pop(-1)
+				minlen = min(lengths)
+			segs = [seg[:minlen] for seg in segs]
+		else:
+			segs = [seg for seg in segs if len(seg)==len_most]
 		init_level = 1-init_level if (gap_pos[seg0id]&1) else init_level
 		N_new = len(segs)
 
@@ -92,7 +98,7 @@ class RC():
 		std = [sqrt(sum([(y - m[i])**2 for y in x])/N_new) for i, x in enumerate(zip(*segs))]
 		del segs
 		info += 'Capture quality {:5.1f} (0: perfect)'.format(sum(std)/len(std))
-		ret = {'init_level':init_level, 'data':list(map(round, m)), 'info':info}
+		ret = {'init_level':(1-init_level if self.proto['protocol']=='IRRC' else init_level), 'data':list(map(round, m)), 'info':info}
 		ret.update(self.proto)
 	
 		return ret
@@ -110,27 +116,27 @@ class RC():
 			return str(e)
 		
 		#print('Sending RC data ...')
-		p = self.tx_pin
+		with Critical():
+			p = self.tx_pin
+			# print('DEBUG0', self.nrepeat, init_level, self.tx_inv, arr)
 
-		# ** Time critical **
-		print('DEBUG0', self.nrepeat, init_level, self.tx_inv, arr)
-		st_irq = machine.disable_irq()
-		tm_til = ticks_us()+1000
-		while ticks_us()<tm_til: pass
+			# ** Time critical **
+			tm_til = ticks_us()+1000
+			while ticks_us()<tm_til: pass
 
-		for i in range(self.nrepeat):
-			level = init_level^self.tx_inv
-			p(level)
-			tm_til = ticks_us()
-			for dt in arr:
-				tm_til += dt
-				level = 1-level
-				while ticks_us()<tm_til: pass
+			for i in range(self.nrepeat):
+				level = init_level^self.tx_inv
 				p(level)
-		machine.enable_irq(st_irq)
-		# ** End of time critical **
+				tm_til = ticks_us()
+				for dt in arr:
+					tm_til += dt
+					level = 1-level
+					while ticks_us()<tm_til: pass
+					p(level)
+			# ** End of time critical **
 
-		p(self.tx_inv)	# turn off radio
+			p(self.tx_inv)	# turn off radio
+
 		return 'OK'
 
 	def sendPWM(self, obj):
@@ -138,43 +144,39 @@ class RC():
 
 		try:
 			init_level, arr, fPWM = obj['init_level'], obj['data'], int(obj['fPWM'])
+			zero = self.tx_inv*1023
+			p = machine.PWM(self.tx_pin, freq=fPWM, duty=zero)
 		except Exception as e:
 			#print(e)
 			return str(e)
 		
 		#print('Sending PWM data ...')
-		cur_freq = machine.freq()
-		machine.freq(160000000)
-		sleep(0.1)	# must wait for frequency to stablize, or will fail randomly
-		zero = self.tx_inv*1023
-		p = machine.PWM(self.tx_pin, fPWM, zero)
-
-		# ** Time critical **
-		for i in range(self.nrepeat):
-			level = 512 if init_level else zero
-			p.duty(level)
-			while not self.tx_pin():pass
-			tm_til = ticks_us()
-			for dt in arr:
-				tm_til += dt
-				level = zero if level==512 else 512
-				while ticks_us()<tm_til: pass
+		with Critical():
+			# ** Time critical **
+			for i in range(self.nrepeat):
+				level = 512 if init_level else zero
 				p.duty(level)
-		# ** End of time critical **
+				tm_til = ticks_us()
+				for dt in arr:
+					tm_til += dt
+					level = zero if level==512 else 512
+					while ticks_us()<tm_til: pass
+					p.duty(level)
+			# ** End of time critical **
 
-		p.duty(zero)	# turn off signal
-		p.deinit()
-		self.tx_pin(self.tx_inv)
-		machine.freq(cur_freq)
+			p.duty(zero)	# turn off signal
+			p.deinit()
+			Pin(self.tx_pin, Pin.IN)
+
 		return 'OK'
 
 
 # For RF 433MHz remote controller
 class RF433RC(RC):
 	def __init__(self, rx_pin=None, tx_pin=None, nedges=1800, nrepeat=5, min_nframes=5, recv_dur=3000000, gap_tol=0.8):
-		super().__init__(rx_pin, tx_pin, nedges, nrepeat, min_nframes, gap_tol, recv_dur, proto={'protocol':'RF433'})
+		super().__init__(rx_pin, tx_pin, nedges, nrepeat, min_nframes, gap_tol, recv_dur, var_lens=False, proto={'protocol':'RF433'})
 
 # For infrared remote controller
 class IRRC(RC):
 	def __init__(self, rx_pin=None, tx_pin=None, nedges=600, nrepeat=1, min_nframes=1, recv_dur=5000000, gap_tol=0.5):
-		super().__init__(rx_pin, tx_pin, nedges, nrepeat, min_nframes, gap_tol, recv_dur, proto={'protocol':'IRRC', 'fPWM':43000})
+		super().__init__(rx_pin, tx_pin, nedges, nrepeat, min_nframes, gap_tol, recv_dur, var_lens=True, proto={'protocol':'IRRC', 'fPWM':38000})

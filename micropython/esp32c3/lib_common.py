@@ -1,4 +1,4 @@
-import os, sys, time, ntptime, network, gc, select
+import os, sys, time, ntptime, network, gc, select, machine
 from machine import Timer, ADC, Pin, PWM, UART
 from time import sleep, sleep_ms, ticks_ms
 from neopixel import NeoPixel
@@ -51,6 +51,9 @@ class PIN:
 	"""
 	def __init__(self, pin, pin_name='', dtype=int, invert=None):
 		self.pin_name = f'PIN({pin})'
+		self.invert = invert or False
+		self.state = False
+		self.type = dtype
 		if type(pin)==int:
 			self.pin = abs(pin)
 			self.invert = pin<0 if invert is None else invert
@@ -70,11 +73,10 @@ class PIN:
 					if not self.invert:
 						self.pin.write()
 					self.invert = False
+		elif type(pin)==str:
+			self.pin = dft_eval(pin)
 		else:
 			self.pin = pin
-			self.invert = invert or False
-			self.state = False
-		self.type = dtype
 
 	def __call__(self, *args):
 		try:
@@ -274,3 +276,26 @@ def set_uart(p):
 	except:
 		pass
 	return None
+
+
+class Critical():
+	def __init__(self, disable_irq=True, max_freq=True):
+		self.disable_irq = disable_irq
+		self.max_freq = max_freq
+
+	def __enter__(self):
+		if self.max_freq:
+			self.freq = machine.freq()
+			if self.freq < 160000000:
+				machine.freq(160000000)
+				sleep_ms(10)
+		if self.disable_irq:
+			self.irqs = machine.disable_irq()
+		return self
+	
+	def __exit__(self, exception_type, exception_value, exception_traceback):
+		if self.disable_irq:
+			machine.enable_irq(self.irqs)
+		if self.max_freq and self.freq < 160000000:
+			machine.freq(self.freq)
+			sleep_ms(10)

@@ -40,6 +40,14 @@ copy2root_if() {
 	done
 }
 
+if [ $# -gt 0 ]; then
+	for f in "$@"; do
+		mpy-cross $f
+		pyboard -f cp ${f::-3}.mpy :
+	done
+	exit
+fi
+
 mpy-cross ../microWebSrv.py
 pyboard -f cp ../microWebSrv.mpy :
 
@@ -52,7 +60,7 @@ done
 
 if ! pyboard -f ls static/; then
 	set +e
-	pyboard -f mkdir  static
+	pyboard -f mkdir static
 	set -e
 fi
 
