@@ -152,14 +152,14 @@ class MSENSOR:
 			self.led_master_dpin(1)
 			tm_dif = ticks_ms()-tm0
 			while tm_dif<GLIDE_TIME and tm_dif>=0:
-				self.led_level_ppin(round(LED_BEGIN+spd*tm_dif))
+				self.led_level_ppin(LED_BEGIN+spd*tm_dif)
 				tm_dif = ticks_ms()-tm0
 			self.led_level_ppin(LED_END)
 		else:
 			self.led_level_ppin(LED_END)
 			tm_dif = ticks_ms()-tm0
 			while tm_dif<GLIDE_TIME and tm_dif>=0:
-				self.led_level_ppin(round(LED_END-spd*tm_dif))
+				self.led_level_ppin(LED_END-spd*tm_dif)
 				tm_dif = ticks_ms()-tm0
 			self.led_level_ppin(LED_BEGIN)
 			Try(lambda: Pin(self.P['led_discharge_dpin_num'], Pin.OUT)(0))

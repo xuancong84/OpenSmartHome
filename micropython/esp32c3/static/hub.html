@@ -377,11 +377,11 @@ input {font-size:15px;}
 						onchange='get_exec("${prefix}${k}("+(this.checked?1:0)+")")' ${v?"checked":""}> <span class="slider"></span>
 						<span class="labels" data-on="ON" data-off="OFF"></span></label> &nbsp;&nbsp;`);
 				}else if(k.endsWith('_ppin')){
-					addElem(box, `<span>${k}:</span><input id="${prefix}${k}" type="number" size=4 value="${v}" min=0 max=1023 onchange='get_exec("${prefix}${k}("+this.value+")")'> &nbsp;`);
+					addElem(box, `<span>${k}:</span><input id="${prefix}${k}" type="text" size=4 value="${v}" min=0 max=1023 onchange='get_exec("${prefix}${k}("+this.value+")")'> &nbsp;`);
 				}else if(k.endsWith('_neopin')){
 					addElem(box, `<span>${k}:</span><input id="${prefix}${k}" type="text" size=4 value="${v}" onchange='get_exec("${prefix}${k}("+this.value+")")'> &nbsp;`);
 				}else if(k.endsWith('_apin')){
-					addElem(box, `<span>${k}:</span><input id="${prefix}${k}" type="number" size=4 value="${v}" readonly> &nbsp;`);
+					addElem(box, `<span>${k}:</span><input id="${prefix}${k}" type="text" size=4 value="${v}" readonly> &nbsp;`);
 				}else if(typeof v=="boolean"){
 					addElem(box, `<span>${k}: </span> <label class="toggle"><input id="${prefix}${k}" type="checkbox" onchange='set_ckbox(this, "${cmd}")' ${v?"checked":""}>
 		<span class="slider"></span><span class="labels" data-on="ON" data-off="OFF"></span></label> &nbsp;&nbsp;`);
@@ -390,7 +390,7 @@ input {font-size:15px;}
 					set_fields2(box, v, `${prefix}${k}.`);
 					addElem(box, `<span>}</span> &nbsp;`);
 				}else{
-					addElem(box, `<span>${k}:</span><input id="${prefix}${k}" type="${typeof v=="number"?"number":"text"}" size=1 value="${v}" onchange='set_value(this, "${cmd}")'> &nbsp;`);
+					addElem(box, `<span>${k}:</span><input id="${prefix}${k}" type="text" size=1 value="${v}" onchange='set_value(this, "${cmd}")'> &nbsp;`);
 					var obj = getById(prefix+k);
 					obj.style.width = obj.scrollWidth + (typeof v=="number"?20:0) + 'px';
 				}

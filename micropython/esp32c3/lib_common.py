@@ -49,32 +49,36 @@ class PIN:
 		a: ADC pin
 		neo: NeoPixel pin (invert: do not init color (NeoPixel keeps previous color upon reboot but not color buffer))
 	"""
-	def __init__(self, pin, pin_name='', dtype=int, invert=None):
+	def __init__(self, pin, pin_name='', invert=None):
 		self.pin_name = f'PIN({pin})'
 		self.invert = invert or False
-		self.state = False
-		self.type = dtype
+		self.type = None
 		if type(pin)==int:
 			self.pin = abs(pin)
 			self.invert = pin<0 if invert is None else invert
 			if pin_name.endswith('pin_num'):
 				self.pin_name = pin_name[:-4]
-				pt = pin_name[:-7].split('_')[-1]
-				if pt=='d':
+				self.type = pin_name[:-7].split('_')[-1]
+				if self.type=='d':
 					self.pin = Try(lambda:Pin(self.pin, Pin.OUT), '')
-				elif pt=='p':
+				elif self.type=='p':
 					self.pin = Try(lambda:PWM(self.pin, freq=1000, duty=0),'')
-				elif pt=='i':
+				elif self.type=='i':
 					self.pin = Try(lambda:Pin(self.pin, Pin.IN), '')
-				elif pt=='a':
+				elif self.type=='a':
 					self.pin = Try(lambda:ADC(self.pin), '')
-				elif pt=='neo':
+				elif self.type=='neo':
 					self.pin = Try(lambda:NeoPixel(Pin(self.pin), 1), '')
 					if not self.invert:
 						self.pin.write()
 					self.invert = False
-		elif type(pin)==str:
+		elif type(pin) is str:
 			self.pin = dft_eval(pin)
+		elif type(pin) is tuple:
+			self.pin = pin
+			self.state = int(invert)
+		elif type(pin) is list:
+			self.pin = [PIN(p1, pin_name=pin_name, invert=invert) for p1 in pin]
 		else:
 			self.pin = pin
 
@@ -83,28 +87,24 @@ class PIN:
 			if args:
 				prt(self.pin_name, ':', args)
 			if self.invert:
-				if type(self.pin)==PWM:
-					if self.type == int:
-						return self.pin.duty(1023-args[0]) if args else 1023-self.pin.duty()
-					return self.pin.duty((1-args[0])*1023) if args else 1-self.pin.duty()/1023
-				elif type(self.pin)==Pin:
+				if self.type == 'p':
+					return self.pin.duty_u16((1-args[0])*65535) if args else 1-self.pin.duty_u16()/65535
+				elif self.type in ['d', 'i']:
 					return self.pin(1-args[0]) if args else 1-self.pin()
-				elif type(self.pin)==ADC:
-					return 1023-self.pin.read() if self.type==int else 1.0-self.pin.read_u16()/65535
-				elif type(self.pin)==int:
+				elif self.type == 'a':
+					return 1.0-self.pin.read_u16()/65535
+				elif self.type == '':
 					return Pin(self.pin)(1-args[0]) if args else 1-Pin(self.pin)()
 			else:
-				if type(self.pin)==PWM:
-					if self.type == int:
-						return self.pin.duty(args[0]) if args else self.pin.duty()
-					return self.pin.duty(args[0]*1023) if args else self.pin.duty()/1023
-				elif type(self.pin)==Pin:
+				if self.type == 'p':
+					return self.pin.duty_u16(args[0]*65535) if args else self.pin.duty_u16()/65535
+				elif self.type in ['d', 'i']:
 					return self.pin(*args)
-				elif type(self.pin)==ADC:
-					return self.pin.read() if self.type==int else self.pin.read_u16()/65535
-				elif type(self.pin)==int:
+				elif self.type == 'a':
+					return self.pin.read_u16()/65535
+				elif self.type == '':
 					return Pin(self.pin)(*args)
-				elif type(self.pin)==NeoPixel:
+				elif self.type == 'neo':
 					if not args:
 						return self.pin[0]
 					else:
@@ -112,11 +112,14 @@ class PIN:
 						self.pin.write()
 						return args[0]
 
-				if type(self.pin) in [tuple,list]:
+				if type(self.pin) is tuple:
 					if not args:
 						return self.state
 					self.state = args[0]
-					return execRC(self.pin[self.state])
+					return execRC(self.pin[self.state]) if self.state != args[0] else None
+				
+				if type(self.pin) is list:
+					return [p1(*args) for p1 in self.pin][0]
 	
 				return self.pin(*args) if callable(self.pin) else None
 		except Exception as e:
