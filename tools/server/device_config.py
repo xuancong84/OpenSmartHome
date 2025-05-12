@@ -6,7 +6,7 @@ from collections import defaultdict
 
 # all fields must be set, if absent put ''
 KTV_SPEAKER='10:3C:88:17:20:78'
-KTV_SCREEN='livingTV:HDMI_1'
+KTV_SCREEN='livingTV:HDMI_2'
 KTV_EXEC='~/projects/pikaraoke/run-cloud.sh'
 MP3_SPEAKER='54:B7:E5:9E:F4:14'
 MP3_DFTLIST='Desktop/musics.m3u'

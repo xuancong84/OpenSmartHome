@@ -470,17 +470,50 @@ def is_ble_connected(dev_mac):
 			return its[1].lower()=='yes'
 	return None
 
+def remove_ble(dev_mac):
+	os.system(f'bluetoothctl remove {dev_mac}' if sys.platform=='linux' else f'blueutil --remove {dev_mac}')
+
+def is_ble_trusted(dev_mac):
+	ret = RUN(f'bluetoothctl devices Trusted' if sys.platform=='linux' else f'blueutil --devices Trusted')
+	return bool([L for L in ret.splitlines() if dev_mac.upper() in L])
+
+def trust_ble(dev_mac):
+	timeout = 5
+	while not is_ble_trusted(dev_mac) and timeout<10:
+		os.system(f'bluetoothctl power on' if sys.platform=='linux' else f'blueutil --power on')
+		os.system(f'bluetoothctl --timeout {timeout} scan on' if sys.platform=='linux' else f'blueutil --timeout {timeout} --scan on')
+		os.system(f'bluetoothctl trust {dev_mac}' if sys.platform=='linux' else f'blueutil --trust {dev_mac}')
+		timeout += 1
+
+def is_ble_paired(dev_mac):
+	ret = RUN(f'bluetoothctl devices Paired' if sys.platform=='linux' else f'blueutil --devices Paired')
+	return bool([L for L in ret.upper().splitlines() if dev_mac.upper() in L])
+
+def pair_ble(dev_mac):
+	if is_ble_paired(dev_mac):
+		return True
+	os.system(f'bluetoothctl --timeout 8 pair {dev_mac}' if sys.platform=='linux' else f'blueutil --timeout 8 --pair {dev_mac}')
+	return is_ble_paired(dev_mac)
+
+def is_ble_connected(dev_mac):
+	ret = RUN(f'bluetoothctl devices Connected' if sys.platform=='linux' else f'blueutil --devices Connected')
+	return bool([L for L in ret.upper().splitlines() if dev_mac.upper() in L])
+
 @app.route('/connectble/<device>')
 def connectble(dev_mac):
-	ret = os.system(f'bluetoothctl trust {dev_mac}' if sys.platform=='linux' else f'blueutil --trust {dev_mac}')
-	ret |= os.system(f'bluetoothctl pair {dev_mac}' if sys.platform=='linux' else f'blueutil --pair {dev_mac}')
-	ret |= os.system(f'bluetoothctl connect {dev_mac}' if sys.platform=='linux' else f'blueutil --connect {dev_mac}')
+	while not is_ble_paired(dev_mac):
+		remove_ble(dev_mac)
+		trust_ble(dev_mac)
+		pair_ble(dev_mac)
+	if is_ble_connected(dev_mac):
+		return '0'
+	disconnectble()
+	ret = os.system(f'bluetoothctl connect {dev_mac}' if sys.platform=='linux' else f'blueutil --connect {dev_mac}')
 	return str(ret)
 
 @app.route('/disconnectble/<device>')
-def disconnectble(dev_mac):
+def disconnectble(dev_mac=''):
 	ret = os.system(f'bluetoothctl disconnect {dev_mac}' if sys.platform=='linux' else f'blueutil --disconnect {dev_mac}')
-	# ret |= os.system(f'bluetoothctl remove {dev_mac}' if sys.platform=='linux' else f'blueutil --remove {dev_mac}')
 	return str(ret)
 
 @app.route('/volume/<cmd>')
