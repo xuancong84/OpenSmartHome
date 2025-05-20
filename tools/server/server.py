@@ -42,6 +42,7 @@ playlist = None
 mplayer = None
 filelist = []
 P_ktv = None
+P_hidecursor = None
 isFirst = True
 isVideo = None
 subtitle = True
@@ -294,7 +295,7 @@ def set_timer(tm='', name=None, filename=None):
 	return 'OK'
 
 def handle_ASR_timer(asr_out, tv_name, filename, url_root):
-	tm = txt2time(asr_out['text'].strip())
+	tm = txt2time(asr_postprocess(asr_out['text']))
 	if tm is None:
 		return play_audio('voice/set_timer_unknown.mp3', True, tv_name)
 	return play_audio('voice/set_timer_okay.mp3' if set_timer(str(tm), tv_name, filename) == 'OK' else 'voice/set_timer_fail.mp3', True, tv_name)
@@ -1048,7 +1049,7 @@ def play_last(tv_name=None):
 	return 'OK'
 
 def handle_ASR_indir(asr_out, tv_name, rel_path, url_root):
-	res = findMedia(asr_out['text'].strip(), asr_out['language'], base_path=SHARED_PATH+rel_path)
+	res = findMedia(asr_postprocess(asr_out['text']), asr_out['language'], base_path=SHARED_PATH+rel_path)
 	if res == None:
 		setInfo(tv_name, asr_out["text"], asr_out['language'], 'S2T', '')
 		play_audio('voice/asr_not_found_drama.mp3' if rel_path else 'voice/asr_not_found_file.mp3', True, tv_name)
@@ -1076,7 +1077,7 @@ def handle_ASR_indir(asr_out, tv_name, rel_path, url_root):
 
 def handle_ASR_inlst(asr_out, tv_name, lst_filename, url_root):
 	lst = load_m3u(SHARED_PATH+lst_filename) if lst_filename else ip2tvdata[Try(lambda: tv2lginfo(tv_name)['ip'], None)]['playlist']
-	ii = findSong(asr_out['text'].strip(), asr_out['language'], lst)
+	ii = findSong(asr_postprocess(asr_out['text']), asr_out['language'], lst)
 	if ii == None:
 		play_audio('voice/asr_not_found.mp3', True, tv_name)
 		return 'ASR okay, but item not found!'
@@ -1175,8 +1176,13 @@ def KTV(cmd):
 			tv_setInput(tv_name, input_id)
 		set_audio_device(KTV_SPEAKER, 5)
 		P_ktv = subprocess.Popen([KTV_EXEC], shell=True, preexec_fn=os.setsid)
+		if sys.platform=='linux' and P_hidecursor is None:
+			P_hidecursor = subprocess.Popen('DISPLAY=:0 unclutter -idle 2', shell=True, preexec_fn=os.setsid)
 	elif cmd=='off':
 		os.killpg(os.getpgid(P_ktv.pid), signal.SIGKILL)
+		if sys.platform=='linux' and P_hidecursor is not None:
+			os.killpg(os.getpgid(P_hidecursor.pid), signal.SIGKILL)
+			P_hidecursor = None
 		unset_audio_device(KTV_SPEAKER)
 	return 'OK'
 

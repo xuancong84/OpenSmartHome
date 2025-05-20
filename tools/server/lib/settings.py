@@ -8,6 +8,7 @@ FUZZY_GREEK = {'η': 'ι', 'ή': 'ί', 'ὴ': 'ὶ', 'ῆ': 'ῖ', 'ἠ': 'ἰ',
 video_file_exts = ['.mp4', '.mkv', '.avi', '.mpg', '.mpeg', '.webm']
 audio_file_exts = ['.mp3', '.m4a', '.webm']
 media_file_exts = list(set(video_file_exts + audio_file_exts))
+punctuation = ',.:;?!，。：；？！'
 
 lang2id = {Language.ENGLISH: 'en', Language.CHINESE: 'zh', Language.HINDI: 'hi', Language.SPANISH: 'es', Language.FRENCH: 'fr',
 	Language.ARABIC: 'ar', Language.BENGALI: 'bn', Language.RUSSIAN: 'ru', Language.PORTUGUESE: 'pt', Language.URDU: 'ur',

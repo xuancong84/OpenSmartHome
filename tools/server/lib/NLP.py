@@ -140,6 +140,11 @@ def str_search(name, name_list):
 	res = [[ii, len(it)-len(name)] for ii,it in enumerate(name_list) if name in it]
 	return [it[0] for it in sorted(res, key=lambda t:t[1])] if res else []
 
+def asr_postprocess(txt):
+	ret = txt.strip()
+	for c in punctuation:
+		ret = ret.strip(c)
+	return ret
 
 def filepath2songtitle(fn):
 	s = os.path.basename(unquote(fn).rstrip('/')).split('.')[0].strip()
