@@ -266,7 +266,7 @@ def set_timer(tm='', name=None, filename=None):
 	tmr_name = f'{name}\t{filename}'
 	if tm==' ':
 		DelTimers(name) if filename=='*' else DelTimer(tmr_name)
-		if is_tv_on(name):
+		if is_tv_wsock(name):
 			tv_wscmd(name, 'clear_countdown()')
 		return 'Timer deleted OK'
 	if ':' in tm:
@@ -286,7 +286,8 @@ def set_timer(tm='', name=None, filename=None):
 		SetTimer(tmr_name, tm_sec, lambda: send_hub_cmd(name, filename), f'将于{tm_til}定时向{name}发送指令{name}')
 	elif is_tv_on(name):
 		SetTimer(tmr_name, tm_sec, lambda: tv(name, 'off'), f'将于{tm_til}定时关闭电视机{name}')
-		tv_wscmd(name, f'set_countdown({tm_sec})')
+		if is_tv_wsock(name):
+			tv_wscmd(name, f'set_countdown({tm_sec})')
 	else:
 		if filename==None:
 			SetTimer(tmr_name, tm_sec, lambda: tv(name, 'on'), f'将于{tm_til}定时开启电视机{name}')
@@ -584,6 +585,11 @@ def is_tv_on(tv_name):
 def is_tv_ready(tv_name):
 	return os.system(f'{LG_TV_BIN} --name {tv_name} audioVolume')==0
 
+# Whether TV browser websocket is connected (so that it can play sound)
+@app.route('/is_tv_wsock/<tv_name>')
+def is_tv_wsock(tv_name):
+	return is_tv_on(tv_name) and (get_tv_ip(tv_name) in ip2websock)
+
 @app.route('/tv_on/<tv_name>')
 def tv_on_if_off(tv_name, wait_ready=False):
 	tvinfo = tv2lginfo(tv_name)
@@ -616,12 +622,13 @@ def tvVolume(name='', vol=''):
 	try:
 		vol = str(vol)
 		is_perc = vol.endswith('%')
-		value = int(vol.rstrip('%'))
+		neg_mul = -1 if vol.startswith('-') else 1
+		value = abs(int(vol.rstrip('%')))
 		if not vol[0].isdigit():
 			ret = RUN(f'{LG_TV_BIN} --name {name} audioVolume')
 			L = ret[ret.find('"volume":'):]
 			cur_vol = int(L[L.find(' '):L.find(',')])
-			value = cur_vol + (max(1, round(cur_vol*value/100)) if is_perc else value)
+			value = cur_vol + (max(1, round(cur_vol*value/100)) if is_perc else value)*neg_mul
 		return RUN(f'{LG_TV_BIN} --name {name} setVolume {value}')
 	except:
 		pass
@@ -924,7 +931,7 @@ def play_audio_chip(fn):
 def play_audio(fn, block=False, tv_name=None):
 	ev_mutex.clear()
 	if tv_name:
-		if not is_tv_on(tv_name):
+		if not is_tv_wsock(tv_name):
 			return play_audio_chip(fn)
 		res = tv_wscmd(tv_name, f'play_audio("/{f"voice?{random.randint(0,999999)}" if fn==DEFAULT_T2S_SND_FILE else fn}",true)')
 		assert res == 'OK'
@@ -964,7 +971,7 @@ class VoicePrompt:
 
 	def __enter__(self):	# preserve environment
 		global player
-		if self.tv_name and is_tv_on(self.tv_name):
+		if self.tv_name and is_tv_wsock(self.tv_name):
 			self.cur_sta = tv_wscmd(self.tv_name, 'pause')
 			self.cur_vol = tvVolume(self.tv_name)
 		elif player!=None:
