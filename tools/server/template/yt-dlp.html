@@ -135,7 +135,12 @@ function open_wsock_if_nec(){
 }
 function getURL(){
 	var url = getById('videoURL').value;
-	return url.startsWith('http')?url:('https://'+url);
+	if(!url.startsWith('http')){
+		var p = url.indexOf('http://');
+		if(p<0) p = url.indexOf('https://');
+		if(p>=0) url = url.substr(p);
+	}
+	return url;
 }
 function download(){
 	var mask = 0;

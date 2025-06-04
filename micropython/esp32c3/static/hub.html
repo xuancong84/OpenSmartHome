@@ -280,270 +280,274 @@ input {font-size:15px;}
 	</div>
     <div id="bleBack" class="dark_overlay" style="position: fixed"></div>
 
-
 <script>
-	function getById(id_str) { return document.getElementById(id_str); }
-	var timer = null;
-	var requesting = false;
-	var snackbar = getById('snackbar');
-	var keepUpdating = getById('keepUpdating');
-	function isString(s){return typeof s === 'string' || s instanceof String;}
-	function GET(url, onOkay=null, onFail=null) {
-		var xmlHttp = new XMLHttpRequest();
-		xmlHttp.open('GET', url, onOkay!=null||onFail!=null);
-		if(onOkay!=null) xmlHttp.onload = onOkay;
-		if(onFail!=null) xmlHttp.onerror = xmlHttp.onabort = xmlHttp.ontimeout = onFail;
-		xmlHttp.send(null);
-		return xmlHttp.responseText;
+function getById(id_str) { return document.getElementById(id_str); }
+var timer = null;
+var requesting = false;
+var snackbar = getById('snackbar');
+var keepUpdating = getById('keepUpdating');
+function isString(s){return typeof s === 'string' || s instanceof String;}
+function GET(url, onOkay=null, onFail=null) {
+	var xmlHttp = new XMLHttpRequest();
+	xmlHttp.open('GET', url, onOkay!=null||onFail!=null);
+	if(onOkay!=null) xmlHttp.onload = onOkay;
+	if(onFail!=null) xmlHttp.onerror = xmlHttp.onabort = xmlHttp.ontimeout = onFail;
+	xmlHttp.send(null);
+	return xmlHttp.responseText;
+}
+function POST(url, data = null, onOkay=null, onFail=null){
+	var xmlHttp = new XMLHttpRequest();
+	xmlHttp.open('POST', url, onOkay!=null||onFail!=null);
+	if(onOkay!=null) xmlHttp.onload = onOkay;
+	if(onFail!=null) xmlHttp.onerror = xmlHttp.onabort = xmlHttp.ontimeout = onFail;
+	xmlHttp.send(data);
+	return xmlHttp.responseText;
+}
+function toast(msg, isHTML=false) {
+	if(msg instanceof Error)
+		msg = msg.name + ' : ' + msg.message;
+	else if(!isString(msg))
+		msg = msg.target.responseText || (msg.target.statusText+' '+msg.target.status);
+	var randint = Math.round(Math.random()*10000);
+	var e = document.createElement('div');
+	e.id = `toast${randint}`;
+	e.className = 'toast show';
+	e.tabIndex = 0;
+	if(isHTML)e.innerHTML = msg;
+	else e.innerText = msg;
+	e.timeout = setTimeout(function(){ getById(`toast${randint}`).remove() }, 3000);
+	e.onfocus = (ev)=>{clearTimeout(ev.target.timeout);}
+	e.onblur = (ev)=>{ev.target.remove();}
+	document.body.appendChild(e);
+}
+function set_value2(id, value, cmd='exec'){
+	if(id.startsWith('F_')||id.includes('.F_'))
+		value='"'+value+'"';
+	else if(id.endsWith('_starts')||id.endsWith('_stops'))
+		value = JSON.stringify(value.split(','));
+	GET(`/${cmd}?${id}=${value}`, (xhr)=>{toast("<font color=lime><b>Value set successfully!</b></font>", true)},
+		()=>{toast("<font color=red><b>Set value failed!</b></font>", true)});
+}
+function set_value(obj, cmd='exec'){ set_value2(obj.id, obj.value, cmd); }
+function set_active(cb){
+	if(cb.checked){
+		if(timer==null) timer=setInterval(update, 1000);
+	}else{
+		if(timer!=null) {clearInterval(timer); timer=null;}
 	}
-	function POST(url, data = null, onOkay=null, onFail=null){
-		var xmlHttp = new XMLHttpRequest();
-		xmlHttp.open('POST', url, onOkay!=null||onFail!=null);
-		if(onOkay!=null) xmlHttp.onload = onOkay;
-		if(onFail!=null) xmlHttp.onerror = xmlHttp.onabort = xmlHttp.ontimeout = onFail;
-		xmlHttp.send(data);
-		return xmlHttp.responseText;
-	}
-	function toast(msg, isHTML=false) {
-		if(msg instanceof Error)
-			msg = msg.name + ' : ' + msg.message;
-		else if(!isString(msg))
-			msg = msg.target.responseText || (msg.target.statusText+' '+msg.target.status);
-		var randint = Math.round(Math.random()*10000);
-		var e = document.createElement('div');
-		e.id = `toast${randint}`;
-		e.className = 'toast show';
-		e.tabIndex = 0;
-		if(isHTML)e.innerHTML = msg;
-		else e.innerText = msg;
-		e.timeout = setTimeout(function(){ getById(`toast${randint}`).remove() }, 3000);
-		e.onfocus = (ev)=>{clearTimeout(ev.target.timeout);}
-		e.onblur = (ev)=>{ev.target.remove();}
-		document.body.appendChild(e);
-	}
-	function set_value2(id, value, cmd='exec'){
-		if(id.startsWith('F_')||id.includes('.F_'))
-			value='"'+value+'"';
-		else if(id.endsWith('_starts')||id.endsWith('_stops'))
-			value = JSON.stringify(value.split(','));
-		GET(`/${cmd}?${id}=${value}`, (xhr)=>{toast("<font color=lime><b>Value set successfully!</b></font>", true)},
-			()=>{toast("<font color=red><b>Set value failed!</b></font>", true)});
-	}
-	function set_value(obj, cmd='exec'){ set_value2(obj.id, obj.value, cmd); }
-	function set_active(cb){
-		if(cb.checked){
-			if(timer==null) timer=setInterval(update, 1000);
-		}else{
-			if(timer!=null) {clearInterval(timer); timer=null;}
-		}
-	}
-	var tb = getById('rc-table');
-	var tb_ble = getById('tb_ble');
-	var ble_rid = null;
-	var rid = 0;
-	var drag_rid;
-	var G = {};
-	var data_i = tb.rows[0].childElementCount-2;
-	function set_ckbox(obj, cmd='exec'){ GET(`/${cmd}?${obj.id}=${obj.checked?'True':'False'}`, toast, toast); }
-	function get_exec(cmd){ GET('/exec?'+cmd, toast, toast); }
-	function save() {
-		var N = tb.rows.length - 2;
-		var ret = '';
-		var X = [...Array(tb.rows[0].childElementCount).keys()].slice(1,-1);
-		for (var n = 1; n <= N; ++n){
-			for(var x of X)
-				if(tb.rows[n].children[x].textContent.includes('\n') || tb.rows[n].children[x].textContent.includes('\r')){
-					alert(`Error: Row ${n} Column ${x} contains multiple lines`);
-					return;
-				}
-			ret += X.map(x => tb.rows[n].children[x].textContent).join('\t') + '\n';
-		}
-		POST('/rc_save', ret, toast, toast);
-	}
-	function addElem(box, html_code){
-		box.insertAdjacentHTML('beforeend', html_code);
-	}
-	function set_fields2(box, OBJ, prefix0=''){
-		var cmd = box.id=='PARAMS_BOX'?'set_params':'exec';
-		var prefix = prefix0 || (box.id=='PARAMS_BOX'?'':'g.');
-		for (const [k,v] of Object.entries(OBJ).sort()) {
-			var obj = getById(prefix+k);
-			if(obj==null){
-				if(v==null) continue;
-				if(k.endsWith('_page')){
-					addElem(box, `<button onclick="window.open('${v}', '_blank')" title="Open new page" class="bb">${k.split('_').slice(0,-1).join(' ')}</button> &nbsp;&nbsp;`);
-				}else if(k.endsWith('_dpin')){
-					addElem(box, `<span>${k}: </span> <label class="toggle"><input id="${prefix}${k}" type="checkbox"
-						onchange='get_exec("${prefix}${k}("+(this.checked?1:0)+")")' ${v?"checked":""}> <span class="slider"></span>
-						<span class="labels" data-on="ON" data-off="OFF"></span></label> &nbsp;&nbsp;`);
-				}else if(k.endsWith('_ppin')){
-					addElem(box, `<span>${k}:</span><input id="${prefix}${k}" type="text" size=4 value="${v}" min=0 max=1023 onchange='get_exec("${prefix}${k}("+this.value+")")'> &nbsp;`);
-				}else if(k.endsWith('_neopin')){
-					addElem(box, `<span>${k}:</span><input id="${prefix}${k}" type="text" size=4 value="${v}" onchange='get_exec("${prefix}${k}("+this.value+")")'> &nbsp;`);
-				}else if(k.endsWith('_apin')){
-					addElem(box, `<span>${k}:</span><input id="${prefix}${k}" type="text" size=4 value="${v}" readonly> &nbsp;`);
-				}else if(typeof v=="boolean"){
-					addElem(box, `<span>${k}: </span> <label class="toggle"><input id="${prefix}${k}" type="checkbox" onchange='set_ckbox(this, "${cmd}")' ${v?"checked":""}>
-		<span class="slider"></span><span class="labels" data-on="ON" data-off="OFF"></span></label> &nbsp;&nbsp;`);
-				}else if(v.constructor == Object){ // is a dictionary
-					addElem(box, `<hr><span class="expand" id="${prefix}${k}">${k}: { </span>`);
-					set_fields2(box, v, `${prefix}${k}.`);
-					addElem(box, `<span>}</span> &nbsp;`);
-				}else{
-					addElem(box, `<span>${k}:</span><input id="${prefix}${k}" type="text" size=1 value="${v}" onchange='set_value(this, "${cmd}")'> &nbsp;`);
-					var obj = getById(prefix+k);
-					obj.style.width = obj.scrollWidth + (typeof v=="number"?20:0) + 'px';
-				}
-			}else{
-				if(v==null)obj.style.display="none";
-				else{
-				 	obj.style.display="inline";
-					 if(document.activeElement==obj) continue;
-					if(obj.tagName=='INPUT' || obj.tagName=='TEXTAREA'){
-						if(obj.type == 'checkbox') obj.checked = v;
-						else obj.value = v;
-					}else if(obj.classList.contains('expand'))
-						set_fields2(box, v, `${prefix}${k}.`);
-					else
-						obj.textContent = v;
-				}
-			}
-		}
-	}
-	function set_fields(txt, box_name='STATUS_BOX'){
-		requesting = false;
-		try{G = JSON.parse(txt)} catch(e){return}
-		set_fields2(getById(box_name), G);
-	}
-	function clear_all(t=tb, n=2){
-		while (t.rows.length > n) t.deleteRow(1);
-	}
-	function update(mask=1){
-		if(requesting) return;
-		requesting = true;
-		if(mask&1){
-			GET('/status', (e)=>{set_fields(e.target.responseText); if(mask&2)setTimeout(()=>{update(2)}, 500);}, 
-				()=>{keepUpdating.checked=requesting=false; set_active(keepUpdating)});
-		}else if(mask&2){
-			GET('/get_params', (e)=>{set_fields(e.target.responseText, 'PARAMS_BOX')},
-				()=>{keepUpdating.checked=requesting=false; set_active(keepUpdating)});
-		}
-	}
-	function fill_rc(txt){
-		if(!txt) return;
-		clear_all();
-		for (var line of txt.split('\n')) {
-			var its = line.split('\t');
-			var row = add_new_row();
-			for (var x = 0; x < data_i; x++)
-				row.children[x+1].textContent = its[x];
-		}
-	}
-	function load() {
-		GET('/rc_load', (e)=>{
-			fill_rc(e.target.responseText.trim());
-			setTimeout(()=>{update(3)}, 500);
-		});
-	}
-	function recordRC(rid, url){
-		GET(url, (ev)=>{
-			try{
-				var obj = JSON.parse(ev.target.responseText);
-				if(isString(obj)) return alert(obj);
-				if('info' in obj){
-					alert(obj.info);
-					delete obj.info;
-				}
-				getById('R'+rid).children[data_i].textContent = JSON.stringify(obj);
-			}catch(e){toast(e)}
-		}, toast)
-	}
-	function recordRF(rid) {
-		if(confirm("Please hold down the remote controller button and click OK to record:"))
-			recordRC(rid, '/rf_record');
-	}
-	function recordIR(rid) {
-		if(confirm("Please press the remote controller button at least 3 times within 3 seconds after clicking OK:"))
-			recordRC(rid, '/ir_record');
-	}
-	function openBLE(rid){
-		ble_rid = rid;
-		getById('bleFront').style.display = getById('bleBack').style.display = 'block';
-	}
-	function closeBLE(n=0){
-		if(n>0)
-			getById('R'+ble_rid).children[data_i].textContent = `{'protocol': 'BLE', 'cmd': 'gap_advertise', 'data':'${tb_ble.rows[n].children[5].textContent}'}`;
-		getById('bleFront').style.display = getById('bleBack').style.display = 'none';
-	}
-	function sendBLE(n){
-		var data = `{'protocol': 'BLE', 'cmd': 'gap_advertise', 'data':'${tb_ble.rows[n].children[5].textContent}'}`;
-		toast(POST('/rc_exec', data));
-	}
-	function emit(rid) {
-		var v = getById('R'+rid).children[data_i].textContent;
-		POST('/rc_exec', v, toast, toast);
-	}
-	function start_ble_scan(){
-		var opt = `, 'nbestn':${getById('nbestn').value}`;
-		if(getById('cb_filter').checked){
-			var mac = getById('sender_addr_filter').value;
-			if(! /^[0-9a-fA-F]{12}$/.test(mac)){
-				alert("Invalid MAC address format, must be of 12 hex digits!");
+}
+var tb = getById('rc-table');
+var tb_ble = getById('tb_ble');
+var ble_rid = null;
+var rid = 0;
+var drag_rid;
+var G = {};
+var data_i = tb.rows[0].childElementCount-2;
+function set_ckbox(obj, cmd='exec'){ GET(`/${cmd}?${obj.id}=${obj.checked?'True':'False'}`, toast, toast); }
+function get_exec(cmd){ GET('/exec?'+cmd, toast, toast); }
+function save() {
+	var N = tb.rows.length - 2;
+	var ret = '';
+	var X = [...Array(tb.rows[0].childElementCount).keys()].slice(1,-1);
+	for (var n = 1; n <= N; ++n){
+		for(var x of X)
+			if(tb.rows[n].children[x].textContent.includes('\n') || tb.rows[n].children[x].textContent.includes('\r')){
+				alert(`Error: Row ${n} Column ${x} contains multiple lines`);
 				return;
 			}
-			opt += `, 'filter_addr':'${mac}'`;
+		ret += X.map(x => tb.rows[n].children[x].textContent).join('\t') + '\n';
+	}
+	POST('/rc_save', ret, toast, toast);
+}
+function addElem(box, html_code){
+	box.insertAdjacentHTML('beforeend', html_code);
+}
+isObject = v=> (v !== undefined && v !== null && v.constructor == Object);
+function set_fields2(box, OBJ, prefix0=''){
+	var cmd = box.id=='PARAMS_BOX'?'set_params':'exec';
+	var prefix = prefix0 || (box.id=='PARAMS_BOX'?'':'g.');
+	for (const [k,v] of Object.entries(OBJ).sort((a,b)=>{
+			if(isObject(a[1]) && !isObject(b[1])) return 1;
+			if(!isObject(a[1]) && isObject(b[1])) return -1;
+			return a[0]==b[0] ? 0 : (a[0]>b[0]?1:-1);
+		})) {
+		var obj = getById(prefix+k);
+		if(obj==null){
+			if(v==null) continue;
+			if(k.endsWith('_page')){
+				addElem(box, `<button onclick="window.open('${v}', '_blank')" title="Open new page" class="bb">${k.split('_').slice(0,-1).join(' ')}</button> &nbsp;&nbsp;`);
+			}else if(k.endsWith('_dpin')){
+				addElem(box, `<span>${k}: </span> <label class="toggle"><input id="${prefix}${k}" type="checkbox"
+					onchange='get_exec("${prefix}${k}("+(this.checked?1:0)+")")' ${v?"checked":""}> <span class="slider"></span>
+					<span class="labels" data-on="ON" data-off="OFF"></span></label> &nbsp;&nbsp;`);
+			}else if(k.endsWith('_ppin')){
+				addElem(box, `<span>${k}:</span><input id="${prefix}${k}" type="text" size=4 value="${v}" min=0 max=1023 onchange='get_exec("${prefix}${k}("+this.value+")")'> &nbsp;`);
+			}else if(k.endsWith('_neopin')){
+				addElem(box, `<span>${k}:</span><input id="${prefix}${k}" type="text" size=4 value="${v}" onchange='get_exec("${prefix}${k}("+this.value+")")'> &nbsp;`);
+			}else if(k.endsWith('_apin')){
+				addElem(box, `<span>${k}:</span><input id="${prefix}${k}" type="text" size=4 value="${v}" readonly> &nbsp;`);
+			}else if(typeof v=="boolean"){
+				addElem(box, `<span>${k}: </span> <label class="toggle"><input id="${prefix}${k}" type="checkbox" onchange='set_ckbox(this, "${cmd}")' ${v?"checked":""}>
+	<span class="slider"></span><span class="labels" data-on="ON" data-off="OFF"></span></label> &nbsp;&nbsp;`);
+			}else if(v.constructor == Object){ // is a dictionary
+				addElem(box, `<hr><span class="expand" id="${prefix}${k}">${k}: { </span>`);
+				set_fields2(box, v, `${prefix}${k}.`);
+				addElem(box, `<span>}</span> &nbsp;`);
+			}else{
+				addElem(box, `<span>${k}:</span><input id="${prefix}${k}" type="text" size=1 value="${v}" onchange='set_value(this, "${cmd}")'> &nbsp;`);
+				var obj = getById(prefix+k);
+				obj.style.width = obj.scrollWidth + (typeof v=="number"?20:0) + 'px';
+			}
+		}else{
+			if(v==null)obj.style.display="none";
+			else{
+				obj.style.display="inline";
+					if(document.activeElement==obj) continue;
+				if(obj.tagName=='INPUT' || obj.tagName=='TEXTAREA'){
+					if(obj.type == 'checkbox') obj.checked = v;
+					else obj.value = v;
+				}else if(obj.classList.contains('expand'))
+					set_fields2(box, v, `${prefix}${k}.`);
+				else
+					obj.textContent = v;
+			}
 		}
-		POST('/rc_exec', `{'protocol': 'BLE', 'cmd': 'start_scan'${opt}}`, (ev) => {
-			toast('BLE Scan started');
-			getById('bt_scanBLE').textContent = "Stop Scan";
-			getById('bt_scanBLE').onclick = ()=>{stop_ble_scan()};
-			getById('cb_filter').disabled = true;
-			clear_all(tb_ble, 1);
-		}, toast)
 	}
-	function stop_ble_scan(){
-		POST('/rc_exec', "{'protocol': 'BLE', 'cmd': 'stop_scan'}", (ev) => {
-			toast('BLE Scan stopped');
-			getById('bt_scanBLE').textContent = "Start Scan";
-			getById('bt_scanBLE').onclick = ()=>{start_ble_scan()};
-			getById('cb_filter').disabled = false;
-			try{
-				// input format: [[RSSI,addr/#addr,addr_type,adv_type,data]]
-				obj = JSON.parse(ev.target.responseText);
-				for(var o1 of obj){
-					var n = tb_ble.rows.length;
-					var row = tb_ble.insertRow(n);
-					row.innerHTML = `<td>${n}</td><td>${o1[0]}</td><td>${o1[1]}</td><td>${o1[2]}</td><td>${o1[3]}</td>
-					<td contenteditable>${o1[4]}</td><td>${o1[4].length/2}</td>
-					<td style="text-align:center">
-						<input type='button' onclick='sendBLE(${n})' value='Send' title="Send this BLE signal to test whether it can control your device">
-						<input type='button' onclick='closeBLE(${n})' value='Pick' title="Choose this one and close the window">
-					</td>`
-				}
-			}catch(e){alert(e)}
-		}, (xhr) => {alert(xhr)})
+}
+function set_fields(txt, box_name='STATUS_BOX'){
+	requesting = false;
+	try{G = JSON.parse(txt)} catch(e){return}
+	set_fields2(getById(box_name), G);
+}
+function clear_all(t=tb, n=2){
+	while (t.rows.length > n) t.deleteRow(1);
+}
+function update(mask=1){
+	if(requesting) return;
+	requesting = true;
+	if(mask&1){
+		GET('/status', (e)=>{set_fields(e.target.responseText); if(mask&2)setTimeout(()=>{update(2)}, 500);}, 
+			()=>{keepUpdating.checked=requesting=false; set_active(keepUpdating)});
+	}else if(mask&2){
+		GET('/get_params', (e)=>{set_fields(e.target.responseText, 'PARAMS_BOX')},
+			()=>{keepUpdating.checked=requesting=false; set_active(keepUpdating)});
 	}
-	function deleteRow(rid) {
-		getById('R' + rid).remove();
-		for (var i = 1; i < tb.rows.length - 1; i++)
-			tb.rows[i].children[0].textContent = i;
+}
+function fill_rc(txt){
+	if(!txt) return;
+	clear_all();
+	for (var line of txt.split('\n')) {
+		var its = line.split('\t');
+		var row = add_new_row();
+		for (var x = 0; x < data_i; x++)
+			row.children[x+1].textContent = its[x];
 	}
-	function allowDrop(ev) {ev.preventDefault();}
-	function drop(rid){
-		if(drag_rid==rid) return;
-		var upper = Math.min(drag_rid, rid), lower = Math.max(drag_rid, rid);
-		var inc = drag_rid==upper?1:-1;
-		for(var i=drag_rid; i!=rid; i+=inc){
-			var src=getById('R'+i), tgt=getById('R'+(i+inc));
-			for(var x=1; x<tb.rows[0].childElementCount-1; x++)
-				[src.children[x].textContent, tgt.children[x].textContent] = [tgt.children[x].textContent, src.children[x].textContent];
+}
+function load() {
+	GET('/rc_load', (e)=>{
+		fill_rc(e.target.responseText.trim());
+		setTimeout(()=>{update(3)}, 500);
+	});
+}
+function recordRC(rid, url){
+	GET(url, (ev)=>{
+		try{
+			var obj = JSON.parse(ev.target.responseText);
+			if(isString(obj)) return alert(obj);
+			if('info' in obj){
+				alert(obj.info);
+				delete obj.info;
+			}
+			getById('R'+rid).children[data_i].textContent = JSON.stringify(obj);
+		}catch(e){toast(e)}
+	}, toast)
+}
+function recordRF(rid) {
+	if(confirm("Please hold down the remote controller button and click OK to record:"))
+		recordRC(rid, '/rf_record');
+}
+function recordIR(rid) {
+	if(confirm("Please press the remote controller button at least 3 times within 3 seconds after clicking OK:"))
+		recordRC(rid, '/ir_record');
+}
+function openBLE(rid){
+	ble_rid = rid;
+	getById('bleFront').style.display = getById('bleBack').style.display = 'block';
+}
+function closeBLE(n=0){
+	if(n>0)
+		getById('R'+ble_rid).children[data_i].textContent = `{'protocol': 'BLE', 'cmd': 'gap_advertise', 'data':'${tb_ble.rows[n].children[5].textContent}'}`;
+	getById('bleFront').style.display = getById('bleBack').style.display = 'none';
+}
+function sendBLE(n){
+	var data = `{'protocol': 'BLE', 'cmd': 'gap_advertise', 'data':'${tb_ble.rows[n].children[5].textContent}'}`;
+	toast(POST('/rc_exec', data));
+}
+function emit(rid) {
+	var v = getById('R'+rid).children[data_i].textContent;
+	POST('/rc_exec', v, toast, toast);
+}
+function start_ble_scan(){
+	var opt = `, 'nbestn':${getById('nbestn').value}`;
+	if(getById('cb_filter').checked){
+		var mac = getById('sender_addr_filter').value;
+		if(! /^[0-9a-fA-F]{12}$/.test(mac)){
+			alert("Invalid MAC address format, must be of 12 hex digits!");
+			return;
 		}
+		opt += `, 'filter_addr':'${mac}'`;
 	}
-	function add_new_row() {
-		var insp = tb.rows.length - 1;
-		var row = tb.insertRow(insp);
-		row.setAttribute('id', 'R'+rid);
-		row.innerHTML = `<th class="ptr" draggable=true ondragstart="drag_rid=${rid};" ondrop="drop(${rid})" ondragover="allowDrop(event)">${insp}</th>
+	POST('/rc_exec', `{'protocol': 'BLE', 'cmd': 'start_scan'${opt}}`, (ev) => {
+		toast('BLE Scan started');
+		getById('bt_scanBLE').textContent = "Stop Scan";
+		getById('bt_scanBLE').onclick = ()=>{stop_ble_scan()};
+		getById('cb_filter').disabled = true;
+		clear_all(tb_ble, 1);
+	}, toast)
+}
+function stop_ble_scan(){
+	POST('/rc_exec', "{'protocol': 'BLE', 'cmd': 'stop_scan'}", (ev) => {
+		toast('BLE Scan stopped');
+		getById('bt_scanBLE').textContent = "Start Scan";
+		getById('bt_scanBLE').onclick = ()=>{start_ble_scan()};
+		getById('cb_filter').disabled = false;
+		try{
+			// input format: [[RSSI,addr/#addr,addr_type,adv_type,data]]
+			obj = JSON.parse(ev.target.responseText);
+			for(var o1 of obj){
+				var n = tb_ble.rows.length;
+				var row = tb_ble.insertRow(n);
+				row.innerHTML = `<td>${n}</td><td>${o1[0]}</td><td>${o1[1]}</td><td>${o1[2]}</td><td>${o1[3]}</td>
+				<td contenteditable>${o1[4]}</td><td>${o1[4].length/2}</td>
+				<td style="text-align:center">
+					<input type='button' onclick='sendBLE(${n})' value='Send' title="Send this BLE signal to test whether it can control your device">
+					<input type='button' onclick='closeBLE(${n})' value='Pick' title="Choose this one and close the window">
+				</td>`
+			}
+		}catch(e){alert(e)}
+	}, (xhr) => {alert(xhr)})
+}
+function deleteRow(rid) {
+	getById('R' + rid).remove();
+	for (var i = 1; i < tb.rows.length - 1; i++)
+		tb.rows[i].children[0].textContent = i;
+}
+function allowDrop(ev) {ev.preventDefault();}
+function drop(rid){
+	if(drag_rid==rid) return;
+	var upper = Math.min(drag_rid, rid), lower = Math.max(drag_rid, rid);
+	var inc = drag_rid==upper?1:-1;
+	for(var i=drag_rid; i!=rid; i+=inc){
+		var src=getById('R'+i), tgt=getById('R'+(i+inc));
+		for(var x=1; x<tb.rows[0].childElementCount-1; x++)
+			[src.children[x].textContent, tgt.children[x].textContent] = [tgt.children[x].textContent, src.children[x].textContent];
+	}
+}
+function add_new_row() {
+	var insp = tb.rows.length - 1;
+	var row = tb.insertRow(insp);
+	row.setAttribute('id', 'R'+rid);
+	row.innerHTML = `<th class="ptr" draggable=true ondragstart="drag_rid=${rid};" ondrop="drop(${rid})" ondragover="allowDrop(event)">${insp}</th>
 ${'<td contenteditable class="wrap"></td>'.repeat(tb.rows[0].childElementCount-2)}
 <td style="text-align:center">
 	<input type='button' onclick='recordRF(${rid})' value='Record-RF' title="Record 433MHz remote controller signal">
@@ -552,10 +556,10 @@ ${'<td contenteditable class="wrap"></td>'.repeat(tb.rows[0].childElementCount-2
 	<input type='button' onclick='emit(${rid})' value='Send' title="Execute this command">
 	<input type='button' onclick='deleteRow(${rid})' value='Delete' title="Delete this row">
 </td>`;
-		rid++;
-		return row;
-	}
-	window.onload = () => { setTimeout(load, 500); }
+	rid++;
+	return row;
+}
+window.onload = () => { setTimeout(load, 500); }
 </script>
 </body>
 

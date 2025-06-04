@@ -41,13 +41,19 @@ def Try(*args):
 
 
 class PIN:
-	""" Either pass a machine.Pin object, or an Integer with a pin_name '_*pin_num' to create the pin
+	""" Either pass in:
+	 A) a machine.Pin object for direct control, or
+	 B) an Integer with a pin_name '_*pin_num' to create the pin
 	where * can be:
 		d: output digital pin
 		i: input digital pin
 		p: PWM pin
 		a: ADC pin
 		neo: NeoPixel pin (invert: do not init color (NeoPixel keeps previous color upon reboot but not color buffer))
+	or
+	 C) a string: to be evaluated to an lambda function to execute, or
+	 D) a tuple: a virtual Pin having multiple states, each corresponding to a execRC string item, or
+	 E) a list: where multiple Pins are bundled and controlled together
 	"""
 	def __init__(self, pin, pin_name='', invert=None):
 		self.pin_name = f'PIN({pin})'
@@ -88,7 +94,7 @@ class PIN:
 				prt(self.pin_name, ':', args)
 			if self.invert:
 				if self.type == 'p':
-					return self.pin.duty_u16((1-args[0])*65535) if args else 1-self.pin.duty_u16()/65535
+					return self.pin.duty_u16(round((1-args[0])*65535)) if args else 1-self.pin.duty_u16()/65535
 				elif self.type in ['d', 'i']:
 					return self.pin(1-args[0]) if args else 1-self.pin()
 				elif self.type == 'a':
@@ -97,7 +103,7 @@ class PIN:
 					return Pin(self.pin)(1-args[0]) if args else 1-Pin(self.pin)()
 			else:
 				if self.type == 'p':
-					return self.pin.duty_u16(args[0]*65535) if args else self.pin.duty_u16()/65535
+					return self.pin.duty_u16(round(args[0]*65535)) if args else self.pin.duty_u16()/65535
 				elif self.type in ['d', 'i']:
 					return self.pin(*args)
 				elif self.type == 'a':
@@ -119,7 +125,7 @@ class PIN:
 					return execRC(self.pin[self.state]) if self.state != args[0] else None
 				
 				if type(self.pin) is list:
-					return [p1(*args) for p1 in self.pin][0]
+					return [p1(*args) for p1 in self.pin]
 	
 				return self.pin(*args) if callable(self.pin) else None
 		except Exception as e:
@@ -275,7 +281,11 @@ def set_uart(p):
 				return UART_buf(sys.stdin.buffer)	# the same as sys.stdout.buffer (bound to RX0/TX0)
 			return UART(1, 115200, rx=p, tx=21, timeout_char=1)
 		elif type(p) is tuple:
-			return UART(1, 115200, tx=p[1], rx=p[0], timeout_char=1)
+			if p[0] in [20,21] or p[1] in [20,21]:
+				import micropython
+				micropython.kbd_intr(-1)
+				return UART_buf(sys.stdin.buffer)	# the same as sys.stdout.buffer (bound to RX0/TX0)
+			return UART(1, 115200, rx=p[0], tx=p[1], timeout_char=1)
 	except:
 		pass
 	return None

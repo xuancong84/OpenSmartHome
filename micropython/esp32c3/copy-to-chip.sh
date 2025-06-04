@@ -42,8 +42,12 @@ copy2root_if() {
 
 if [ $# -gt 0 ]; then
 	for f in "$@"; do
-		mpy-cross $f
-		pyboard -f cp ${f::-3}.mpy :
+		if [[ $f == *.py ]]; then
+			mpy-cross $f
+			pyboard -f cp ${f::-3}.mpy :
+		else
+			pyboard -f cp $f :$f
+		fi
 	done
 	exit
 fi

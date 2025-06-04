@@ -768,15 +768,19 @@ def _load_subtitles(video_file, n_subs, ip):
 	if ip2subtt.get(ip, '') != video_file:
 		out_dir = f'{TMP_DIR}/.subtitles/{ip}'
 		if not os.path.isdir(out_dir):
-			runsys(f'mkdir -p {out_dir}')
+			Try(lambda: os.makedirs(out_dir))
 		if video_file in ip2subtt.values():
 			ip2 = [k for k,v in ip2subtt.items() if v==video_file][0]
 			runsys(f'cp -rf {TMP_DIR}/.subtitles/{ip2}/* {out_dir}/')
 			LOG(f'Copyed {n_subs} subtitle files from {ip2} to {ip} ...')
 		else:
-			LOG(f'Loading {n_subs} subtitle tracks from "{video_file}" ...')
-			out = RUN(['ffmpeg', '-y', '-i', video_file]+[it for k in range(n_subs) for it in ['-map', f'0:s:{k}', '-f', 'webvtt', f'{out_dir}/{k}.vtt']], shell=False, timeout=9999)
-			LOG(f'Finished Loading {n_subs} subtitle tracks from "{video_file}": {out}')
+			stt_info = fullpath2stt_info.get(os.path.realpath(video_file), [])
+			txt_stt_ids = [ii for ii,tag in enumerate(stt_info) if '\t' not in tag]
+			bmp_stt_ids = {ii:tag.split('\t')[1] for ii,tag in enumerate(stt_info) if '\t' in tag}
+			LOG(f'Loading {n_subs} subtitle tracks ({len(txt_stt_ids)} text & {len(bmp_stt_ids)} bitmap tracks) from "{video_file}" ...')
+			out = RUN(['ffmpeg', '-y', '-i', video_file]+[it for k in txt_stt_ids for it in ['-map', f'0:s:{k}', '-f', 'webvtt', f'{out_dir}/{k}.vtt']], shell=False, timeout=9999)
+			out2 = RUN(['mkvextract', 'tracks', video_file] + [f'{v}:{out_dir}/{k}' for k,v in bmp_stt_ids.items()], shell=False, timeout=9999)
+			LOG(f'Finished loading {n_subs} subtitle tracks from "{video_file}": {out} {out2}')
 		ip2subtt[ip] = video_file
 	ip2websock[ip].send('load_subtitles()')
 
@@ -808,7 +812,7 @@ def tv_wscmd(name, cmd):
 		elif cmd == 'rewind':
 			ws.send('v.currentTime=0')
 		elif cmd == 'hideQR':
-			ws.send('QRcontainer.style.opacity=0;')
+			ws.send('QRcontainer.style.display="none";')
 		elif cmd == 'play_spoken_inlst':
 			play_spoken_song(name)
 		elif cmd == 'play_spoken_indir':

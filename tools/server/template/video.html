@@ -34,6 +34,14 @@ video {
   position: fixed;
   object-fit: contain;
 }
+canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* so clicks go through to video controls */
+}
 h1 {
   background-color: #04AA6D;
   color: white;
@@ -85,6 +93,7 @@ h1 {
   <video id='video0' autoplay controls onended="ws_send('next')" onclick="clickvid(event)"
       onseeked="markCounter=0" ontouchmove="timerRst()" onmousemove="timerRst()">
   </video>
+  <canvas id="sc"></canvas>
   <div id="countDownMsg" class="overlay" style="font-size: xx-large; left:50%; top:0; transform: translateX(-50%); z-index: 100 !important; display: none; color: yellow; background-color: red; opacity: 1;"></div>
   <div id="flashmsg" class="overlay" style="font-size: xx-large; left:50%; top:20%; transform: translate(-50%, -50%); z-index: 100 !important; display: none;"></div>
   <div id="banner0" class="overlay" style="font-size: xx-large; left:50%; top:50%; transform: translate(-50%, -50%); z-index: 100 !important; display: none; max-width: 50%;
@@ -196,9 +205,10 @@ var audios, start_time, recorder_timeout, last_subtt;
 var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
 
 // Set global object handles
-for(var vname of ['ovl', 'ovl2', 'menu1', 'menu2', 'menu3', 'menu4', 'list1', 'list2', 'list3', 'S2Tframe', 'T2Sframe', 'INFOframe', 'EDITframe', 'S2Tlang',
+for(var vname of ['ovl', 'ovl2', 'menu1', 'menu2', 'menu3', 'menu4', 'list1', 'list2', 'list3', 'S2Tframe', 'T2Sframe', 'INFOframe', 'EDITframe', 'S2Tlang', 'sc',
   'showAudioTracks', 'T2Slang', 'S2Ttext', 'T2Stext', 'S2Tmatch', 'recButton', 'QRcontainer', 'showSubtt', 'recButtons', 'flashmsg', 'controls', 'banner0', 'countDownMsg'])
   window.eval(`var ${vname} = getById("${vname}")`);
+ctx = sc.getContext("2d");
 
 function create_wsock(){
   var ws = new WebSocket((location.href.startsWith('https:')?'wss://':'ws://') + location.host + '/ws_init');
@@ -612,6 +622,10 @@ function set_subtt(track_num, cb=null){
     for(var i=0; i<v.textTracks.length; i++)
       if(getById('SCB'+i).checked) last_subtt += `${i},`;
       last_subtt = last_subtt.slice(0,-1);
+  }
+  if(v.textTracks[track_num].mode=='showing' && subtt_info[track_num].includes('\t')){
+    var bmp_tk_num = subtt_info[track_num].split('\t')[1];
+    set_dvd_stt(`/subtt/${bmp_tk_num}`);
   }
   document.cookie = `subtt=${last_subtt}; path=/; max-age=31536000`;
 }

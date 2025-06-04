@@ -313,18 +313,19 @@ def download_video(song_url, include_subtitles, high_quality, redownload, mobile
 
 	return ''
 
-def get_subts_tagInfo(t: dict):
-	if 'language' in t:
-		return ': '.join([t['language']]+[v for k,v in t.items() if k!='language'][:1])
-	return ': '.join([v for k,v in t.items()][:2])
+get_subts_tagInfo = lambda t: t.get('language', [f'{k}:{v}' for k,v in t.items()][0]).replace('\t', ' ').strip()
 
+fullpath2stt_info = {}
 def list_subtitles(fullpath):
-	try:
-		out = RUN(['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', fullpath], shell=False)
-		obj = json.loads(out.strip())
-		return [get_subts_tagInfo(s['tags']) for s in obj['streams'] if s['codec_type']=='subtitle']
-	except:
-		return []
+	realpath = os.path.realpath(fullpath)
+	if realpath not in fullpath2stt_info:
+		try:
+			out = RUN(['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', fullpath], shell=False)
+			obj = json.loads(out.strip())
+			fullpath2stt_info[realpath] = [get_subts_tagInfo(s['tags'])+(f'\t{s["index"]}' if s["codec_name"]=="dvd_subtitle" else '') for s in obj['streams'] if s['codec_type']=='subtitle']
+		except:
+			fullpath2stt_info[realpath] = []
+	return fullpath2stt_info[realpath]
 	
 def ble_gap_advertise(payload, duration=1):
 	try:

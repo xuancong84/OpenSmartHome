@@ -61,8 +61,8 @@ class MSENSOR:
 		'led_master_dpin_num': '',
 		'led_level_ppin_num': '',
 		'led_discharge_dpin_num': '',
-		'F_read_lux': '',
-		'F_read_thermal': '',
+		'ambient_light_apin_num': '',
+		'temperature_apin_num': '',
 		'night_start': '18:00',
 		'night_stop': '07:00',
 		'midnight_starts': ["23:00", "23:00", "23:00", "23:00", "00:00", "00:00", "23:00"],
@@ -86,7 +86,7 @@ class MSENSOR:
 		self.is_smartlight_on = False
 		self.is_dark_mode = False
 		self.logging = False
-		self.lux_level = None
+		self.dark_level = None
 		self.thermal_level = None
 		self.sensor_log = ''
 		self.n_consec_trig = 0
@@ -114,7 +114,7 @@ class MSENSOR:
 		return {
 			'is_smartlight_on': self.is_smartlight_on,
 			'is_dark_mode': self.is_dark_mode,
-			'lux_level': self.lux_level,
+			'dark_level': self.dark_level,
 			'thermal_level': self.thermal_level,
 			'logging': self.logging,
 			'sensor_log': self.sensor_log if self.logging else None,
@@ -134,10 +134,11 @@ class MSENSOR:
 		return isTimeInBetween(getTimeString()[:5], self.P['night_start'], self.P['night_stop'])
 
 	def LED_smooth_switch_dpin(self, state=None):
+		cur_state = (self.led_master_dpin() if is_valid_pin('led_master_dpin_num', self.P) else 1)*(self.led_level_ppin()!=0)
 		if state is None:
-			return self.led_master_dpin()
+			return cur_state
 			
-		if not is_valid_pin('led_master_dpin_num', self.P) or self.led_master_dpin()==state:
+		if cur_state == state:
 			return
 
 		prt("glide LED on" if state else "glide LED off")
@@ -271,8 +272,8 @@ class MSENSOR:
 
 		# Update ambient level
 		if millis-self.tm_last_ambient >= self.P['UPDATE_ENV_INTV_MS']:
-			self.lux_level = dft_eval(self.P['F_read_lux'], 9999999)
-			self.thermal_level = dft_eval(self.P['F_read_thermal'], '')
+			self.dark_level = self.ambient_light_apin() if is_valid_pin('ambient_light_apin_num', self.P) else 999999
+			self.thermal_level = self.temperature_apin() if is_valid_pin('temperature_apin_num', self.P) else 999999
 			self.tm_last_ambient = millis
 
 		if self.is_dark_mode: # in night
@@ -283,18 +284,18 @@ class MSENSOR:
 					self.elapse = max(self.elapse, millis + self.P['DELAY_ON_OCC'])
 				if millis > self.elapse:
 					self.smartlight_dpin(False)
-					sleep_ms(400) # wait for light sensor to stablize and refresh lux value
-					self.lux_level = dft_eval(self.P['F_read_lux'], 9999999)
+					sleep_ms(500) # wait for light sensor to stablize and refresh ambient light value
+					self.dark_level = self.ambient_light_apin() if is_valid_pin('ambient_light_apin_num', self.P) else 999999
 			else:  # when light/led is off
-				if (acti>=3) and self.lux_level>=self.P['DARK_TH_HIGH'] and millis>=self.sensor_on_block_until:
+				if (acti>=3) and self.dark_level>=self.P['DARK_TH_HIGH'] and millis>=self.sensor_on_block_until:
 					self.smartlight_dpin(True)
 					self.elapse = millis+self.P['DELAY_ON_MOV']
-				elif (type(self.lux_level)==int and self.lux_level<self.P['DARK_TH_LOW']): # return to day mode
+				elif (type(self.dark_level)==int and self.dark_level<self.P['DARK_TH_LOW']): # return to day mode
 					if not self.is_night():
 						self.sensor_pwr_dpin(False)
 					self.is_dark_mode = False
 		else: # in day
-			if (type(self.lux_level)==int and self.lux_level>(self.P['DARK_TH_HIGH']+self.P['DARK_TH_LOW'])/2):
+			if (type(self.dark_level)==int and self.dark_level>(self.P['DARK_TH_HIGH']+self.P['DARK_TH_LOW'])/2):
 				self.sensor_pwr_dpin(True)
 				self.is_dark_mode = True
 				self.sensor_on_block_until = millis + self.P['sensor_on_block_ms']
