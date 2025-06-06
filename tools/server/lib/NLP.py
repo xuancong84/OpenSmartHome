@@ -322,7 +322,8 @@ def list_subtitles(fullpath):
 		try:
 			out = RUN(['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', fullpath], shell=False)
 			obj = json.loads(out.strip())
-			fullpath2stt_info[realpath] = [get_subts_tagInfo(s['tags'])+(f'\t{s["index"]}' if s["codec_name"]=="dvd_subtitle" else '') for s in obj['streams'] if s['codec_type']=='subtitle']
+			fullpath2stt_info[realpath] = [[get_subts_tagInfo(s['tags']), str(s["index"])+('.sup' if s["codec_name"]=="dvd_subtitle" else '.vtt') ]
+								  for s in obj['streams'] if s['codec_type']=='subtitle']
 		except:
 			fullpath2stt_info[realpath] = []
 	return fullpath2stt_info[realpath]

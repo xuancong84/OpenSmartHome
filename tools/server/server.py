@@ -775,12 +775,16 @@ def _load_subtitles(video_file, n_subs, ip):
 			LOG(f'Copyed {n_subs} subtitle files from {ip2} to {ip} ...')
 		else:
 			stt_info = fullpath2stt_info.get(os.path.realpath(video_file), [])
-			txt_stt_ids = [ii for ii,tag in enumerate(stt_info) if '\t' not in tag]
-			bmp_stt_ids = {ii:tag.split('\t')[1] for ii,tag in enumerate(stt_info) if '\t' in tag}
-			LOG(f'Loading {n_subs} subtitle tracks ({len(txt_stt_ids)} text & {len(bmp_stt_ids)} bitmap tracks) from "{video_file}" ...')
-			out = RUN(['ffmpeg', '-y', '-i', video_file]+[it for k in txt_stt_ids for it in ['-map', f'0:s:{k}', '-f', 'webvtt', f'{out_dir}/{k}.vtt']], shell=False, timeout=9999)
-			out2 = RUN(['mkvextract', 'tracks', video_file] + [f'{v}:{out_dir}/{k}' for k,v in bmp_stt_ids.items()], shell=False, timeout=9999)
-			LOG(f'Finished loading {n_subs} subtitle tracks from "{video_file}": {out} {out2}')
+			txt_stt = [fn.split('.')[0] for lang, fn in stt_info if fn.endswith('.vtt')]
+			bmp_stt = [fn.split('.')[0] for lang, fn in stt_info if fn.endswith('.sup')]
+			LOG(f'Loading {n_subs} subtitle tracks ({len(txt_stt)} text & {len(bmp_stt)} bitmap tracks) from "{video_file}" ...')
+			if txt_stt:
+				RUN(['ffmpeg', '-y', '-i', video_file]+[it for k in txt_stt for it in ['-map', f'0:{k}', '-f', 'webvtt', f'{out_dir}/{k}.vtt']], shell=False, timeout=9999)
+			if bmp_stt:
+				RUN(['mkvextract', 'tracks', video_file] + [f'{k}:{out_dir}/{k}' for k in bmp_stt], shell=False, timeout=9999)
+				for k in bmp_stt:
+					runsys(f'DISPLAY=:0 java -jar lib/BDSup2Sub512.jar -o "{out_dir}/{k}.sup" "{out_dir}/{k}.idx"')
+			LOG(f'Finished loading {n_subs} subtitle tracks from "{video_file}"')
 		ip2subtt[ip] = video_file
 	ip2websock[ip].send('load_subtitles()')
 

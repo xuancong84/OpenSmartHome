@@ -2,6 +2,7 @@
 <html>
 <head><title>{{title}}</title>
 <script src="/static/siriwave.umd.min.js"></script>
+<script src="/static/dvdsub.js"></script>
 <style>
 :root { --edge-pad: 100px; }
 .overlay {
@@ -584,19 +585,20 @@ function list_subtitles(s_lst){
     getById(`t_subtt_status${subtt_loaded==2?1:0}`).style.display = 'block';
     list3.innerHTML = '';
     for(const [ii,si1] of subtt_info.entries()){
-      list3.innerHTML += `<input type="checkbox" id="SCB${ii}" onclick="set_subtt(${ii}, this)"><a style="display:inline" onclick="set_subtt(${ii})">${si1}</a><br>`;
+      const tag = si1[1].endsWith('.sup')?`<b>${si1[0]}</b>`:si1[0];
+      list3.innerHTML += `<input type="checkbox" id="SCB${ii}" onclick="set_subtt(${ii}, this)"><a style="display:inline" onclick="set_subtt(${ii})">${tag}</a><br>`;
     }
     menu3.style.left = showSubtt.offsetLeft+'px';
     menu3.style.bottom = (showSubtt.offsetHeight+edge_pad)+'px';
   }
 }
 function load_subtitles(){
-  for(const [subid,subname] of subtt_info.entries()){
+  for(const [subid, subentry] of subtt_info.entries()){
     track = document.createElement("track");
     track.kind = "subtitles";
-    track.label = subname;
-    track.srclang = subname;
-    track.src = `/subtt/${subid}.vtt`;
+    track.label = subentry[0];
+    track.srclang = subentry[0];
+    track.src = `/subtt/${subentry[1]}`;
     v.appendChild(track);
   }
   subtt_loaded = 2;
@@ -606,8 +608,13 @@ function load_subtitles(){
     var ii = parseInt(i)>=v.textTracks.length?0:parseInt(i);
     v.textTracks[ii].mode = 'showing';
     getById(`SCB${ii}`).checked = true;
+    if(ii<subtt_info.length && subtt_info[ii][1].endsWith('.sup')){
+      set_subtt(ii);
+      break;
+    }
   }
 }
+var dvdsub = null;
 function set_subtt(track_num, cb=null){
   if(subtt_loaded!=2) return alert('请耐心等待加载字幕！');
   last_subtt = '';
@@ -623,9 +630,11 @@ function set_subtt(track_num, cb=null){
       if(getById('SCB'+i).checked) last_subtt += `${i},`;
       last_subtt = last_subtt.slice(0,-1);
   }
-  if(v.textTracks[track_num].mode=='showing' && subtt_info[track_num].includes('\t')){
-    var bmp_tk_num = subtt_info[track_num].split('\t')[1];
-    set_dvd_stt(`/subtt/${bmp_tk_num}`);
+
+  if(subtt_info[track_num][1].endsWith('.sup')){
+    if(dvdsub!=null){ dvdsub.dispose(); dvdsub = null;}
+    if(v.textTracks[track_num].mode=='showing')
+      dvdsub = new SUPtitles(v, `/subtt/${subtt_info[track_num][1]}`);
   }
   document.cookie = `subtt=${last_subtt}; path=/; max-age=31536000`;
 }
