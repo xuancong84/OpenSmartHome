@@ -249,7 +249,7 @@ input {font-size:15px;}
 		<h2 style="font-size: 64px; float: right; position: fixed; right: 0px; top: 0px; margin: 10px; cursor:pointer">
 			<span title="Open Music Playlist" onclick="openPlayList()">🎶</span>
 			<span title="Play NAS media on this computer in a new tab" onclick="openInNewTab('/webPlay/0/KTV')">🎥</span>
-			<span title="Send voice command to the selected hub controller" onclick="ASR()">🗣</span>
+			<span id="recButton" title="Send voice command to the selected hub controller" onclick="ASR()">🗣</span>
 		</h2>
 		<h2>OpenSmartHome (Central Hub)</h2>
 		<h3>HUBS: <select id="hub" onchange="load(this.value)">
@@ -506,7 +506,7 @@ function drop(rid){
 			[src.children[x].textContent, tgt.children[x].textContent] = [tgt.children[x].textContent, src.children[x].textContent];
 	}
 }
-function recordSend(rid){
+async function recordSend(rid){
 	var row = getById('R'+rid);
 	ASR(row.children[data_i].textContent.slice(1,-1));
 }
@@ -603,6 +603,42 @@ function dragEnd(){
   dragHandleEl.removeEventListener('mousemove',dragMove);
   dragEl = null;
 }
+function requestMic() {
+  if (g_stream !== undefined) return;
+  if (navigator.permissions && navigator.permissions.query) {
+    navigator.permissions.query({ name: 'microphone' })
+	.then(status => { 
+		if(status.state=='denied' && window.location.href.startsWith('http://')){
+			if(confirm("Only HTTPS websites can have access to microphone, do you want to redirect to HTTPS website?")){
+				var port = parseInt(window.location.href.split(':')[2]);
+				window.location.href = window.location.href.replace('http:', 'https:').replace(port, port+1);
+			}else if(window.navigator.userAgent.includes('Chrome')){
+				if(confirm("You are using Chrome browser which supports treat-insecure-origin-as-secure flag, do you want to add the current URL into it?")){
+					alert("Please copy 'chrome://flags/#unsafely-treat-insecure-origin-as-secure' into clipboard and paste it in new tab.");
+					openInNewTab("");
+				}
+			}
+			return alert("Please grant the permission to access microphone!");
+		}else{
+			g_stream=null;
+		}
+	})
+	.catch(err => {
+		getById('recButton').style.display='none';
+		console.log("getUserMedia not supported on your browser!"); 
+	});
+  }
+}
+async function enableMic() {
+  if (g_stream!=null) return;
+  if (g_stream===undefined) requestMic();
+  g_stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+}
+function disableMic() {
+  if (!g_stream) return;
+  g_stream.getAudioTracks().forEach(t => t.stop());
+  g_stream = null;
+}
 
 var siriWave, recorder, recorder_timeout, use_recorded, audios, spectrum, dBASpectrum, taskHandle, source, asr_func, g_stream, g_devices;
 var g_asrInit = false;
@@ -612,34 +648,9 @@ A = f => 20 * Math.log10(RA(f)) + 2.0;
 var asr_prompts = ["Please speak the voice command and click OK:",
 	"Please speak the name of the media and click OK:",
 	"Please speak the timer duration or scheduled time and click OK:"];
-function ASR(func=''){
-	if(!g_asrInit){
-		g_asrInit = true;
-		if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-			navigator.mediaDevices.getUserMedia({audio: true, deviceId:'default'},)
-				.then(stream => Promise.all([stream, navigator.mediaDevices.enumerateDevices()]))
-				.then(([stream, devices]) => { g_stream = stream; g_devices = devices; ASR(func); })
-				.catch((err) => { alert(`The following getUserMedia error occurred: ${err}`);
-			});
-		} else {
-			alert("getUserMedia not supported on your browser!");
-		}
-		return;
-	}
-	if(g_stream==null && window.location.href.startsWith('http://')){
-		if(confirm("Only HTTPS websites can have access to microphone, do you want to redirect to HTTPS website?")){
-			var port = parseInt(window.location.href.split(':')[2]);
-			window.location.href = window.location.href.replace('http:', 'https:').replace(port, port+1);
-		}else if(window.navigator.userAgent.includes('Chrome')){
-			if(confirm("You are using Chrome browser which supports treat-insecure-origin-as-secure flag, do you want to add the current URL into it?")){
-				alert("Please copy 'chrome://flags/#unsafely-treat-insecure-origin-as-secure' into clipboard and paste it in new tab.");
-				openInNewTab("");
-			}
-		}
-		return;
-	}
-	while(g_stream==null)
-		return alert("Please grant the permission to access microphone!");
+async function ASR(func=''){
+	await enableMic();
+	if(g_stream==null) return;
 
 	asr_func = func;
 	getById('asr_prompt').textContent = asr_prompts[asr_func.includes('set_spoken')?2:(asr_func.includes('play_spoken')?1:0)];
@@ -718,6 +729,7 @@ function onRecStop(){
 	siriWave.stop();
 	clearTimeout(recorder_timeout);
 	recorder = null;
+	disableMic();
 	if(!use_recorded) return;
 	var blob = new Blob(audios, { type: "audio/webm" });
 	const req = new XMLHttpRequest();

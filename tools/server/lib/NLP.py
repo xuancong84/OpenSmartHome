@@ -313,7 +313,10 @@ def download_video(song_url, include_subtitles, high_quality, redownload, mobile
 
 	return ''
 
-get_subts_tagInfo = lambda t: t.get('language', [f'{k}:{v}' for k,v in t.items()][0]).replace('\t', ' ').strip()
+def get_subts_tagInfo(t):
+	out = [t.get('language', ''), t.get('title', '')]
+	Try(lambda:out.remove(''))
+	return (':'.join(out) if out else [f'{k}:{v}' for k,v in t.items()][0]).replace('\t', ' ').strip()
 
 fullpath2stt_info = {}
 def list_subtitles(fullpath):
@@ -324,7 +327,7 @@ def list_subtitles(fullpath):
 			obj = json.loads(out.strip())
 			fullpath2stt_info[realpath] = [[get_subts_tagInfo(s['tags']), str(s["index"])+('.sup' if s["codec_name"]=="dvd_subtitle" else '.vtt') ]
 								  for s in obj['streams'] if s['codec_type']=='subtitle']
-		except:
+		except Exception as e:
 			fullpath2stt_info[realpath] = []
 	return fullpath2stt_info[realpath]
 	
