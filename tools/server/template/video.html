@@ -6,21 +6,21 @@
 <style>
 :root { --edge-pad: 100px; }
 .overlay {
-  position: absolute;
-  /*  object-fit is not supported on IE  */
-  object-fit: cover;
-  opacity:0.7;
-  z-index: 10;
-  color:gold;
-  font-weight: bold;
-  line-height: 1;
-  cursor: pointer;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  -khtml-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
+	position: absolute;
+	/*  object-fit is not supported on IE  */
+	object-fit: cover;
+	opacity:0.7;
+	z-index: 10;
+	color:gold;
+	font-weight: bold;
+	line-height: 1;
+	cursor: pointer;
+	-webkit-touch-callout: none;
+	-webkit-user-select: none;
+	-khtml-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
 }
 .dark_fsoverlay{
 	position: fixed; top: 0%; left: 0%; width: 100%; height: 100%; background-color: black; z-index:100; -moz-opacity: 0.8;
@@ -30,45 +30,45 @@
 .hoverShow { opacity: 0; }
 .hoverShow:hover { opacity: 1; }
 video {
-  width: 100%;
-  height: 100%;
-  position: fixed;
-  object-fit: contain;
+	width: 100%;
+	height: 100%;
+	position: fixed;
+	object-fit: contain;
 }
 canvas {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none; /* so clicks go through to video controls */
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none; /* so clicks go through to video controls */
 }
 h1 {
-  background-color: #04AA6D;
-  color: white;
-  margin: 0px;
-  padding: 0px;
-  font-size: larger;
-  font-weight: bolder;
+	background-color: #04AA6D;
+	color: white;
+	margin: 0px;
+	padding: 0px;
+	font-size: larger;
+	font-weight: bolder;
 }
 .playmenu {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  object-fit: cover;
-  z-index: 20;
-  display: none;
-  opacity:0.9;
-  width: 50%;
-  vertical-align: middle;
-  background-color: #222;
+	position: fixed;
+	left: 50%;
+	transform: translateX(-50%);
+	object-fit: cover;
+	z-index: 20;
+	display: none;
+	opacity:0.9;
+	width: 50%;
+	vertical-align: middle;
+	background-color: #222;
 }
 .playmenu a {
-  color: #fff; /* text color */
-  display: block;
-  cursor: pointer;
-  padding: 2px;
-  text-decoration: none; /* Remove underline from links */
+	color: #fff; /* text color */
+	display: block;
+	cursor: pointer;
+	padding: 2px;
+	text-decoration: none; /* Remove underline from links */
 }
 .playmenu a:hover { background-color: #aaa; }
 .xxlarge { font-size: xx-large; }
@@ -83,112 +83,112 @@ h1 {
 <body style="background-color:black; overflow: hidden;">
 <div id="ASR" class="asr dark_fsoverlay"></div>
 <div id="ASRpanel" class="asr above_overlay">
-  <h2 id="asr_prompt" style="color: white; font-size: xx-large; margin: 0.5em; line-height: 1.5; font-weight: bold;"></h2>
-  <div id="waveform" style="width:100%; height: 50%; border-radius: 2em; border: solid 4px blue; background-color: #00000080;"></div>
-  <h2 style="font-size: 64pt; justify-content: space-around; display: flex;" >
-    <span class="hand" style="color:lime" onclick="use_recorded=true;recorder.stop();">☑</span>
-    <span class="hand" style="color:red" onclick="recorder.stop();">☒</span>
-  </h2>
+	<h2 id="asr_prompt" style="color: white; font-size: xx-large; margin: 0.5em; line-height: 1.5; font-weight: bold;"></h2>
+	<div id="waveform" style="width:100%; height: 50%; border-radius: 2em; border: solid 4px blue; background-color: #00000080;"></div>
+	<h2 style="font-size: 64pt; justify-content: space-around; display: flex;" >
+		<span class="hand" style="color:lime" onclick="use_recorded=true;recorder.stop();">☑</span>
+		<span class="hand" style="color:red" onclick="recorder.stop();">☒</span>
+	</h2>
 </div>
- <div id="vcontainer" onfullscreenchange="on_fs_chg(this)">
-  <video id='video0' autoplay controls onended="ws_send('next')" onclick="clickvid(event)"
-      onseeked="markCounter=0" ontouchmove="timerRst()" onmousemove="timerRst()">
-  </video>
-  <canvas id="sc"></canvas>
-  <div id="countDownMsg" class="overlay" style="font-size: xx-large; left:50%; top:0; transform: translateX(-50%); z-index: 100 !important; display: none; color: yellow; background-color: red; opacity: 1;"></div>
-  <div id="flashmsg" class="overlay" style="font-size: xx-large; left:50%; top:20%; transform: translate(-50%, -50%); z-index: 100 !important; display: none;"></div>
-  <div id="banner0" class="overlay" style="font-size: xx-large; left:50%; top:50%; transform: translate(-50%, -50%); z-index: 100 !important; display: none; max-width: 50%;
-    background-color: #222; opacity: 90%;">正在处理，完毕后将重新开始播放...</div>
-  <div id="controls" style="display: none; z-index: 100;">
-    <div class="overlay z50" style="left:25%; top:0; transform: translateX(-50%);" onclick="handleKey('-')" title="浏览文件夹">🏃-</div>
-    <div class="overlay z50" style="left:75%; top:0; transform: translateX(-50%);" onclick="handleKey('=')" title="浏览文件夹">🏃+</div>
-    <div class="overlay z50 xlarge" style="left:0; top:calc(20% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowLeft',0)" title="-4s">❬&nbsp;&nbsp;</div>
-    <div class="overlay z50 xlarge" style="left:0; top:calc(30% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowLeft',1)" title="-8s">❬❬&nbsp;</div>
-    <div class="overlay z50 xlarge" style="left:0; top:calc(40% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowLeft',2)" title="-15s">❬❬❬</div>
-    <div class="overlay z50 xlarge" style="left:0; top:calc(60% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowLeft',3)" title="-30s">❰&nbsp;&nbsp;</div>
-    <div class="overlay z50 xlarge" style="left:0; top:calc(70% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowLeft',4)" title="-1min">❰❰&nbsp;</div>
-    <div class="overlay z50 xlarge" style="left:0; top:calc(80% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowLeft',5)" title="-2min">❰❰❰</div>
-    <div class="overlay z50 xlarge" style="right:0; top:calc(20% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowRight',0)" title="+4s">&nbsp;&nbsp;❭</div>
-    <div class="overlay z50 xlarge" style="right:0; top:calc(30% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowRight',1)" title="+8s">&nbsp;❭❭</div>
-    <div class="overlay z50 xlarge" style="right:0; top:calc(40% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowRight',2)" title="+15s">❭❭❭</div>
-    <div class="overlay z50 xlarge" style="right:0; top:calc(60% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowRight',3)" title="+30s">&nbsp;&nbsp;❱</div>
-    <div class="overlay z50 xlarge" style="right:0; top:calc(70% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowRight',4)" title="+1min">&nbsp;❱❱</div>
-    <div class="overlay z50 xlarge" style="right:0; top:calc(80% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowRight',5)" title="+2min">❱❱❱</div>
-  </div>
-  <div class="overlay hoverShow" style="right:0; top:0;">
-    <span onclick="ws_send('report_title')" title="播报当前歌曲名称" class="icon-speak"></span>
-    <span onclick="toggle_hide([controls])" title="播放设置" class="icon-gear"></span>
-    <span onclick="handleKey('f')" id="toggle-fs" title="切换全屏" class="icon-expand"></span>
-  </div>
-  <div class="overlay hoverShow" style="left:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="ws_send('prev')" title="跳回前一部">◀</div>
-  <div class="overlay hoverShow" style="right:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="ws_send('next')" title="跳到下一部">▶</div>
- </div>
- <div id="ovl">
-  <div class="overlay" style="left:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="ws_send('prev')" title="跳回前一部">◀</div>
-  <div class="overlay" style="right:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="ws_send('next')" title="跳到下一部">▶</div>
-  <div class="overlay" id="menuIcon0" style="left:50%; top:0px; transform: translateX(-50%);" onclick="toggle_menu(1)" title="当前播放列表">▤</div>
- </div>
- <div id="ovl2">
-  <div class="overlay" style="left:50%; top:calc(50% - 50px); transform: translate(-50%, -50%);" onclick="v.currentTime=0;v.play()" title="重头开始播放">↻</div>
-  <div class="overlay" id="menuIcon1" style="left:50%; bottom:var(--edge-pad); transform: translateX(-50%);" onclick="toggle_menu(2)" title="浏览文件夹">📁</div>
- </div>
- <div id="recButtons" class="overlay hoverShow" style="left:0; top:0;" >
-  <span id="recButton" title="播放指定文件（本地录音）" onclick="ASR()" class="icon-mic-local"></span>
-  <span title="播放指定文件（树莓派录音）" onclick="ws_send('play_spoken_indir')" class="icon-mic-station"></span>
- </div>
- <div class="overlay" style="left:0px; bottom:var(--edge-pad);">
-  <span class="hoverShow" title="复制视频链接然后扫码下载播放" onclick="showQR()">📱</span>
-  <span id="QRcontainer" style="background-color: #fff; display: none;"></span>
-  <span class="hoverShow icon-subtitles" id="showSubtt" title="选择字幕" onclick="toggle_menu(3)" style="display: none;"></span>
-  <span class="hoverShow icon-sound-tracks" id="showAudioTracks" title="选择音轨" onclick="toggle_menu(4)" style="display: none;"></span>
- </div>
- <div class="overlay hoverShow" style="right:0px; bottom:var(--edge-pad);">
-  <span onclick="toggle_hide([T2Sframe,S2Tframe])" title="显示详情（语音识别及语音合成）" class="icon-details"></span>
-  <span onclick="promptOpenFolder()" title="显示当前视频的URL链接" class="icon-link"></span>
-  <span onclick="showMediaInfo()" title="显示当前媒体文件的详细信息" class="icon-info"></span>
- </div>
- <div id="menu1" class="playmenu" style="font-size: xx-large; font-weight: bold; text-align: center; height: 80%;">
-  <h1 id="header1"><span id="title1">{{listname}}</span><span id="loopButton" style="position:absolute; right: 4px; cursor:pointer" onclick="toggle_loop()" title="单曲循环">🔁</span></h1>
-  <div id="list1" style="overflow-y: scroll; max-height: 90%;">
-    {% for name in playlist %}
-    <a id="a{{loop.index0}}" onclick="ws_send('goto_idx {{loop.index0}}')">{{name}}</a>
-    {% endfor %}
-  </div>
- </div>
- <div id="menu2" class="playmenu" style="font-size: xx-large; font-weight: bold; top: 8px; text-align: left; height: 80%;">
-  <h1 id="header2"><span id="title2" style='display:inline-block'></span>
-    <span id="title2-after" style="position:absolute; right:4px;">
-      <span style="cursor:pointer; color:yellow;" onclick="lsdir('..')" title="返回上一层目录" class="icon-level-up"></span>
-      <span style="cursor:pointer" onclick="lsdir('.')" title="返回当前播放目录">🏠</span>
-    </span>
-  </h1>
-  <div id="list2" style="overflow-y: scroll; max-height: 90%;"></div>
- </div>
- <div id="menu3" class="playmenu" style="font-size: x-large; font-weight: bold; text-align: left; transform:none; width:auto; max-height: 50%;">
-  <p id="t_subtt_status0" style="margin:0; color:yellow; display: none;">正在提取字幕，请稍候 ...</p>
-  <p id="t_subtt_status1" style="margin:0; color:lime; display:none;">字幕加载完成！</p>
-  <div id="list3" style="overflow-y: scroll;"></div>
- </div>
- <div id="menu4" class="playmenu" style="font-size: x-large; font-weight: bold; text-align: left; transform:none; width:auto; max-height: 50%;">
-  <p id="t_audtk_status0" style="margin:0; color: lime; ">请选择音轨：</p>
-  <div id="list4" style="overflow-y: scroll;"></div>
- </div>
- <div id="EDITframe" style="color: yellow; background-color: blue; overflow: auto; position: absolute; opacity:0.9; white-space:pre-wrap;
-    font-size: medium; left:5%; width:90%; display: none; z-index: 50;">
-  <button onclick="norm_vol()" title="对当前媒体文件的音量进行标准化调整，重新压缩音频并替换原文件">标准化媒体音量</button>
-  <div id="INFOframe"></div>
- </div>
- <div id="S2Tframe" style="background-color: #04AA6D; position: absolute; opacity:0.8; font-size: x-large; font-weight: bold; top: 30%; left:5%; width:20%;">
-  <h1>【语音识别详情】</h1>
-  <h1>语种：<span id="S2Tlang">{{S2T_lang}}</span></h1>
-  <h1 class="vsb">识别文本：<br><span id="S2Ttext">{{S2T_text}}</span></h1>
-  <h1 class="vsb">匹配文件名：<br><span id="S2Tmatch">{{S2T_match}}</span></h1>
- </div>
- <div id="T2Sframe" style="background-color: #04AA6D; position: absolute; opacity:0.8; font-size: x-large; font-weight: bold; top: 30%; left:75%; width:20%;">
-  <h1>【语音合成详情】</h1>
-  <h1>语种：<span id="T2Slang">{{T2S_lang}}</span></h1>
-  <h1 class="vsb">文本：<br><span id="T2Stext">{{T2S_text}}</span></h1>
- </div>
+<div id="vcontainer" onfullscreenchange="on_fs_chg(this)">
+	<video id='video0' autoplay controls onended="ws_send('next')" onclick="clickvid(event)"
+			onseeked="markCounter=0" ontouchmove="timerRst()" onmousemove="timerRst()">
+	</video>
+	<canvas id="sc"></canvas>
+	<div id="countDownMsg" class="overlay" style="font-size: xx-large; left:50%; top:0; transform: translateX(-50%); z-index: 100 !important; display: none; color: yellow; background-color: red; opacity: 1;"></div>
+	<div id="flashmsg" class="overlay" style="font-size: xx-large; left:50%; top:20%; transform: translate(-50%, -50%); z-index: 100 !important; display: none;"></div>
+	<div id="banner0" class="overlay" style="font-size: xx-large; left:50%; top:50%; transform: translate(-50%, -50%); z-index: 100 !important; display: none; max-width: 50%;
+		background-color: #222; opacity: 90%;">正在处理，完毕后将重新开始播放...</div>
+	<div id="controls" style="display: none; z-index: 100;">
+		<div class="overlay z50" style="left:25%; top:0; transform: translateX(-50%);" onclick="handleKey('-')" title="浏览文件夹">🏃-</div>
+		<div class="overlay z50" style="left:75%; top:0; transform: translateX(-50%);" onclick="handleKey('=')" title="浏览文件夹">🏃+</div>
+		<div class="overlay z50 xlarge" style="left:0; top:calc(20% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowLeft',0)" title="-4s">❬&nbsp;&nbsp;</div>
+		<div class="overlay z50 xlarge" style="left:0; top:calc(30% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowLeft',1)" title="-8s">❬❬&nbsp;</div>
+		<div class="overlay z50 xlarge" style="left:0; top:calc(40% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowLeft',2)" title="-15s">❬❬❬</div>
+		<div class="overlay z50 xlarge" style="left:0; top:calc(60% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowLeft',3)" title="-30s">❰&nbsp;&nbsp;</div>
+		<div class="overlay z50 xlarge" style="left:0; top:calc(70% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowLeft',4)" title="-1min">❰❰&nbsp;</div>
+		<div class="overlay z50 xlarge" style="left:0; top:calc(80% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowLeft',5)" title="-2min">❰❰❰</div>
+		<div class="overlay z50 xlarge" style="right:0; top:calc(20% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowRight',0)" title="+4s">&nbsp;&nbsp;❭</div>
+		<div class="overlay z50 xlarge" style="right:0; top:calc(30% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowRight',1)" title="+8s">&nbsp;❭❭</div>
+		<div class="overlay z50 xlarge" style="right:0; top:calc(40% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowRight',2)" title="+15s">❭❭❭</div>
+		<div class="overlay z50 xlarge" style="right:0; top:calc(60% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowRight',3)" title="+30s">&nbsp;&nbsp;❱</div>
+		<div class="overlay z50 xlarge" style="right:0; top:calc(70% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowRight',4)" title="+1min">&nbsp;❱❱</div>
+		<div class="overlay z50 xlarge" style="right:0; top:calc(80% - 50px); transform: translateY(-50%);" onclick="handleKey('ArrowRight',5)" title="+2min">❱❱❱</div>
+	</div>
+	<div class="overlay hoverShow" style="right:0; top:0;">
+		<span onclick="ws_send('report_title')" title="播报当前歌曲名称" class="icon-speak"></span>
+		<span onclick="toggle_hide([controls])" title="播放设置" class="icon-gear"></span>
+		<span onclick="handleKey('f')" id="toggle-fs" title="切换全屏" class="icon-expand"></span>
+	</div>
+	<div class="overlay hoverShow" style="left:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="ws_send('prev')" title="跳回前一部">◀</div>
+	<div class="overlay hoverShow" style="right:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="ws_send('next')" title="跳到下一部">▶</div>
+</div>
+<div id="ovl">
+	<div class="overlay" style="left:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="ws_send('prev')" title="跳回前一部">◀</div>
+	<div class="overlay" style="right:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="ws_send('next')" title="跳到下一部">▶</div>
+	<div class="overlay" id="menuIcon0" style="left:50%; top:0px; transform: translateX(-50%);" onclick="toggle_menu(1)" title="当前播放列表">▤</div>
+</div>
+<div id="ovl2">
+	<div class="overlay" style="left:50%; top:calc(50% - 50px); transform: translate(-50%, -50%);" onclick="v.currentTime=0;v.play()" title="重头开始播放">↻</div>
+	<div class="overlay" id="menuIcon1" style="left:50%; bottom:var(--edge-pad); transform: translateX(-50%);" onclick="toggle_menu(2)" title="浏览文件夹">📁</div>
+</div>
+<div id="recButtons" class="overlay hoverShow" style="left:0; top:0;" >
+	<span id="recButton" title="播放指定文件（本地录音）" onclick="ASR()" class="icon-mic-local"></span>
+	<span title="播放指定文件（树莓派录音）" onclick="ws_send('play_spoken_indir')" class="icon-mic-station"></span>
+</div>
+<div class="overlay" style="left:0px; bottom:var(--edge-pad);">
+	<span class="hoverShow" title="复制视频链接然后扫码下载播放" onclick="showQR()">📱</span>
+	<span id="QRcontainer" style="background-color: #fff; display: none;"></span>
+	<span class="hoverShow icon-subtitles" id="showSubtt" title="选择字幕" onclick="toggle_menu(3)" style="display: none;"></span>
+	<span class="hoverShow icon-sound-tracks" id="showAudioTracks" title="选择音轨" onclick="toggle_menu(4)" style="display: none;"></span>
+</div>
+<div class="overlay hoverShow" style="right:0px; bottom:var(--edge-pad);">
+	<span onclick="toggle_hide([T2Sframe,S2Tframe])" title="显示详情（语音识别及语音合成）" class="icon-details"></span>
+	<span onclick="promptOpenFolder()" title="显示当前视频的URL链接" class="icon-link"></span>
+	<span onclick="showMediaInfo()" title="显示当前媒体文件的详细信息" class="icon-info"></span>
+</div>
+<div id="menu1" class="playmenu" style="font-size: xx-large; font-weight: bold; text-align: center; height: 80%;">
+	<h1 id="header1"><span id="title1">{{listname}}</span><span id="loopButton" style="position:absolute; right: 4px; cursor:pointer" onclick="toggle_loop()" title="单曲循环">🔁</span></h1>
+	<div id="list1" style="overflow-y: scroll; max-height: 90%;">
+		{% for name in playlist %}
+		<a id="a{{loop.index0}}" onclick="ws_send('goto_idx {{loop.index0}}')">{{name}}</a>
+		{% endfor %}
+	</div>
+</div>
+<div id="menu2" class="playmenu" style="font-size: xx-large; font-weight: bold; top: 8px; text-align: left; height: 80%;">
+	<h1 id="header2"><span id="title2" style='display:inline-block'></span>
+		<span id="title2-after" style="position:absolute; right:4px;">
+			<span style="cursor:pointer; color:yellow;" onclick="lsdir('..')" title="返回上一层目录" class="icon-level-up"></span>
+			<span style="cursor:pointer" onclick="lsdir('.')" title="返回当前播放目录">🏠</span>
+		</span>
+	</h1>
+	<div id="list2" style="overflow-y: scroll; max-height: 90%;"></div>
+</div>
+<div id="menu3" class="playmenu" style="font-size: x-large; font-weight: bold; text-align: left; transform:none; width:auto; max-height: 50%;">
+	<p id="t_subtt_status0" style="margin:0; color:yellow; display: none;">正在提取字幕，请稍候 ...</p>
+	<p id="t_subtt_status1" style="margin:0; color:lime; display:none;">字幕加载完成！</p>
+	<div id="list3" style="overflow-y: scroll;"></div>
+</div>
+<div id="menu4" class="playmenu" style="font-size: x-large; font-weight: bold; text-align: left; transform:none; width:auto; max-height: 50%;">
+	<p id="t_audtk_status0" style="margin:0; color: lime; ">请选择音轨：</p>
+	<div id="list4" style="overflow-y: scroll;"></div>
+</div>
+<div id="EDITframe" style="color: yellow; background-color: blue; overflow: auto; position: absolute; opacity:0.9; white-space:pre-wrap;
+		font-size: medium; left:5%; width:90%; display: none; z-index: 50;">
+	<button onclick="norm_vol()" title="对当前媒体文件的音量进行标准化调整，重新压缩音频并替换原文件">标准化媒体音量</button>
+	<div id="INFOframe"></div>
+</div>
+<div id="S2Tframe" style="background-color: #04AA6D; position: absolute; opacity:0.8; font-size: x-large; font-weight: bold; top: 30%; left:5%; width:20%;">
+	<h1>【语音识别详情】</h1>
+	<h1>语种：<span id="S2Tlang">{{S2T_lang}}</span></h1>
+	<h1 class="vsb">识别文本：<br><span id="S2Ttext">{{S2T_text}}</span></h1>
+	<h1 class="vsb">匹配文件名：<br><span id="S2Tmatch">{{S2T_match}}</span></h1>
+</div>
+<div id="T2Sframe" style="background-color: #04AA6D; position: absolute; opacity:0.8; font-size: x-large; font-weight: bold; top: 30%; left:75%; width:20%;">
+	<h1>【语音合成详情】</h1>
+	<h1>语种：<span id="T2Slang">{{T2S_lang}}</span></h1>
+	<h1 class="vsb">文本：<br><span id="T2Stext">{{T2S_text}}</span></h1>
+</div>
 
 <script>
 const pass = () => {};
@@ -207,122 +207,122 @@ var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator
 
 // Set global object handles
 for(var vname of ['ovl', 'ovl2', 'menu1', 'menu2', 'menu3', 'menu4', 'list1', 'list2', 'list3', 'S2Tframe', 'T2Sframe', 'INFOframe', 'EDITframe', 'S2Tlang', 'sc',
-  'showAudioTracks', 'T2Slang', 'S2Ttext', 'T2Stext', 'S2Tmatch', 'recButton', 'QRcontainer', 'showSubtt', 'recButtons', 'flashmsg', 'controls', 'banner0', 'countDownMsg'])
-  window.eval(`var ${vname} = getById("${vname}")`);
+	'showAudioTracks', 'T2Slang', 'S2Ttext', 'T2Stext', 'S2Tmatch', 'recButton', 'QRcontainer', 'showSubtt', 'recButtons', 'flashmsg', 'controls', 'banner0', 'countDownMsg'])
+	window.eval(`var ${vname} = getById("${vname}")`);
 ctx = sc.getContext("2d");
 
 function create_wsock(){
-  var ws = new WebSocket((location.href.startsWith('https:')?'wss://':'ws://') + location.host + '/ws_init');
-  ws.addEventListener('message', ev => {
-    if(ev.data.startsWith('\t')){
-      var its = ev.data.split('\t');
-      window[its[1]](its[2]);
-    }else if(ev.data.startsWith(' ')){
-      ws_send('\t'+eval(ev.data.slice(1)));
-    }else setTimeout(ev.data, 1);
-  });
-  return ws;
+	var ws = new WebSocket((location.href.startsWith('https:')?'wss://':'ws://') + location.host + '/ws_init');
+	ws.addEventListener('message', ev => {
+		if(ev.data.startsWith('\t')){
+			var its = ev.data.split('\t');
+			window[its[1]](its[2]);
+		}else if(ev.data.startsWith(' ')){
+			ws_send('\t'+eval(ev.data.slice(1)));
+		}else setTimeout(ev.data, 1);
+	});
+	return ws;
 }
 var ws = create_wsock();
 function ws_send(data){ // on-demand open websocket
-  if(ws.readyState==1)
-    ws.send(data);
-  else{
-    if(ws.readyState>1) ws = create_wsock();
-    ws.onopen = ()=>{ws.onopen=null; ws.send(data);}
-  }
+	if(ws.readyState==1)
+		ws.send(data);
+	else{
+		if(ws.readyState>1) ws = create_wsock();
+		ws.onopen = ()=>{ws.onopen=null; ws.send(data);}
+	}
 }
 function pause(){
-  if(v.paused) return true;
-  v.pause();
-  return false;
+	if(v.paused) return true;
+	v.pause();
+	return false;
 }
 var cb_sndTrack, cur_ii;
 function setvsrc(url, ii=0){
-  v.src = url;
-  if(!url){
-    cur_dir = cur_file = ''
-    if(menuMode!=2) toggle_menu(2);
-    return;
-  }
-  cur_file = url.indexOf('#')<0 ? url.substr(url.indexOf('files/')+6) : url.substring(url.indexOf('files/')+6, url.indexOf('#'));
-  cur_dir = url.substring(url.indexOf('files/')+6, url.lastIndexOf('/'));
-  var ttl = url.substr(url.indexOf('/',1)+1);
-  document.title = ttl.substring(0, ttl.lastIndexOf('.'));
-  v.play();
-  passCounter = markCounter = 0;
-  if(url.indexOf('#t=')>0){ // old TV browser does not support play from position in URL
-    var tm = Number(url.substr(url.indexOf('#t=')+3));
-    while(!('currentTime' in v));
-    setTimeout(`if(v.currentTime<${tm}-2.5)v.currentTime=${tm}`, 2500);
-  }
-  setvidx(cur_ii = ii);
-  show_banner(-1);
+	v.src = url;
+	if(!url){
+		cur_dir = cur_file = ''
+		if(menuMode!=2) toggle_menu(2);
+		return;
+	}
+	cur_file = url.indexOf('#')<0 ? url.substr(url.indexOf('files/')+6) : url.substring(url.indexOf('files/')+6, url.indexOf('#'));
+	cur_dir = url.substring(url.indexOf('files/')+6, url.lastIndexOf('/'));
+	var ttl = url.substr(url.indexOf('/',1)+1);
+	document.title = ttl.substring(0, ttl.lastIndexOf('.'));
+	v.play();
+	passCounter = markCounter = 0;
+	if(url.indexOf('#t=')>0){ // old TV browser does not support play from position in URL
+		var tm = Number(url.substr(url.indexOf('#t=')+3));
+		while(!('currentTime' in v));
+		setTimeout(`if(v.currentTime<${tm}-2.5)v.currentTime=${tm}`, 2500);
+	}
+	setvidx(cur_ii = ii);
+	show_banner(-1);
 
-  // handle subtitles
-  v.innerHTML = '';
-  subtt_info = null;
-  subtt_loaded = 0;
-  showSubtt.style.display = 'none';
-  if(dvdsub!=null){ dvdsub.dispose(); dvdsub = null;}
-  ws_send('list_subtitles ' + cur_file);
+	// handle subtitles
+	v.innerHTML = '';
+	subtt_info = null;
+	subtt_loaded = 0;
+	showSubtt.style.display = 'none';
+	if(dvdsub!=null){ dvdsub.dispose(); dvdsub = null;}
+	ws_send('list_subtitles ' + cur_file);
 
-  // handle multiple audio-tracks
-  showAudioTracks.style.display = "none";
-  cb_sndTrack = setInterval(()=>{
-    if(v.currentTime>0.5){
-      clearInterval(cb_sndTrack);
-      if(isChrome && v.audioTracks==undefined && getCookie("chromeSelectAudio")==''){
-        if(confirm('For Chrome browser, you must enable "Experimental Web Platform features" in "chrome://flags/" to select audio tracks. Prevent this dialog in the future?'))
-          document.cookie = `chromeSelectAudio=hide; path=/; max-age=31536000`;
-      }
-      if(v.audioTracks!=null && v.audioTracks.length>1) showAudioTracks.style.display="inline";
-    }
-  }, 1000);
+	// handle multiple audio-tracks
+	showAudioTracks.style.display = "none";
+	cb_sndTrack = setInterval(()=>{
+		if(v.currentTime>0.5){
+			clearInterval(cb_sndTrack);
+			if(isChrome && v.audioTracks==undefined && getCookie("chromeSelectAudio")==''){
+				if(confirm('For Chrome browser, you must enable "Experimental Web Platform features" in "chrome://flags/" to select audio tracks. Prevent this dialog in the future?'))
+					document.cookie = `chromeSelectAudio=hide; path=/; max-age=31536000`;
+			}
+			if(v.audioTracks!=null && v.audioTracks.length>1) showAudioTracks.style.display="inline";
+		}
+	}, 1000);
 
-  if(!menuMode) show_flashmsg(decodeURI(ttl.split('/').slice(-1)).split('#')[0]);
-  if(menuMode!=2) return;
-  if(cur_file.endsWith(getById('b'+ii).text)) setvidx(ii, 'b');
-  else{
-    for(var ii=0; ii<dir_list.length; ii++)
-      if(cur_file.endsWith(getById('b'+ii).text)) setvidx(ii, 'b');
-  }
+	if(!menuMode) show_flashmsg(decodeURI(ttl.split('/').slice(-1)).split('#')[0]);
+	if(menuMode!=2) return;
+	if(cur_file.endsWith(getById('b'+ii).text)) setvidx(ii, 'b');
+	else{
+		for(var ii=0; ii<dir_list.length; ii++)
+			if(cur_file.endsWith(getById('b'+ii).text)) setvidx(ii, 'b');
+	}
 }
 function promptOpenFolder(){
-  if(prompt('You can copy in clipboard the URL of the current video below. Do you want to open the parent folder in a new TAB?', v.src.split('#t=')[0]))
-    window.open(v.src.substr(0,v.src.lastIndexOf('/')), '_blank')
+	if(prompt('You can copy in clipboard the URL of the current video below. Do you want to open the parent folder in a new TAB?', v.src.split('#t=')[0]))
+		window.open(v.src.substr(0,v.src.lastIndexOf('/')), '_blank')
 }
 function showQR(){
-  QRcontainer.style.display = QRcontainer.style.display=='none'?'inline-flex':'none';
-  if(QRcontainer.style.display!='none' && QRcontainer.innerHTML==""){
-    const req = new XMLHttpRequest();
-    req.open("GET", '/QR', true);
-    req.onload = (ev)=>{
-      QRcontainer.width = QRcontainer.height = `${scr_size/8}px`;
-      QRcontainer.innerHTML = ev.target.responseText;
-    };
-    req.send();
-  }
+	QRcontainer.style.display = QRcontainer.style.display=='none'?'inline-flex':'none';
+	if(QRcontainer.style.display!='none' && QRcontainer.innerHTML==""){
+		const req = new XMLHttpRequest();
+		req.open("GET", '/QR', true);
+		req.onload = (ev)=>{
+			QRcontainer.width = QRcontainer.height = `${scr_size/8}px`;
+			QRcontainer.innerHTML = ev.target.responseText;
+		};
+		req.send();
+	}
 }
 var info_file;
 function showMediaInfo(){
-  toggle_hide([EDITframe]);
-  if(EDITframe.style.display!='none' && info_file!=cur_file){
-    ws_send('show_mediainfo ' + cur_file);
-    info_file = cur_file;
-    EDITframe.style.top = menuIcon0Height+'px';
-  }
+	toggle_hide([EDITframe]);
+	if(EDITframe.style.display!='none' && info_file!=cur_file){
+		ws_send('show_mediainfo ' + cur_file);
+		info_file = cur_file;
+		EDITframe.style.top = menuIcon0Height+'px';
+	}
 }
 function setvidx(ii, L='a', scrollIntoView=false){
-  for(var i=0; getById(L+i)!=null; i++)
-    getById(L+i).style.color = (i==ii?"#1f0":"#eee");
-  if(scrollIntoView) getById(L+ii).scrollIntoView({block: "center"});
+	for(var i=0; getById(L+i)!=null; i++)
+		getById(L+i).style.color = (i==ii?"#1f0":"#eee");
+	if(scrollIntoView) getById(L+ii).scrollIntoView({block: "center"});
 }
 function play_audio(fn, reply=false){
-  var aud = new Audio(fn);
-  if(reply)
-    aud.onended = ()=>{ws_send('\taudio_ended')};
-  aud.play();
+	var aud = new Audio(fn);
+	if(reply)
+		aud.onended = ()=>{ws_send('\taudio_ended')};
+	aud.play();
 }
 var siriWave, g_stream;
 const wav_win = getById('waveform'), updateFreq = 5;
@@ -331,8 +331,8 @@ A = f => 20 * Math.log10(RA(f)) + 2.0;
 var asr_prompts = ["请说出想要播放的媒体文件名称然后点击确定："];
 async function ASR(func=''){
 	asr_func = func;
-  v.last_pause_state = v.paused;
-  v.pause();
+	v.last_pause_state = v.paused;
+	v.pause();
 	getById('asr_prompt').textContent = asr_prompts[0];
 	getByClass('asr', '.style.display="block"');
 
@@ -340,8 +340,8 @@ async function ASR(func=''){
 		siriWave = new SiriWave({container: wav_win, cover: true, height: wav_win.offsetHeight, style: "ios9"});
 
 	var context = new (window.AudioContext || window.webkitAudioContext)();
-  await enableMic();
-  if(!g_stream) return;
+	await enableMic();
+	if(!g_stream) return;
 	source = context.createMediaStreamSource(g_stream);
 	var analyser = context.createAnalyser();
 	var trackSettings = g_stream.getAudioTracks()[0].getSettings();
@@ -406,10 +406,10 @@ async function ASR(func=''){
 }
 var flash_tmr;
 function show_flashmsg(msg, delay=2000){
-  flashmsg.style.display = 'block';
-  flashmsg.innerHTML = msg;
-  clearTimeout(flash_tmr);
-  flash_tmr = setTimeout(()=>{flashmsg.style.display = 'none'}, delay);
+	flashmsg.style.display = 'block';
+	flashmsg.innerHTML = msg;
+	clearTimeout(flash_tmr);
+	flash_tmr = setTimeout(()=>{flashmsg.style.display = 'none'}, delay);
 }
 function onRecStop(){
 	getByClass('asr', '.style.display="none"');
@@ -418,311 +418,320 @@ function onRecStop(){
 	siriWave.stop();
 	clearTimeout(recorder_timeout);
 	recorder = null;
-  disableMic();
-  if(!v.last_pause_state) v.play();
+	disableMic();
+	if(!v.last_pause_state) v.play();
 	if(!use_recorded) return;
 	var blob = new Blob(audios, { type: "audio/webm" });
 	const req = new XMLHttpRequest();
-  req.open("POST", '/play_recorded', true);
-  req.onerror = (e)=>{ alert(req.responseText); }
-  req.send(blob);
+	req.open("POST", '/play_recorded', true);
+	req.onerror = (e)=>{ alert(req.responseText); }
+	req.send(blob);
 }
 function lsdir(tgtDir=null){
-  if(tgtDir=='.') tgtDir=decodeURI(v.src.split('/').slice(4,-1).join('/'));
-  else if(tgtDir=='..') tgtDir = cur_dir.indexOf('/')>=0 ? cur_dir.split('/').slice(0,-1).join('/') : "";
-  if(tgtDir!=null) cur_dir=tgtDir.replace(/\/*$/, '');
-  ws_send('lsdir '+cur_dir);
+	if(tgtDir=='.') tgtDir=decodeURI(v.src.split('/').slice(4,-1).join('/'));
+	else if(tgtDir=='..') tgtDir = cur_dir.indexOf('/')>=0 ? cur_dir.split('/').slice(0,-1).join('/') : "";
+	if(tgtDir!=null) cur_dir=tgtDir.replace(/\/*$/, '');
+	ws_send('lsdir '+cur_dir);
 }
 function setAudioTrack(ii=0){
-  for(var i=0; i<v.audioTracks.length; i++)
-    v.audioTracks[i].enabled=(i==ii);
-  toggle_menu(0);
+	for(var i=0; i<v.audioTracks.length; i++)
+		v.audioTracks[i].enabled=(i==ii);
+	toggle_menu(0);
 }
 function toggle_menu(mode){
-  menuMode = (menuMode==mode?0:mode);
-  menu1.style.display = menuMode==1?"block":"none";
-  menu2.style.display = menuMode==2?"block":"none";
-  if(menuMode==1){
-    menu1.style.top=menuIcon0Height+'px';
-    getById('list1').style.maxHeight = `calc(100% - ${getById('header1').offsetHeight}px)`;
-    setvidx(cur_ii, 'a', true);
-  }else if(menuMode==2){
-    menu2.style.bottom=`${getById('menuIcon1').offsetHeight+edge_pad}px`;
-    if(list2.innerHTML=='') lsdir();
-    else{
-      var ii = -1, i = 0;
-      for(; getById('b'+i)!=null; i++)
-        if(cur_file == (cur_dir?(cur_dir+'/'+getById('b'+i).text):getById('b'+i).text)) ii = i;
-      if(ii>=0) setvidx(ii, 'b');
-    }
-    getById("title2").style.width = `calc(100% - ${getById("title2-after").offsetWidth}px)`;
-  }else if(menuMode==3){
-    menu3.style.bottom=`${getById('menuIcon1').offsetHeight+edge_pad}px`;
-    if(subtt_loaded==0){
-      ws_send(`load_subtitles ${subtt_info.length} ${cur_file}`);
-      subtt_loaded = 1;
-    }
-  }else if(menuMode==4){
-    menu4.style.left = showAudioTracks.offsetLeft+'px';
-    menu4.style.bottom = (showAudioTracks.offsetHeight+edge_pad)+'px';
-    list4.innerHTML = '';
-    for(let ii=0; ii<v.audioTracks.length; ii++){
-      var atrack = v.audioTracks[ii];
-      var chktxt = atrack.enabled?"checked":"";
-      list4.innerHTML += `<div onclick="setAudioTrack(${ii})" ><input id="at${ii}" type="radio" ${chktxt}><a style="display:inline">${ii+1}: ${atrack.language}</a></div>`
-    }
-  }
-  menu3.style.display = menuMode==3?"block":"none";
-  menu4.style.display = menuMode==4?"block":"none";
-  getById('menuIcon0').textContent = menuMode==1?"▿":"▤";
-  getById('menuIcon1').textContent = menuMode==2?"▵":"📁";
-  showSubtt.style.opacity = (menuMode==3?1:'');
-  showAudioTracks.style.opacity = (menuMode==4?1:'');
+	menuMode = (menuMode==mode?0:mode);
+	menu1.style.display = menuMode==1?"block":"none";
+	menu2.style.display = menuMode==2?"block":"none";
+	if(menuMode==1){
+		menu1.style.top=menuIcon0Height+'px';
+		getById('list1').style.maxHeight = `calc(100% - ${getById('header1').offsetHeight}px)`;
+		setvidx(cur_ii, 'a', true);
+	}else if(menuMode==2){
+		menu2.style.bottom=`${getById('menuIcon1').offsetHeight+edge_pad}px`;
+		if(list2.innerHTML=='') lsdir();
+		else{
+			var ii = -1, i = 0;
+			for(; getById('b'+i)!=null; i++)
+				if(cur_file == (cur_dir?(cur_dir+'/'+getById('b'+i).text):getById('b'+i).text)) ii = i;
+			if(ii>=0) setvidx(ii, 'b');
+		}
+		getById("title2").style.width = `calc(100% - ${getById("title2-after").offsetWidth}px)`;
+	}else if(menuMode==3){
+		menu3.style.bottom=`${getById('menuIcon1').offsetHeight+edge_pad}px`;
+		if(subtt_loaded==0){
+			ws_send(`load_subtitles ${subtt_info.length} ${cur_file}`);
+			subtt_loaded = 1;
+		}
+	}else if(menuMode==4){
+		menu4.style.left = showAudioTracks.offsetLeft+'px';
+		menu4.style.bottom = (showAudioTracks.offsetHeight+edge_pad)+'px';
+		list4.innerHTML = '';
+		for(let ii=0; ii<v.audioTracks.length; ii++){
+			var atrack = v.audioTracks[ii];
+			var chktxt = atrack.enabled?"checked":"";
+			list4.innerHTML += `<div onclick="setAudioTrack(${ii})" ><input id="at${ii}" type="radio" ${chktxt}><a style="display:inline">${ii+1}: ${atrack.language}</a></div>`
+		}
+	}
+	menu3.style.display = menuMode==3?"block":"none";
+	menu4.style.display = menuMode==4?"block":"none";
+	getById('menuIcon0').textContent = menuMode==1?"▿":"▤";
+	getById('menuIcon1').textContent = menuMode==2?"▵":"📁";
+	showSubtt.style.opacity = (menuMode==3?1:'');
+	showAudioTracks.style.opacity = (menuMode==4?1:'');
 }
 function getCookie(cookieName, dft="") {
-  var name = cookieName + "=";
-  var decodedCookie = decodeURIComponent(document.cookie);
-  var ca = decodedCookie.split(';');
-  for (var i = 0; i < ca.length; i++) {
-    var c = ca[i];
-    while (c.charAt(0) == ' ') {
-      c = c.substring(1);
-    }
-    if (c.indexOf(name) == 0) {
-      return c.substring(name.length, c.length);
-    }
-  }
-  return dft;
+	var name = cookieName + "=";
+	var decodedCookie = decodeURIComponent(document.cookie);
+	var ca = decodedCookie.split(';');
+	for (var i = 0; i < ca.length; i++) {
+		var c = ca[i];
+		while (c.charAt(0) == ' ') {
+			c = c.substring(1);
+		}
+		if (c.indexOf(name) == 0) {
+			return c.substring(name.length, c.length);
+		}
+	}
+	return dft;
 }
 function toggle_hide(objs){
-  var disp = objs[0].style.display=='none'?'block':'none';
-  for(var obj of objs) obj.style.display=disp;
-  if(objs.indexOf(S2Tframe)>=0)
-    document.cookie = `infoDisp=${disp}; path=/; max-age=31536000`;
+	var disp = objs[0].style.display=='none'?'block':'none';
+	for(var obj of objs) obj.style.display=disp;
+	if(objs.indexOf(S2Tframe)>=0)
+		document.cookie = `infoDisp=${disp}; path=/; max-age=31536000`;
 }
 function toggle_loop(val=null){
-  v.loop = val==null?(!v.loop):val;
-  getById('loopButton').textContent = v.loop?'🔂':'🔁';
+	v.loop = val==null?(!v.loop):val;
+	getById('loopButton').textContent = v.loop?'🔂':'🔁';
 }
 function clickvid(e){
-  e.preventDefault();
-  if(menuMode) toggle_menu(0);
-  else v.paused?v.play():v.pause();
+	e.preventDefault();
+	if(menuMode) toggle_menu(0);
+	else v.paused?v.play():v.pause();
 }
 function seturl(url){ window.location.href = url; }
 function timerInc() {
-  // keep websocket connection
-  if(ws==null || ws.readyState>1) ws = create_wsock();
+	// keep websocket connection
+	if(ws==null || ws.readyState>1) ws = create_wsock();
 
-  // show overlay upon mouse move
-  idleTime += 1;
-  if(idleTime>=2 && (idleTime-1)<2){
-    if(countdown_timer!=null) countDownMsg.style.display = (!menuMode)?"none":"";
-    ovl.style.display = (!menuMode)?"none":"";
-    ovl2.style.display = (!menuMode)?"none":"";
-    document.body.style.overflow = "hidden";
-  }
-  markCounter += (1-v.paused);
-  passCounter += v.paused;
-  if(markCounter>60){
-    markCounter = 0;
-    ws_send(`mark ${v.currentTime}`);
-  }else if(passCounter>60){
-    passCounter = 0;
-    ws_send('pass');
-  }
+	// show overlay upon mouse move
+	idleTime += 1;
+	if(idleTime>=2 && (idleTime-1)<2){
+		if(countdown_timer!=null) countDownMsg.style.display = (!menuMode)?"none":"";
+		ovl.style.display = (!menuMode)?"none":"";
+		ovl2.style.display = (!menuMode)?"none":"";
+		document.body.style.overflow = "hidden";
+	}
+	markCounter += (1-v.paused);
+	passCounter += v.paused;
+	if(markCounter>60){
+		markCounter = 0;
+		ws_send(`mark ${v.currentTime}`);
+	}else if(passCounter>60){
+		passCounter = 0;
+		ws_send('pass');
+	}
 }
 function timerRst() {
-  if(countdown_timer!=null) countDownMsg.style.display = "";
-  ovl.style.display = ovl2.style.display = document.body.style.overflow = "";
-  idleTime = 0;
+	if(countdown_timer!=null) countDownMsg.style.display = "";
+	ovl.style.display = ovl2.style.display = document.body.style.overflow = "";
+	idleTime = 0;
 }
 function gotoFile(ev, i){
-  ev.preventDefault();
-  ws_send("goto_file "+dir_list[i]);
-  setvidx(i, 'b');
+	ev.preventDefault();
+	ws_send("goto_file "+dir_list[i]);
+	setvidx(i, 'b');
 }
 function showDir(data){
-  list2.innerHTML = '';
-  getById('title2').textContent = `Folder: /${cur_dir}`;
-  getById('list2').style.maxHeight = `calc(100% - ${getById('header2').offsetHeight}px)`;
-  if(cur_dir)
-    list2.innerHTML += `<a onclick="lsdir('..')">../</a>`;
-  var i=0, j=0, scrollTo_id=-1, scrollTo_cur_max=0;
-  dir_list = [];
-  subdir_list = [];
-  for(var fn of data.split('\n')){
-    fulln = cur_dir?(cur_dir+'/'+fn):fn;
-    if(fn.endsWith('/')){
-      list2.innerHTML += `<a id="b${i}" onclick="lsdir(subdir_list[${j}])">${fn}</a>`;
-      subdir_list.push(fulln);
-      j+=1;
-    }else{
-      list2.innerHTML += `<a id="b${i}" onclick="gotoFile(event,${i})" href="/files/${fulln}">${fn}</a>`;
-    }
-    if(cur_file.startsWith(fulln) && fulln.length>scrollTo_cur_max){
-      scrollTo_id = i;
-      scrollTo_cur_max = fulln.length;
-    }
-    dir_list.push(fulln);
-    i+=1;
-  }
-  if(scrollTo_id>=0)
-    setTimeout(()=>{setvidx(scrollTo_id, 'b', true);}, 0);
+	list2.innerHTML = '';
+	getById('title2').textContent = `Folder: /${cur_dir}`;
+	getById('list2').style.maxHeight = `calc(100% - ${getById('header2').offsetHeight}px)`;
+	if(cur_dir)
+		list2.innerHTML += `<a onclick="lsdir('..')">../</a>`;
+	var i=0, j=0, scrollTo_id=-1, scrollTo_cur_max=0;
+	dir_list = [];
+	subdir_list = [];
+	for(var fn of data.split('\n')){
+		fulln = cur_dir?(cur_dir+'/'+fn):fn;
+		if(fn.endsWith('/')){
+			list2.innerHTML += `<a id="b${i}" onclick="lsdir(subdir_list[${j}])">${fn}</a>`;
+			subdir_list.push(fulln);
+			j+=1;
+		}else{
+			list2.innerHTML += `<a id="b${i}" onclick="gotoFile(event,${i})" href="/files/${fulln}">${fn}</a>`;
+		}
+		if(cur_file.startsWith(fulln) && fulln.length>scrollTo_cur_max){
+			scrollTo_id = i;
+			scrollTo_cur_max = fulln.length;
+		}
+		dir_list.push(fulln);
+		i+=1;
+	}
+	if(scrollTo_id>=0)
+		setTimeout(()=>{setvidx(scrollTo_id, 'b', true);}, 0);
 }
 function updateList(arr){
-  playlist = arr.split('\n');
-  getById('title1').textContent = `${cur_dir}`;
-  list1.innerHTML = '';
-  for(var [i,fn] of playlist.entries())
-    list1.innerHTML += `<a id="a${i}" onclick="ws_send('goto_idx ${i}')">${fn}</a>`;
+	playlist = arr.split('\n');
+	getById('title1').textContent = `${cur_dir}`;
+	list1.innerHTML = '';
+	for(var [i,fn] of playlist.entries())
+		list1.innerHTML += `<a id="a${i}" onclick="ws_send('goto_idx ${i}')">${fn}</a>`;
 }
 function list_subtitles(s_lst){
-  subtt_info = JSON.parse(s_lst);
-  if(subtt_info.length>0){
-    showSubtt.style.display="inline";
-    last_subtt = getCookie("subtt", dft="");
-    if(last_subtt){
-      ws_send(`load_subtitles ${subtt_info.length} ${cur_file}`);
-      subtt_loaded = 1;
-    }
-    getById(`t_subtt_status${subtt_loaded==2?1:0}`).style.display = 'block';
-    list3.innerHTML = '';
-    for(const [ii,si1] of subtt_info.entries()){
-      const tag = si1[1].endsWith('.sup')?`<i>${si1[0]}</i>`:si1[0];
-      const title = si1[1].endsWith('.sup')?'bitmap subtitle':'text subtitle';
-      list3.innerHTML += `<input type="checkbox" id="SCB${ii}" onclick="set_subtt(${ii}, this)"><a style="display:inline" title="${title}"" onclick="set_subtt(${ii})">${tag}</a><br>`;
-    }
-    menu3.style.left = showSubtt.offsetLeft+'px';
-    menu3.style.bottom = (showSubtt.offsetHeight+edge_pad)+'px';
-  }
+	subtt_info = JSON.parse(s_lst);
+	if(subtt_info.length>0){
+		showSubtt.style.display="inline";
+		last_subtt = getCookie("subtt", dft="");
+		if(last_subtt){
+			ws_send(`load_subtitles ${subtt_info.length} ${cur_file}`);
+			subtt_loaded = 1;
+		}
+		getById(`t_subtt_status${subtt_loaded==2?1:0}`).style.display = 'block';
+		list3.innerHTML = '';
+		for(const [ii,si1] of subtt_info.entries()){
+			const tag = si1[1].endsWith('.sup')?`<i>${si1[0]}</i>`:si1[0];
+			const title = si1[1].endsWith('.sup')?'bitmap subtitle':'text subtitle';
+			list3.innerHTML += `<input type="checkbox" id="SCB${ii}" onclick="set_subtt(${ii}, this)"><a style="display:inline" title="${title}"" onclick="set_subtt(${ii})">${tag}</a><br>`;
+		}
+		menu3.style.left = showSubtt.offsetLeft+'px';
+		menu3.style.bottom = (showSubtt.offsetHeight+edge_pad)+'px';
+	}
 }
 function load_subtitles(){
-  for(const [subid, subentry] of subtt_info.entries()){
-    track = document.createElement("track");
-    track.kind = "subtitles";
-    track.label = subentry[0];
-    track.srclang = subentry[0];
-    track.src = `/subtt/${subentry[1]}`;
-    v.appendChild(track);
-  }
-  subtt_loaded = 2;
-  getById('t_subtt_status1').style.display = 'block';
-  getById('t_subtt_status0').style.display = 'none';
-  for(var i of last_subtt.split(',')){
-    var ii = parseInt(i)>=v.textTracks.length?0:parseInt(i);
-    v.textTracks[ii].mode = 'showing';
-    getById(`SCB${ii}`).checked = true;
-    if(ii<subtt_info.length && subtt_info[ii][1].endsWith('.sup')){
-      set_subtt(ii);
-      break;
-    }
-  }
+	for(const [subid, subentry] of subtt_info.entries()){
+		track = document.createElement("track");
+		track.kind = "subtitles";
+		track.label = subentry[0];
+		track.srclang = subentry[0];
+		track.src = `/subtt/${subentry[1]}`;
+		v.appendChild(track);
+	}
+	subtt_loaded = 2;
+	getById('t_subtt_status1').style.display = 'block';
+	getById('t_subtt_status0').style.display = 'none';
+	for(var i of last_subtt.split(',')){
+		var ii = parseInt(i)>=v.textTracks.length?0:parseInt(i);
+		v.textTracks[ii].mode = 'showing';
+		getById(`SCB${ii}`).checked = true;
+		if(ii<subtt_info.length && subtt_info[ii][1].endsWith('.sup')){
+			set_subtt(ii);
+			break;
+		}
+	}
 }
 var dvdsub = null;
 function set_subtt(track_num, cb=null){
-  if(subtt_loaded!=2) return alert('请耐心等待加载字幕！');
-  last_subtt = '';
-  if(cb==null){
-    if(dvdsub!=null){ dvdsub.dispose(); dvdsub = null;}
-    for(var i=0; i<v.textTracks.length; i++){
-      v.textTracks[i].mode = (i==track_num?'showing':'hidden');
-      getById('SCB'+i).checked = i==track_num;
-    }
-    last_subtt = `${track_num}`;
-  }else{
-    v.textTracks[track_num].mode = (cb.checked?'showing':'hidden');
-    for(var i=0; i<v.textTracks.length; i++)
-      if(getById('SCB'+i).checked) last_subtt += `${i},`;
-      last_subtt = last_subtt.slice(0,-1);
-  }
+	if(subtt_loaded!=2) return alert('请耐心等待加载字幕！');
+	last_subtt = '';
+	if(cb==null){
+		if(dvdsub!=null){ dvdsub.dispose(); dvdsub = null;}
+		for(var i=0; i<v.textTracks.length; i++){
+			v.textTracks[i].mode = (i==track_num?'showing':'hidden');
+			getById('SCB'+i).checked = i==track_num;
+		}
+		last_subtt = `${track_num}`;
+	}else{
+		v.textTracks[track_num].mode = (cb.checked?'showing':'hidden');
+		for(var i=0; i<v.textTracks.length; i++)
+			if(getById('SCB'+i).checked) last_subtt += `${i},`;
+			last_subtt = last_subtt.slice(0,-1);
+	}
 
-  if(subtt_info[track_num][1].endsWith('.sup')){
-    if(cb!=null) return set_subtt(track_num);
-    if(dvdsub!=null){ dvdsub.dispose(); dvdsub = null;}
-    if(v.textTracks[track_num].mode=='showing')
-      dvdsub = new SUPtitles(v, `/subtt/${subtt_info[track_num][1]}`);
-  }
-  document.cookie = `subtt=${last_subtt}; path=/; max-age=31536000`;
+	if(subtt_info[track_num][1].endsWith('.sup')){
+		if(cb!=null && cb.checked) return set_subtt(track_num);
+		if(dvdsub!=null){ dvdsub.dispose(); dvdsub = null;}
+		if(v.textTracks[track_num].mode=='showing')
+			dvdsub = new SUPtitles(v, `/subtt/${subtt_info[track_num][1]}`);
+	}
+	document.cookie = `subtt=${last_subtt}; path=/; max-age=31536000`;
 }
 function show_banner(id=1){
-  if(id==1) banner0.style.display = 'block';
-  else if(id==-1) banner0.style.display = 'none';
+	if(id==1) banner0.style.display = 'block';
+	else if(id==-1) banner0.style.display = 'none';
 }
 function norm_vol(){
-  v.pause();
-  ws_send('norm_vol ' + cur_file);
-  show_banner(1);
+	v.pause();
+	ws_send('norm_vol ' + cur_file);
+	show_banner(1);
 }
 function pad(num, size) {
-    num = num.toString();
-    return "0".repeat(size-num.length) + num;
+		num = num.toString();
+		return "0".repeat(size-num.length) + num;
 }
 countdown_timer = null;
 function set_countdown(dt_tm){
-  clear_countdown();
-  if(typeof dt_tm=='number'){
-    var t = new Date();
-    t.setSeconds(t.getSeconds() + dt_tm);
-    dt_tm = t;
-  }
-  countdown_timer = setInterval(()=>{
-    var now = new Date().getTime();
-    var distance = Math.round((new Date(dt_tm).getTime() - now)/1000);
-    var days = Math.floor(distance / (60 * 60 * 24));
-    var hours = Math.floor((distance % (60 * 60 * 24)) / (60 * 60));
-    var minutes = Math.floor((distance % (60 * 60)) / 60);
-    var seconds = Math.floor(distance % 60);
-    countDownMsg.textContent = '电视机将于'+(days?days+'天':'')+pad(hours,2)+':'+pad(minutes,2)+':'+pad(seconds,2)+'后关闭';
-    if(distance < 60) countDownMsg.style.display = '';
-    if(distance < 0) clear_countdown();
-  }, 1000);
-  countDownMsg.style.display = '';
-  setTimeout(()=>{countDownMsg.style.display = 'none';}, 10000);
+	clear_countdown();
+	if(typeof dt_tm=='number'){
+		var t = new Date();
+		t.setSeconds(t.getSeconds() + dt_tm);
+		dt_tm = t;
+	}
+	countdown_timer = setInterval(()=>{
+		var now = new Date().getTime();
+		var distance = Math.round((new Date(dt_tm).getTime() - now)/1000);
+		var days = Math.floor(distance / (60 * 60 * 24));
+		var hours = Math.floor((distance % (60 * 60 * 24)) / (60 * 60));
+		var minutes = Math.floor((distance % (60 * 60)) / 60);
+		var seconds = Math.floor(distance % 60);
+		countDownMsg.textContent = '电视机将于'+(days?days+'天':'')+pad(hours,2)+':'+pad(minutes,2)+':'+pad(seconds,2)+'后关闭';
+		if(distance < 60) countDownMsg.style.display = '';
+		if(distance < 0) clear_countdown();
+	}, 1000);
+	countDownMsg.style.display = '';
+	setTimeout(()=>{countDownMsg.style.display = 'none';}, 10000);
 }
 function clear_countdown(){
-  if(countdown_timer!=null){
-    clearInterval(countdown_timer);
-    countdown_timer = null;
-    countDownMsg.style.display = 'none';
-  }
+	if(countdown_timer!=null){
+		clearInterval(countdown_timer);
+		countdown_timer = null;
+		countDownMsg.style.display = 'none';
+	}
 }
-function requestMic() {
-  if (g_stream !== undefined) return;
-  if (navigator.permissions && navigator.permissions.query) {
-    navigator.permissions.query({ name: 'microphone' })
-	.then(status => { 
-		if(status.state=='denied' && window.location.href.startsWith('http://')){
-			if(confirm("Only HTTPS websites can have access to microphone, do you want to redirect to HTTPS website?")){
-				var port = parseInt(window.location.href.split(':')[2]);
-				window.location.href = window.location.href.replace('http:', 'https:').replace(port, port+1);
-			}else if(window.navigator.userAgent.includes('Chrome')){
-				if(confirm("You are using Chrome browser which supports treat-insecure-origin-as-secure flag, do you want to add the current URL into it?")){
-					alert("Please copy 'chrome://flags/#unsafely-treat-insecure-origin-as-secure' into clipboard and paste it in new tab.");
-					openInNewTab("");
-				}
+function resolveMic(clicked=false) {
+	if(!clicked) return;
+	if(window.location.href.startsWith('http://')){
+		if(confirm("Only HTTPS websites can have access to microphone, do you want to redirect to HTTPS website?")){
+			var port = parseInt(window.location.href.split(':')[2]);
+			window.location.href = window.location.href.replace('http:', 'https:').replace(port, port+1);
+		}else if(window.navigator.userAgent.includes('Chrome')){
+			if(confirm("You need to change the security setting in Chrome browser to allow microphone access in HTTP website, do you want to proceed?")){
+				alert("Please open 'chrome://flags/#unsafely-treat-insecure-origin-as-secure' in a new tab and enable the setting.");
+				openInNewTab("");
 			}
-			return alert("Please grant the permission to access microphone!");
-		}else{
-      getById('recButton').style.display='inline';
-			g_stream=null;
+		}else if(window.navigator.userAgent.includes('Firefox')){
+			if(confirm("You need to change the security setting in Firefox browser to allow microphone access in HTTP website, do you want to proceed?")){
+				alert("Please open 'about:config' in a new tab and set 'media.getusermedia.insecure.enabled' and 'media.devices.insecure.enabled'. ");
+				openInNewTab("");
+			}
 		}
-	})
-	.catch(err => {
-		getById('recButton').style.display='none';
-		console.log("getUserMedia not supported on your browser!");
-	});
-  }
+	}
+	return alert("Please grant the permission to access microphone!");
+}
+function requestMic(clicked=false) {
+	if (g_stream !== undefined) return;
+	if (navigator.permissions && navigator.permissions.query) {
+		navigator.permissions.query({ name: 'microphone' })
+		.then(status => {
+			if(status.state=='denied')
+				return resolveMic(clicked);
+			else
+				g_stream=null;
+		})
+		.catch(err => {
+			getById('recButton').style.display='none';
+			console.log("getUserMedia not supported on your browser!"); 
+		});
+	}else resolveMic(clicked);
 }
 async function enableMic() {
-  if (g_stream!=null) return;
-  if (g_stream===undefined) requestMic();
-  g_stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+	if (g_stream!=null) return;
+	if (g_stream===undefined) requestMic(true);
+	g_stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 }
 function disableMic() {
-  if (!g_stream) return;
-  g_stream.getAudioTracks().forEach(t => t.stop());
-  g_stream = null;
+	if (!g_stream) return;
+	g_stream.getAudioTracks().forEach(t => t.stop());
+	g_stream = null;
 }
 
 // Main starts here
@@ -736,62 +745,62 @@ requestMic();
 T2Sframe.style.display = S2Tframe.style.display = getCookie('infoDisp', 'none');
 var menuIcon0Height = getById('menuIcon0').offsetHeight;
 function handleKey(key, amount=0){
-  switch (key) {
-    case "f":
-      document.fullscreenElement ? document.exitFullscreen() : getById('vcontainer').requestFullscreen();
-      break;
-    case "ArrowLeft":
-      v.currentTime -= 3.75*2**amount;
-      break;
-    case "ArrowRight":
-      v.currentTime += 3.75*2**amount;
-      break;
-    case "ArrowUp":
-      v.volume = Math.min(1, v.volume+.1);
-      show_flashmsg(`Volume = ${v.volume.toFixed(1)}`);
-      break;
-    case "ArrowDown":
-      v.volume = Math.max(0, v.volume-.1);
-      show_flashmsg(`Volume = ${v.volume.toFixed(1)}`);
-      break;
-    case "=":
-      v.playbackRate += .1;
-      show_flashmsg(`PlaySpeed = ${v.playbackRate.toFixed(2)}`);
-      break;
-    case "-":
-      v.playbackRate = Math.max(.1, v.playbackRate-.1);
-      show_flashmsg(`PlaySpeed = ${v.playbackRate.toFixed(2)}`);
-      break;
-    case "0":
-      v.playbackRate = 1;
-      show_flashmsg(`PlaySpeed = ${v.playbackRate.toFixed(2)}`);
-      break;
-    case " ":
-      v.paused?v.play():v.pause();
-      break;
-    case "p":
-      ws_send('prev');
-      break;
-    case "n":
-      ws_send('next');
-      break;
-    default:
-      return false;
-  }
-  return true;
+	switch (key) {
+		case "f":
+			document.fullscreenElement ? document.exitFullscreen() : getById('vcontainer').requestFullscreen();
+			break;
+		case "ArrowLeft":
+			v.currentTime -= 3.75*2**amount;
+			break;
+		case "ArrowRight":
+			v.currentTime += 3.75*2**amount;
+			break;
+		case "ArrowUp":
+			v.volume = Math.min(1, v.volume+.1);
+			show_flashmsg(`Volume = ${v.volume.toFixed(1)}`);
+			break;
+		case "ArrowDown":
+			v.volume = Math.max(0, v.volume-.1);
+			show_flashmsg(`Volume = ${v.volume.toFixed(1)}`);
+			break;
+		case "=":
+			v.playbackRate += .1;
+			show_flashmsg(`PlaySpeed = ${v.playbackRate.toFixed(2)}`);
+			break;
+		case "-":
+			v.playbackRate = Math.max(.1, v.playbackRate-.1);
+			show_flashmsg(`PlaySpeed = ${v.playbackRate.toFixed(2)}`);
+			break;
+		case "0":
+			v.playbackRate = 1;
+			show_flashmsg(`PlaySpeed = ${v.playbackRate.toFixed(2)}`);
+			break;
+		case " ":
+			v.paused?v.play():v.pause();
+			break;
+		case "p":
+			ws_send('prev');
+			break;
+		case "n":
+			ws_send('next');
+			break;
+		default:
+			return false;
+	}
+	return true;
 }
 document.onfullscreenchange = (e)=>{
-  if(document.fullscreenElement)
-    getById('toggle-fs').classList.replace('icon-expand', 'icon-fullscreen-exit');
-  else
-    getById('toggle-fs').classList.replace('icon-fullscreen-exit', 'icon-expand');
+	if(document.fullscreenElement)
+		getById('toggle-fs').classList.replace('icon-expand', 'icon-fullscreen-exit');
+	else
+		getById('toggle-fs').classList.replace('icon-fullscreen-exit', 'icon-expand');
 }
 window.addEventListener("keydown", function (event) {
-  var amount = 0;
-  if(event.shiftKey) amount+=4;
-  if(event.altKey) amount+=2;
-  if(event.metaKey) amount+=1;
-  if(handleKey(event.key, amount)) event.preventDefault();
+	var amount = 0;
+	if(event.shiftKey) amount+=4;
+	if(event.altKey) amount+=2;
+	if(event.metaKey) amount+=1;
+	if(handleKey(event.key, amount)) event.preventDefault();
 }, true);
 </script>
 </body>
