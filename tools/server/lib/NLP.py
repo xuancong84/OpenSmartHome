@@ -147,7 +147,7 @@ def asr_postprocess(txt):
 	return ret
 
 def filepath2songtitle(fn):
-	s = os.path.basename(unquote(fn).rstrip('/')).split('.')[0].strip()
+	s = os.path.basename(unquote(fn).rstrip('/')).rsplit('.', 1)[0].strip()
 	return os.path.basename(os.path.dirname(unquote(fn).rstrip('/')))+s if s.isdigit() else s
 
 

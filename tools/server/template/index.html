@@ -234,7 +234,7 @@ input {font-size:15px;}
 		</h2>
 		<div id="PlayControl" style="margin: 4px;">
 			<button onclick="updatePlayList('/play/0 0 1', 2000);" class="bb">播放 &nbsp; ▶</button>
-			<button onclick="updatePlayList('/stop', 1000);" class="bb">停止 &nbsp; ■</button>
+			<button onclick="updatePlayList('/stop?off', 1000);" class="bb">停止 &nbsp; ■</button>
 			<button onclick="GET('/togglePause')" class="bb">暂停/继续 &nbsp; ⏯</button>&nbsp;
 			<label style="white-space: nowrap;">
 				<b>音量：</b>
@@ -403,7 +403,7 @@ function load(hub_url){
 			var row = add_new_row();
 			for (var x = 0; x < Math.min(its.length, row.childElementCount); x++)
 				row.children[x+1].textContent = its[x];
-			row.children[row.childElementCount-1].children[0].style.display = its[its.length-1].includes('_spoken_')?"inline":"none";
+			row.children[row.childElementCount-1].children[0].style.display = its[its.length-1].includes('_spoken')?"inline":"none";
 		}
 	} catch (err) {
 		alert(err);
@@ -525,7 +525,7 @@ ${'<td contenteditable="true" class="wrap"></td>'.repeat(tb.rows[0].childElement
 	<input type='button' onclick='deleteRow(${rid})' value='Delete' title="Delete this row">
 </td>`;
 	row.children[row.childElementCount-2].onblur = (e)=>{
-		e.target.nextElementSibling.children[0].style.display = e.target.textContent.includes('_spoken_')?"inline":"none";
+		e.target.nextElementSibling.children[0].style.display = e.target.textContent.includes('_spoken')?"inline":"none";
 	};
 	rid++;
 	return row;

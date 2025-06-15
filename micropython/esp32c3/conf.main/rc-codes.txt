@@ -1,6 +1,19 @@
 DLS	餐厅吊灯开关|餐桌吊灯开关	嗯	1		[{'data': [8283, 792, 190, 789, 194, 785, 197, 782, 200, 780, 203, 776, 208, 289, 692, 291, 697, 776, 206, 774, 208, 770, 212, 768, 214, 766, 218, 278, 702, 765, 218, 761, 229, 275, 706, 761, 221, 758, 224, 272, 709, 758, 226, 272, 709, 274, 708, 275, 713, 277, 703, 763, 220, 276, 705, 279, 703, 280, 700, 766, 215, 765, 217, 763, 220, 277], 'init_level': 0, 'protocol': 'RF433'}, 'exec("g.DL=0")']
 DLN	餐厅吊灯开启|餐桌吊灯开启	嗯	1		[['DLS','sleep(0.2)','DLS','sleep(0.2)','DLS'] if (getTimeString()<'08:30:00' or getTimeString()>'18:00:00') else 'DLS', 'exec("g.DL=1")']
 DLF	餐厅吊灯关闭|餐桌吊灯关闭	嗯	1		['DLS', 'exec("g.DL=-1")']
+DLC	餐桌吊灯换色	好的	1	DLC	['DLS','sleep(0.2)','DLS']
+DFN	餐厅吊扇开启｜餐桌吊扇开启	好的	1		'DFM'
+DFS	餐厅吊扇关闭｜餐桌吊扇关闭	好的	1		{'data': [8128, 799, 182, 797, 186, 793, 189, 790, 191, 788, 195, 785, 198, 297, 684, 299, 688, 784, 197, 782, 200, 779, 202, 777, 205, 775, 208, 288, 693, 773, 208, 772, 218, 285, 696, 771, 211, 768, 214, 282, 701, 282, 698, 769, 212, 768, 216, 280, 708, 282, 698, 284, 697, 286, 695, 287, 694, 773, 208, 772, 212, 284, 697, 770, 212, 285], 'init_level': 0, 'protocol': 'RF433'}
+DFM	餐厅吊扇中档｜餐桌吊扇中档	好的	1		{'data': [8149, 783, 200, 780, 202, 777, 205, 775, 208, 771, 212, 769, 215, 281, 701, 282, 705, 769, 213, 767, 216, 764, 219, 762, 221, 759, 224, 272, 709, 758, 224, 756, 234, 269, 712, 756, 226, 754, 229, 267, 715, 268, 713, 271, 709, 758, 225, 755, 236, 268, 712, 756, 227, 269, 713, 756, 226, 753, 230, 750, 234, 263, 717, 751, 232, 265], 'init_level': 0, 'protocol': 'RF433'}
+DFH	餐厅吊扇快档｜餐桌吊扇快档	好的	1		{'data': [8273, 797, 185, 794, 188, 791, 191, 789, 194, 786, 196, 783, 200, 296, 686, 297, 691, 783, 199, 780, 203, 777, 205, 775, 208, 771, 211, 286, 696, 770, 211, 768, 222, 281, 700, 766, 215, 766, 217, 279, 703, 764, 219, 276, 705, 279, 700, 765, 225, 279, 702, 764, 217, 764, 218, 278, 704, 279, 702, 764, 218, 279, 703, 279, 701, 283], 'init_level': 0, 'protocol': 'RF433'}
+DFL	餐厅吊扇慢档｜餐桌吊扇慢档	好的	1		{'data': [8280, 791, 192, 787, 194, 787, 196, 782, 200, 781, 201, 777, 206, 291, 690, 292, 696, 779, 203, 775, 206, 774, 209, 771, 211, 769, 214, 282, 699, 768, 214, 766, 224, 278, 702, 765, 216, 763, 220, 278, 704, 278, 702, 281, 700, 766, 216, 280, 709, 281, 699, 767, 214, 766, 217, 763, 218, 761, 221, 760, 223, 756, 226, 270, 710, 275], 'init_level': 0, 'protocol': 'RF433'}
+RFN	房间落地扇开启	好的	1		{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xba\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00?{\n  "data": {\n    "fpwr": "ON"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-07-20T05:22:15Z"\n}'}
+RFF	房间落地扇关闭	好的	1		{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xbb\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00C{\n  "data": {\n    "fpwr": "OFF"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-07-20T05:22:51Z"\n}'}
+RF8	房间落地扇快档	好的	1	RFA	{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00\x04{\n  "data": {\n    "fnsp": "0008"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T11:02:20Z"\n}'}
+RF7	房间落地扇中档	好的	1	RFA	{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00\x04{\n  "data": {\n    "fnsp": "0007"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T11:02:20Z"\n}'}
+RF6	房间落地扇慢档	好的	1	RFA	{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00\x04{\n  "data": {\n    "fnsp": "0006"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T11:02:20Z"\n}'}
+RFU	房间落地扇调快	好的	1	RFA	{'protocol': 'MOD','filename':'modules.mpy','cmd':'dysonFanAdj("192.168.50.12","E1G-SG-NGA0425A",1)'}
+RFD	房间落地扇调慢	好的	1	RFA	{'protocol': 'MOD','filename':'modules.mpy','cmd':'dysonFanAdj("192.168.50.12","E1G-SG-NGA0425A",-1)'}
 SLS	沙发吊灯开关	嗯	1		[{'data': [6676, 431, 1047, 433, 1046, 1154, 325, 431, 1048, 1152, 327, 1149, 332, 1144, 336, 419, 1063, 422, 1055, 424, 1054, 1148, 333, 1142, 338, 1139, 341, 1135, 345, 411, 1066, 1134, 351, 409, 1068, 1133, 347, 409, 1069, 1132, 354, 409, 1069, 1131, 348, 408, 1069, 1132, 355, 1128, 359, 404, 1074, 1127, 352, 404, 1073, 1127, 353, 403], 'init_level': 0, 'protocol': 'RF433'}, 'exec("g.SL=0")']
 SLN	沙发吊灯开启	嗯	1		['SLS', 'exec("g.SL=1")']
 SLF	沙发吊灯关闭	嗯	1		['SLS', 'exec("g.SL=-1")']
@@ -8,11 +21,6 @@ PLS	钢琴房吊灯开关	嗯	1		[{'data': [8142, 794, 174, 314, 654, 313, 653, 
 PLN	钢琴房吊灯开启	嗯	1		['PLS', 'exec("g.PL=1")'] if g.PL<=0 else None
 PLF	钢琴房吊灯关闭	嗯	1		['PLS', 'exec("g.PL=-1")'] if g.PL>=0 else None
 PLC	钢琴房吊灯换色	嗯	1	PLC	['PLF','sleep(0.2)','PLN']
-DFN	餐厅吊扇开启｜餐桌吊扇开启	好的	1		'DFM'
-DFS	餐厅吊扇关闭｜餐桌吊扇关闭	好的	1		{'data': [8128, 799, 182, 797, 186, 793, 189, 790, 191, 788, 195, 785, 198, 297, 684, 299, 688, 784, 197, 782, 200, 779, 202, 777, 205, 775, 208, 288, 693, 773, 208, 772, 218, 285, 696, 771, 211, 768, 214, 282, 701, 282, 698, 769, 212, 768, 216, 280, 708, 282, 698, 284, 697, 286, 695, 287, 694, 773, 208, 772, 212, 284, 697, 770, 212, 285], 'init_level': 0, 'protocol': 'RF433'}
-DFM	餐厅吊扇中档｜餐桌吊扇中档	好的	1		{'data': [8149, 783, 200, 780, 202, 777, 205, 775, 208, 771, 212, 769, 215, 281, 701, 282, 705, 769, 213, 767, 216, 764, 219, 762, 221, 759, 224, 272, 709, 758, 224, 756, 234, 269, 712, 756, 226, 754, 229, 267, 715, 268, 713, 271, 709, 758, 225, 755, 236, 268, 712, 756, 227, 269, 713, 756, 226, 753, 230, 750, 234, 263, 717, 751, 232, 265], 'init_level': 0, 'protocol': 'RF433'}
-DFH	餐厅吊扇快档｜餐桌吊扇快档	好的	1		{'data': [8273, 797, 185, 794, 188, 791, 191, 789, 194, 786, 196, 783, 200, 296, 686, 297, 691, 783, 199, 780, 203, 777, 205, 775, 208, 771, 211, 286, 696, 770, 211, 768, 222, 281, 700, 766, 215, 766, 217, 279, 703, 764, 219, 276, 705, 279, 700, 765, 225, 279, 702, 764, 217, 764, 218, 278, 704, 279, 702, 764, 218, 279, 703, 279, 701, 283], 'init_level': 0, 'protocol': 'RF433'}
-DFL	餐厅吊扇慢档｜餐桌吊扇慢档	好的	1		{'data': [8280, 791, 192, 787, 194, 787, 196, 782, 200, 781, 201, 777, 206, 291, 690, 292, 696, 779, 203, 775, 206, 774, 209, 771, 211, 769, 214, 282, 699, 768, 214, 766, 224, 278, 702, 765, 216, 763, 220, 278, 704, 278, 702, 281, 700, 766, 216, 280, 709, 281, 699, 767, 214, 766, 217, 763, 218, 761, 221, 760, 223, 756, 226, 270, 710, 275], 'init_level': 0, 'protocol': 'RF433'}
 SFN	沙发吊扇开启	好的	1		'SF3'
 SFS	沙发吊扇关闭	好的	1		{'data': [5971, 433, 1044, 435, 1043, 1157, 322, 433, 1045, 1155, 325, 1151, 329, 1147, 333, 423, 1060, 425, 1053, 428, 1049, 1151, 330, 1146, 334, 1142, 338, 1139, 341, 415, 1063, 1137, 347, 414, 1064, 1138, 341, 414, 1065, 1137, 349, 1133, 347, 1130, 350, 405, 1072, 409, 1075, 1132, 354, 409, 1067, 412, 1066, 414, 1063, 1137, 343, 1134], 'init_level': 0, 'protocol': 'RF433'}
 SF1	沙发吊扇一档	好的	1		{'data': [6606, 447, 1032, 448, 1030, 1171, 309, 446, 1032, 1168, 312, 1164, 315, 1160, 320, 437, 1046, 438, 1039, 441, 1038, 1162, 317, 1159, 321, 1155, 325, 1152, 327, 429, 1050, 1151, 333, 427, 1051, 1150, 328, 427, 1051, 1149, 336, 1146, 333, 1143, 337, 1140, 340, 1137, 348, 414, 1072, 1137, 341, 414, 1063, 417, 1060, 420, 1058, 423], 'init_level': 0, 'protocol': 'RF433'}
@@ -33,8 +41,11 @@ PFN	钢琴房吊扇开启	好的	1		{'data': [7991, 800, 168, 321, 647, 321, 647
 PFF	钢琴房吊扇关闭	好的	1		{'data': [7993, 799, 168, 320, 648, 319, 649, 320, 646, 797, 171, 318, 649, 319, 647, 796, 178, 793, 175, 314, 653, 790, 178, 788, 180, 307, 658, 786, 181, 783, 185, 303, 672, 304, 661, 782, 185, 780, 188, 300, 667, 300, 665, 779, 188, 777, 191, 297, 677, 299, 667, 777, 190, 775, 193, 772, 196, 292, 675, 293, 673, 295, 672, 772, 194, 295], 'init_level': 0, 'protocol': 'RF433'}
 LFN	客厅落地扇开启	好的	1		{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xba\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00Q{\n  "data": {\n    "fpwr": "ON"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-07-20T05:21:36Z"\n}'}
 LFF	客厅落地扇关闭	好的	1		{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xbb\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00?{\n  "data": {\n    "fpwr": "OFF"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-07-20T05:17:39Z"\n}'}
-RFN	房间落地扇开启	好的	1		{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xba\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00?{\n  "data": {\n    "fpwr": "ON"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-07-20T05:22:15Z"\n}'}
-RFF	房间落地扇关闭	好的	1		{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xbb\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00C{\n  "data": {\n    "fpwr": "OFF"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-07-20T05:22:51Z"\n}'}
+LF8	客厅落地扇快档	好的	1	LFA	{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00\x04{\n  "data": {\n    "fnsp": "0008"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T10:26:49Z"\n}'}
+LF7	客厅落地扇中档	好的	1	LFA	{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00\x04{\n  "data": {\n    "fnsp": "0007"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T10:26:49Z"\n}'}
+LF6	客厅落地扇慢档	好的	1	LFA	{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00\x04{\n  "data": {\n    "fnsp": "0006"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T10:26:49Z"\n}'}
+LFU	客厅落地扇调快	好的	1	LFA	{'protocol': 'MOD','filename':'modules.mpy','cmd':'dysonFanAdj("192.168.50.11","E1G-SG-NGA0301A",1)'}
+LFD	客厅落地扇调慢	好的	1	LFA	{'protocol': 'MOD','filename':'modules.mpy','cmd':'dysonFanAdj("192.168.50.11","E1G-SG-NGA0301A",-1)'}
 S1N	射灯一开启	好的	2		{'protocol': 'TCP', 'IP': '192.168.50.15', 'PORT': 6668, 'data': b'\x00\x00U\xaa\x00\x00\x00\x02\x00\x00\x00\x07\x00\x00\x00w3.3\x00\x00\x00\x00\x00\x00\x00\x07\x00\x0e\xcb\xc0\xce\x9b\xc3\x19`|N\xfa\t=a\xeb\xbb\xbcH\x8a\x81\xca\xf56\x98\xdf\xe0\xa2E\x12\xefrgC\xc3\xa3$\xc7V\xe0\xb28)\xb8I\x05\x94\x8dQe\xd6n\xf2d\x9d"N=\x7f6E\t2\xa6\x8a\x18\xa3\x80@\x99\xa2PX$\xf8-\xcc"\xf8\xc5\x9c\x15\xf7U\xce=\x7fv\xaa\x9e\x97]wCa-f\xea\x04\xe9\xdf.\'r\x00\x00\xaaU'}
 S1F	射灯一关闭	好的	2		{'protocol': 'TCP', 'IP': '192.168.50.15', 'PORT': 6668, 'data': b'\x00\x00U\xaa\x00\x00\x00\x03\x00\x00\x00\x07\x00\x00\x00w3.3\x00\x00\x00\x00\x00\x00\x00\x08\x00\x0e\xcb\xc0\xce\x9b\xc3\x19`|N\xfa\t=a\xeb\xbb\xbcH\x8a\x81\xca\xf56\x98\xdf\xe0\xa2E\x12\xefrgC\xc3\xa3\xd0\x81\xd6\x98\xc8\x03o\x9c\x0f\xa8#\xdf\x7f~{E\x06\xc2\xd6\x8f\xb7L\xcb\x93L\xc8T\xd8"\x12\xa2\x01\xfe\xf3G\x86\xb5E\x99\xf6vP0\x949\x16BP\x1e\x1a\xae\xea\x82\xec\xf4L\x83\x96\x17\xfe\xe5\xcb\x89\xbc\xb5\xa8\x08&\x00\x00\xaaU'}
 S2N	射灯二开启	好的	2		{'protocol': 'TCP', 'IP': '192.168.50.14', 'PORT': 6668, 'data': b"\x00\x00U\xaa\x00\x00\x00\t\x00\x00\x00\x07\x00\x00\x00w3.3\x00\x00\x00\x00\x00\x00\x00\r\x00\x0bR9\xeaG\xcf\xa7\x9a\xc8\xe9EM'\xc7W\x99\x7f\xe3%\x8dp}1\xb6@\xfd\x8d\x9e00\x82\xa9\xe1W)M,\xd3\xb1N\x90\x9d\xcc\x85\xf8\x94\xff\xd0\xa1\x90\xc1\x16z\x98\rF\xc7\x15\xcc\x81\x8d\xe4\xe9\x87\x8f\xee\xf3x\xf6T\xd1\x1c\xa5\xca\xa2\x0f\xec\xc2\xbeY\xc7O#T\n\xe3\xf3\xc9;9ZU\x13\r\xdd\xf2\xf5]9>\xc4\x1f\x87\x00\x00\xaaU"}
@@ -49,8 +60,8 @@ MTVN	主人房电视机开启	好的	1		[{'protocol': 'WOL', 'data': '74:e6:b8:2
 MTVF	主人房电视机关闭	好的	1		{'protocol': 'CAP', 'filename': 'masterTVoff.tcp'}
 CTVN	客人房电视机开启	好的	1		[{'protocol': 'WOL', 'data': '7c:64:6c:b9:05:6e'},{'protocol': 'WOL', 'data': 'b8:16:5f:72:06:6c'}]
 CTVF	客人房电视机关闭	好的	1		'http://192.168.50.3:8883/tv/commonTV/off'
-_KF	进入用餐模式	好的	1		['SFS','LFN','DFM']+([] if g.DL==1 else ['DLN'])
-_CW	退出用餐模式	好的	1		['LFF','DFS']+([] if g.DL==-1 else ['DLF'])
+_KF	进入用餐模式	好的	1		['SFS','DFM','LFN']+([] if g.DL==1 else ['DLN'])
+_CW	退出用餐模式	好的	1		([] if g.DL==-1 else ['DLF'])+['DFS','LFF']
 _KF1	开饭喽	已进入用餐模式	2		'_KF'
 _CW1	吃完喽	已退出用餐模式	2		'_CW'
 ALLN	客厅全部灯开启	好的	1		['DLN', 'SLN', 'PLN', 'MLN', 'CRLN', 'S1N', 'S2N', 'S3N']
@@ -70,13 +81,26 @@ MPS	蓝牙音乐开启播放	好的	1		['BSN', 'http://192.168.50.3:8883/play/0 
 MPE	蓝牙音乐停止关闭	好的	1		['http://192.168.50.3:8883/stop','BSF']
 MPP	蓝牙播放器暂停	好的	1		'http://192.168.50.3:8883/pause'
 MPR	蓝牙播放器继续	好的	1		'http://192.168.50.3:8883/resume'
+BSVU	播放器音量增加|播放器音量提高	好的	1	BSVA	'http://192.168.50.3:8883/volume/up'
+BSVD	播放器音量减少|播放器音量降低	好的	1	BSVA	'http://192.168.50.3:8883/volume/down'
+BSVM	播放器音量中等	好的	1	BSVA	'http://192.168.50.3:8883/volume/50'
+MPPN	播放器跳到下一曲|播放器跳到下一集	好的	1	MPP	'http://192.168.50.3:8883/next'
+MPPP	播放器跳回上一曲|播放器跳回上一集	好的	1	MPP	'http://192.168.50.3:8883/previous'
+MPAVN	标准化当前歌曲音量		1		'http://192.168.50.3:8883/normalize_vol/'
+PPS	播放器播放指定歌曲｜播放器播放指定音乐		1		'http://192.168.50.3:8883/play_spoken/None/Desktop/musics.m3u'
+PPSD	播放器播放指定电视剧｜播放器播放指定电影		1		'http://192.168.50.3:8883/play_spoken'
+PRST	播放器播报当前歌曲名称				'http://192.168.50.3:8883/report_title'
+MPSN	播放器显示字幕	好的	1		'http://192.168.50.3:8883/subtitle/True'
+MPSF	播放器隐藏字幕	好的	1		'http://192.168.50.3:8883/subtitle/False'
+PPSF	播放器播放指定文件	好的			'http://192.168.50.3:8883/play_spoken'
+MPLS	播放器单曲循环|播放器进入单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/1'
+MPLL	播放器退出单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/0'
 LLN	客厅灯带开启	嗯	1		{'protocol': 'TCP', 'IP': '192.168.50.22', 'PORT': 5577, 'data': 0x3b230000000000000032000090}
 LLF	客厅灯带关闭	嗯	1		{'protocol': 'TCP', 'IP': '192.168.50.22', 'PORT': 5577, 'data': 0x3b240000000000000032000091}
 LLC	客厅灯带换色	好的	1	LLC	[{'protocol': 'TCP', 'IP': '192.168.50.22', 'PORT': 5577, 'data': bytes(g.Cmsg+[sum(g.Cmsg)&0xff])}, Exec('g.C=(1 if g.C+1>=8 else g.C+1);g.Cmsg=[0x31, 0xee if g.C&1 else 0, 0xee if g.C&2 else 0, 0xee if g.C&4 else 0, 0, 0, 0xf]')]
 LLT	客厅灯带不断变色	好的	1		{'protocol': 'TCP', 'IP': '192.168.50.22', 'PORT': 5577, 'data': b'8%\x012\x90'}
 __init__	系统初始化		9		exec('machine.freq(160000000);PIN_RF_IN=7;PIN_RF_OUT=6;PIN_ASR_IN=1;PIN_DEBUG_LED=12;use_BLE=True;g.C=1;g.Cmsg=[0x31, 0xee if g.C&1 else 0, 0xee if g.C&2 else 0, 0xee if g.C&4 else 0, 0, 0, 0xf]')
-__postinit__	后期初始化		9		Exec('g.D=False;g.DL=g.SL=g.PL=0')
-DLC	餐桌吊灯换色	好的	1	DLC	['DLS','sleep(0.2)','DLS']
+__postinit__	后期初始化		9		Exec('g.D=False;g.DL=g.SL=g.PL=0;machine.freq(80000000)')
 SLC	沙发吊灯换色	好的	1	SLC	['SLS','sleep(0.2)','SLS']
 BLN	客厅阳台灯开启	嗯	1		'http://192.168.50.3:8883/py_exec/ble_gap_advertise("0201011bffff00ee1bc878f64a44915e273c58fcd3e9eb928cf4d66d2a11e0",0.35)'
 BLF	客厅阳台灯关闭	嗯	1		'http://192.168.50.3:8883/py_exec/ble_gap_advertise("0201011bffff00ee1bc878f64a449144273c58fc5f65661e00785ae1a62ad3",0.35)'
@@ -90,42 +114,23 @@ CRLF	中间房吊灯关闭	好的	1		{'protocol': 'BLE', 'cmd': 'gap_advertise',
 MRL9	主人房吊灯最亮	好的	1		{'protocol': 'BLE', 'cmd': 'gap_advertise', 'data':0x0201011afff9084913f069254e3151ba3e174d9b74fa997166df5583fe87}
 MRL5	主人房吊灯明亮	好的	1		{'protocol': 'BLE', 'cmd': 'gap_advertise', 'data':0x0201011afff9084913f069254e3151ba3e174d24dafae27101b855e4caa7}
 MRL1	主人房吊灯最暗	好的	1		{'protocol': 'BLE', 'cmd': 'gap_advertise', 'data':0x0201011afff9084913f069254e3151ba3e174d2493fa22719f26557ad067}
-LF8	客厅落地扇快档	好的	1	LFA	{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00\x04{\n  "data": {\n    "fnsp": "0008"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T10:26:49Z"\n}'}
-LF7	客厅落地扇中档	好的	1	LFA	{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00\x04{\n  "data": {\n    "fnsp": "0007"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T10:26:49Z"\n}'}
-LF6	客厅落地扇慢档	好的	1	LFA	{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00\x04{\n  "data": {\n    "fnsp": "0006"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T10:26:49Z"\n}'}
-LFU	客厅落地扇调快	好的	1	LFA	{'protocol': 'MOD','filename':'modules.mpy','cmd':'dysonFanAdj("192.168.50.11","E1G-SG-NGA0301A",1)'}
-LFD	客厅落地扇调慢	好的	1	LFA	{'protocol': 'MOD','filename':'modules.mpy','cmd':'dysonFanAdj("192.168.50.11","E1G-SG-NGA0301A",-1)'}
-RF8	房间落地扇快档	好的	1	RFA	{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00\x04{\n  "data": {\n    "fnsp": "0008"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T11:02:20Z"\n}'}
-RF7	房间落地扇中档	好的	1	RFA	{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00\x04{\n  "data": {\n    "fnsp": "0007"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T11:02:20Z"\n}'}
-RF6	房间落地扇慢档	好的	1	RFA	{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00\x04{\n  "data": {\n    "fnsp": "0006"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T11:02:20Z"\n}'}
-RFU	房间落地扇调快	好的	1	RFA	{'protocol': 'MOD','filename':'modules.mpy','cmd':'dysonFanAdj("192.168.50.12","E1G-SG-NGA0425A",1)'}
-RFD	房间落地扇调慢	好的	1	RFA	{'protocol': 'MOD','filename':'modules.mpy','cmd':'dysonFanAdj("192.168.50.12","E1G-SG-NGA0425A",-1)'}
 BSN	蓝牙音响开启	好的	1		'http://192.168.50.3:8883/speaker/on/MP3_SPEAKER'
 BSF	蓝牙音响关闭	好的	1		'http://192.168.50.3:8883/speaker/off/MP3_SPEAKER'
-BSVU	播放器音量增加|播放器音量提高	好的	1	BSVA	'http://192.168.50.3:8883/volume/up'
-BSVD	播放器音量减少|播放器音量降低	好的	1	BSVA	'http://192.168.50.3:8883/volume/down'
-BSVM	播放器音量中等	好的	1	BSVA	'http://192.168.50.3:8883/volume/50'
-MPPN	播放器跳到下一曲|播放器跳到下一集	好的	1	MPP	'http://192.168.50.3:8883/next'
-MPPP	播放器跳回上一曲|播放器跳回上一集	好的	1	MPP	'http://192.168.50.3:8883/previous'
-LTVVU	电视机音量增加	好的	1	LTVV	'http://192.168.50.3:8883/tvVolume/livingTV/+3'
-LTVVD	电视机音量降低	好的	1	LTVV	'http://192.168.50.3:8883/tvVolume/livingTV/-3'
-MTVVU	主人房电视机音量增加	好的	1	MTVV	'http://192.168.50.3:8883/tvVolume/masterTV/+2'
-MTVVD	主人房电视机音量降低	好的	1	MTVV	'http://192.168.50.3:8883/tvVolume/masterTV/-2'
-CTVVU	客人房电视机音量增加	好的	1	CTVV	'http://192.168.50.3:8883/tvVolume/commonTV/+2'
-CTVVD	客人房电视机音量降低	好的	1	CTVV	'http://192.168.50.3:8883/tvVolume/commonTV/-2'
+LTVVU	电视机音量增加	好的	1	LTVV	'http://192.168.50.3:8883/tvVolume/livingTV/+20%'
+LTVVD	电视机音量降低	好的	1	LTVV	'http://192.168.50.3:8883/tvVolume/livingTV/-20%'
+MTVVU	主人房电视机音量增加	好的	1	MTVV	'http://192.168.50.3:8883/tvVolume/masterTV/+15%'
+MTVVD	主人房电视机音量降低	好的	1	MTVV	'http://192.168.50.3:8883/tvVolume/masterTV/-15%'
+CTVVU	客人房电视机音量增加	好的	1	CTVV	'http://192.168.50.3:8883/tvVolume/commonTV/+15%'
+CTVVD	客人房电视机音量降低	好的	1	CTVV	'http://192.168.50.3:8883/tvVolume/commonTV/-15%'
 VPS	蓝牙视频开启播放	好的	1		['LTVN', 'http://192.168.50.3:8883/play/0 0 1/KTV']
 VPE	蓝牙视频停止关闭	好的	1		['http://192.168.50.3:8883/stop', 'LTVF']
 VPR	蓝牙视频开播	好的	1		'http://192.168.50.3:8883/play/0 0 1/KTV'
 VPT	蓝牙视频停播	好的	1		'http://192.168.50.3:8883/stop'
-MPSN	播放器显示字幕	好的	1		'http://192.168.50.3:8883/subtitle/True'
-MPSF	播放器隐藏字幕	好的	1		'http://192.168.50.3:8883/subtitle/False'
 VLCVU	播放软件音量增加	好的	1	VLCV	'http://192.168.50.3:8883/vlcvolme/up'
 VLCVD	播放软件音量降低	好的	1	VLCV	'http://192.168.50.3:8883/vlcvolme/down'
-MPAVN	播放器调整当前歌曲音量		1		'http://192.168.50.3:8883/normalize_vol/'
-PPS	播放器播放指定歌曲｜播放器播放指定音乐		1		'http://192.168.50.3:8883/play_spoken_inlst/None/Desktop/musics.m3u'
-PPSD	播放器播放指定电视剧｜播放器播放指定电影		1		'http://192.168.50.3:8883/play_spoken_indir'
-KTVN	进入卡拉OK模式	好的	1		['KTVPN','http://192.168.50.3:8883/KTV/on']
-KTVF	退出卡拉OK模式	好的	1		['http://192.168.50.3:8883/KTV/off','KTVPF']
+KTVN	进入卡拉OK模式	正在开启卡拉OK模式请稍侯	1		['KTVPN','http://192.168.50.3:8883/KTV/on']
+KTVF	关闭卡拉OK模式	卡拉OK模式已关闭	1		['http://192.168.50.3:8883/KTV/off','KTVPF','LTVF']
+KTVQ	退出卡拉OK模式	卡拉OK模式已退出	1		['http://192.168.50.3:8883/KTV/off','KTVPF']
 SVU	系统音量增加	好的	1	SVA	asr_print('volume_up')
 SVD	系统音量减小	好的	1	SVA	asr_print('volume_down')
 HEAR	能听见吗	我能听见	2		
@@ -160,10 +165,8 @@ YYYY	今昔是何年		2		asr_print(f'read_date {getDateString()[:4]}')
 10	正在识别				
 11	处理完毕				
 12	重新开始播放该歌曲				
-PRST	播放器播报当前歌曲名称				'http://192.168.50.3:8883/report_title'
 TIME_ASK	小美请播报当前时间				[asr_write(f'a5c9%02x%02x0a'%(int(its[0]), int(its[1]))) for its in [getTimeString().split(':')]]
 DATE_ASK	小美请播报当前日期				[asr_write(f'a5c80%s0%s0%s0%s%02x%02x%02x0a'%(y[0],y[1],y[2],y[3],int(its[1]), int(its[2]),getWeekdayNum()+1)) for its in [getDateString().split('-')] for y in [its[0]]]
-PPSF	播放器播放指定文件	好的			'http://192.168.50.3:8883/play_spoken_indir'
 MPSR	蓝牙音乐开播				'http://192.168.50.3:8883/play/0 0 1/Music'
 LTVPV	电视机播放歌曲音乐	好的			'http://192.168.50.3:8883/tvPlay/livingTV 0 0 1/KTV'
 LTVPD	电视机播放电视剧|电视机播放电影	好的			'http://192.168.50.3:8883/play_last/livingTV'
@@ -177,10 +180,10 @@ MTVPS	主人房电视机暂停播放	好的			'http://192.168.50.3:8883/tv_wscmd
 MTVRS	主人房电视机继续播放	好的			'http://192.168.50.3:8883/tv_wscmd/masterTV/resume'
 MTVNX	主人房电视机跳到下一集|主人房电视机跳到下一曲	好的		MTVNP	'http://192.168.50.3:8883/tv_wscmd/masterTV/next'
 MTVPR	主人房电视机跳回上一集|主人房电视机跳回上一曲	好的		MTVNP	'http://192.168.50.3:8883/tv_wscmd/masterTV/prev'
-LTVPSV	电视机播放指定歌曲｜电视机播放指定音乐	好的			'http://192.168.50.3:8883/play_spoken_indir/livingTV/KTV'
-LTVPSD	电视机播放指定电视剧|电视机播放指定电影	好的			'http://192.168.50.3:8883/play_spoken_indir/livingTV'
-MTVPSV	主人房电视机播放指定歌曲｜主人房电视机播放指定音乐	好的			'http://192.168.50.3:8883/play_spoken_indir/masterTV/KTV'
-MTVPSD	主人房电视机播放指定电视剧|主人房电视机播放指定电影	好的			'http://192.168.50.3:8883/play_spoken_indir/masterTV'
+LTVPSV	电视机播放指定歌曲｜电视机播放指定音乐	好的			'http://192.168.50.3:8883/play_spoken/livingTV/KTV'
+LTVPSD	电视机播放指定电视剧|电视机播放指定电影	好的			'http://192.168.50.3:8883/play_spoken/livingTV'
+MTVPSV	主人房电视机播放指定歌曲｜主人房电视机播放指定音乐	好的			'http://192.168.50.3:8883/play_spoken/masterTV/KTV'
+MTVPSD	主人房电视机播放指定电视剧|主人房电视机播放指定电影	好的			'http://192.168.50.3:8883/play_spoken/masterTV'
 MACAIRPD	苹果笔记本播放电视剧｜苹果电脑播放电视剧	好的			'http://192.168.50.3:8883/custom_cmdline/macair_play'
 LTVRCP	电视机播报当前视频名称|电视机播报当前歌曲名称	好的			'http://192.168.50.3:8883/report_title/livingTV'
 MTVRCP	主人房电视机播报当前视频名称|主人房电视机播报当前歌曲名称	好的			'http://192.168.50.3:8883/report_title/masterTV'
@@ -192,8 +195,8 @@ CTVPS	客人房电视机暂停播放	好的			'http://192.168.50.3:8883/tv_wscmd
 CTVRS	客人房电视机继续播放	好的			'http://192.168.50.3:8883/tv_wscmd/commonTV/resume'
 CTVNX	客人房电视机跳到下一集|客人房电视机跳到下一曲	好的		CTVNP	'http://192.168.50.3:8883/tv_wscmd/commonTV/next'
 CTVPR	客人房电视机跳回上一集|客人房电视机跳回上一曲	好的		CTVNP	'http://192.168.50.3:8883/tv_wscmd/commonTV/prev'
-CTVPSV	客人房电视机播放指定歌曲｜客人房电视机播放指定音乐	好的			'http://192.168.50.3:8883/play_spoken_indir/commonTV/KTV'
-CTVPSD	客人房电视机播放指定电视剧|客人房电视机播放指定电影	好的			'http://192.168.50.3:8883/play_spoken_indir/commonTV'
+CTVPSV	客人房电视机播放指定歌曲｜客人房电视机播放指定音乐	好的			'http://192.168.50.3:8883/play_spoken/commonTV/KTV'
+CTVPSD	客人房电视机播放指定电视剧|客人房电视机播放指定电影	好的			'http://192.168.50.3:8883/play_spoken/commonTV'
 CTVRCP	客人房电视机播报当前视频名称|客人房电视机播报当前歌曲名称	好的			'http://192.168.50.3:8883/report_title/commonTV'
 LTVRW	电视机重新开始播放	好的	1		'http://192.168.50.3:8883/rewind/livingTV'
 MTVRW	主人房电视机重新开始播放	好的	1		'http://192.168.50.3:8883/rewind/masterTV'
@@ -202,11 +205,9 @@ MTLN	主人房厕所灯开启	好的	1		'http://192.168.50.36/rc_run?L1N'
 MTLF	主人房厕所灯关闭	好的	1		'http://192.168.50.36/rc_run?L1F'
 CTLN	客厅厕所灯开启	好的	1		'http://192.168.50.37/rc_run?L1N'
 CTLF	客厅厕所灯关闭	好的	1		'http://192.168.50.37/rc_run?L1F'
-MPLS	播放器单曲循环|播放器进入单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/1'
 LTLS	电视机单曲循环|客厅电视机单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/livingTV/1'
 MTLS	主人房电视机单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/masterTV/1'
 CTLS	客人房电视机单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/commonTV/1'
-MPLL	播放器退出单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/0'
 LTLL	电视机退出单曲循环|客厅电视机退出单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/livingTV/0'
 MTLL	主人房电视机退出单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/masterTV/0'
 CTLL	客人房电视机退出单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/commonTV/0'
@@ -240,4 +241,7 @@ _TVTC	电视机取消定时	好的	1		'http://192.168.50.3:8883/set_timer/ /livi
 TMSS	设置定时开关	好的	1		{'protocol': 'TMR', 'timeout': 10, 'voice':asr_write("a5670a"), 'exec': 'f"http://192.168.50.3:8883/set_spoken_timer/{wifi[\'config\'][0]}/{key}"'}
 TMCS	取消定时开关	好的	1		{'protocol': 'TMR', 'timeout': 10, 'exec': f"http://192.168.50.3:8883/set_timer/ /{wifi[\'config\'][0]}/{key}"}
 TMCA	取消所有定时开关	好的	1		f"http://192.168.50.3:8883/set_timer/ /{wifi['config'][0]}/*"
+RGN	进入怀旧游戏模式	好的	1		['LTVN','sleep(3)','http://192.168.50.3:8883/sh_exec/sudo cpupower frequency-set -u 2.40GHz;bato-launch.sh ~/packages/batocera-bcm2712-41-20241217.img &']
+RGQ	退出怀旧游戏模式	好的	1		['http://192.168.50.3:8883/sh_exec/bato-launch.sh stop;sudo cpupower frequency-set -u 1.50GHz']
+RGF	关闭怀旧游戏模式	好的	1		['RGQ', 'LTVF']
 					f"http://192.168.50.3:8883/set_spoken_timer/{wifi['config'][0]}/SLS"

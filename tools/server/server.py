@@ -446,6 +446,7 @@ def stop():
 	except Exception as e:
 		ret = str(e)
 	player = None
+	Try(lambda: unset_audio_device(MP3_SPEAKER) if request.query_string == b'off' else 0)
 	return ret
 
 loopModes = [vlc.PlaybackMode.repeat, vlc.PlaybackMode.loop, vlc.PlaybackMode.default]
@@ -817,10 +818,8 @@ def tv_wscmd(name, cmd):
 			ws.send('v.currentTime=0')
 		elif cmd == 'hideQR':
 			ws.send('QRcontainer.style.display="none";')
-		elif cmd == 'play_spoken_inlst':
-			play_spoken_song(name)
-		elif cmd == 'play_spoken_indir':
-			play_spoken_drama(name)
+		elif cmd == 'play_spoken':
+			play_spoken(name)
 		elif cmd == 'report_title':
 			report_title(name)
 		elif cmd.startswith('mark '):
@@ -878,7 +877,8 @@ list_sources = lambda: RUN('pactl list sources short')
 def speaker(cmd, name):
 	if name.endswith('_SPEAKER'):
 		name = Eval(name, name)
-	return str(set_audio_device(name) if cmd=='on' else unset_audio_device(name))
+	t = run_thread(set_audio_device if cmd=='on' else unset_audio_device, name)
+	return str(t.ident)
 
 def set_audio_device(devs, wait=3):
 	for dev in (devs if type(devs)==list else [devs]):
@@ -919,7 +919,7 @@ def get_recorder(devs, wait=3):
 		return res[-1][1]
 	return '0'
 
-def play_ASRchip_voice(name):
+def play_ASRchip_voice(name, block=False):
 	hex_cmd = ASRchip_voice_hex.get(name, '')
 	if not hex_cmd:
 		return False
@@ -927,11 +927,13 @@ def play_ASRchip_voice(name):
 	if type(hex_cmd)==tuple:
 		hex_cmd, delay = hex_cmd[:2]
 	requests.get(f'{ASRchip_voice_IP}/asr_write?{hex_cmd}')
-	time.sleep(delay)
+	if block:
+		time.sleep(delay)
 	return True
 
-def play_audio_chip(fn):
-	if not play_ASRchip_voice(os.path.basename(fn).split('.')[0]):
+def play_audio_chip(fn, block=False):
+	if not play_ASRchip_voice(os.path.basename(fn).split('.')[0], block):
+		ev_mutex.set()
 		return None
 	ev_mutex.set()
 	return ev_mutex
@@ -940,12 +942,12 @@ def play_audio(fn, block=False, tv_name=None):
 	ev_mutex.clear()
 	if tv_name:
 		if not is_tv_wsock(tv_name):
-			return play_audio_chip(fn)
+			return play_audio_chip(fn, block)
 		res = tv_wscmd(tv_name, f'play_audio("/{f"voice?{random.randint(0,999999)}" if fn==DEFAULT_T2S_SND_FILE else fn}",true)')
 		assert res == 'OK'
 	else:
 		if not is_ble_connected(MP3_SPEAKER):
-			return play_audio_chip(fn)
+			return play_audio_chip(fn, block)
 		RUNSYS(f'mplayer -really-quiet -noconsolecontrols {fn}', ev_mutex)
 	if block: ev_mutex.wait()
 	return ev_mutex
@@ -1063,47 +1065,61 @@ def play_last(tv_name=None):
 	run_thread(_play_last, tv_name, get_url_root(request))
 	return 'OK'
 
-def handle_ASR_indir(asr_out, tv_name, rel_path, url_root):
-	res = findMedia(asr_postprocess(asr_out['text']), asr_out['language'], base_path=SHARED_PATH+rel_path)
+def handle_ASR_play(asr_out, tv_name, rel_path, url_root):
+	full_path = SHARED_PATH + rel_path
+	if os.path.isdir(full_path):
+		res = findMedia(asr_postprocess(asr_out['text']), asr_out['language'], base_path=full_path)
+	else:
+		lst = load_m3u(full_path) if rel_path else ip2tvdata[Try(lambda: tv2lginfo(tv_name)['ip'], None)]['playlist']
+		res = findSong(asr_postprocess(asr_out['text']), asr_out['language'], lst)
+
 	if res == None:
 		setInfo(tv_name, asr_out["text"], asr_out['language'], 'S2T', '')
 		play_audio('voice/asr_not_found_drama.mp3' if rel_path else 'voice/asr_not_found_file.mp3', True, tv_name)
 		return 'ASR okay, but media file not found!'
-	else:
-		if type(res)==tuple:
-			res, epi = res if type(res)==tuple else (res, None)
-			short_path = res[len(SHARED_PATH):]
-			play_audio('voice/asr_found_drama.mp3' if rel_path else 'voice/asr_found_file.mp3', True, tv_name)
-			if tv_name==None:
-				_play(f'0 {epi}', short_path)
-			else:
-				_tvPlay(f'{tv_name} 0 {epi}', short_path, url_root)
-		else:
-			short_path = res[len(SHARED_PATH):]
-			play_audio(('voice/asr_found_drama.mp3' if os.path.isdir(res) else 'voice/asr_found_movie.mp3')
-				if rel_path else 'voice/asr_found_file.mp3', True, tv_name)
-			if tv_name == None:
-				_play('-1' if os.path.isdir(res) else '0', short_path)
-			else:
-				_tvPlay(tv_name+(' -1' if os.path.isdir(res) else ' 0'), short_path, url_root)
-		setInfo(tv_name, asr_out["text"], asr_out['language'], 'S2T', '' if res==None else \
-			(ls_media_files(res[0])[res[1]][len(SHARED_PATH):] if type(res)==tuple else res[len(SHARED_PATH):]), wait=True)
-		return str(asr_out)
 
-def handle_ASR_inlst(asr_out, tv_name, lst_filename, url_root):
-	lst = load_m3u(SHARED_PATH+lst_filename) if lst_filename else ip2tvdata[Try(lambda: tv2lginfo(tv_name)['ip'], None)]['playlist']
-	ii = findSong(asr_postprocess(asr_out['text']), asr_out['language'], lst)
-	if ii == None:
-		play_audio('voice/asr_not_found.mp3', True, tv_name)
-		return 'ASR okay, but item not found!'
-	else:
+	if type(res)==int:
 		play_audio('voice/asr_found.mp3', True, tv_name)
-		if lst_filename:
-			_tvPlay(f'{tv_name} 0 {ii}', lst_filename or json.dumps(lst), url_root) if tv_name else play(f'0 {ii}', json.dumps(lst))
+		if rel_path:
+			_tvPlay(f'{tv_name} 0 {res}', full_path if rel_path else json.dumps(lst), url_root) if tv_name else play(f'0 {res}', json.dumps(lst))
 		else:
-			playFrom(ii) if tv_name==None else tv_wscmd(tv_name, f'goto_idx {ii}')
-		setInfo(tv_name, asr_out["text"], asr_out['language'], 'S2T', '' if ii==None else lst[ii][len(SHARED_PATH):], wait=True)
-		return str(asr_out)
+			playFrom(res) if tv_name==None else tv_wscmd(tv_name, f'goto_idx {res}')
+		media_fn = lst[res][len(SHARED_PATH):]
+	elif type(res)==tuple:
+		res, epi = res if type(res)==tuple else (res, None)
+		short_path = res[len(SHARED_PATH):]
+		play_audio('voice/asr_found_drama.mp3' if rel_path else 'voice/asr_found_file.mp3', True, tv_name)
+		if tv_name==None:
+			_play(f'0 {epi}', short_path)
+		else:
+			_tvPlay(f'{tv_name} 0 {epi}', short_path, url_root)
+		media_fn = ls_media_files(res[0])[res[1]][len(SHARED_PATH):]
+	else:
+		short_path = res[len(SHARED_PATH):]
+		play_audio(('voice/asr_found_drama.mp3' if os.path.isdir(res) else 'voice/asr_found_movie.mp3')
+			if rel_path else 'voice/asr_found_file.mp3', True, tv_name)
+		if tv_name == None:
+			_play('-1' if os.path.isdir(res) else '0', short_path)
+		else:
+			_tvPlay(tv_name+(' -1' if os.path.isdir(res) else ' 0'), short_path, url_root)
+		media_fn = res[len(SHARED_PATH):]
+	setInfo(tv_name, asr_out["text"], asr_out['language'], 'S2T', '' if res==None else media_fn, wait=True)
+	return str(asr_out)
+
+# def handle_ASR_inlst(asr_out, tv_name, lst_filename, url_root):
+# 	lst = load_m3u(SHARED_PATH+lst_filename) if lst_filename else ip2tvdata[Try(lambda: tv2lginfo(tv_name)['ip'], None)]['playlist']
+# 	ii = findSong(asr_postprocess(asr_out['text']), asr_out['language'], lst)
+# 	if ii == None:
+# 		play_audio('voice/asr_not_found.mp3', True, tv_name)
+# 		return 'ASR okay, but item not found!'
+# 	else:
+# 		play_audio('voice/asr_found.mp3', True, tv_name)
+# 		if lst_filename:
+# 			_tvPlay(f'{tv_name} 0 {ii}', lst_filename or json.dumps(lst), url_root) if tv_name else play(f'0 {ii}', json.dumps(lst))
+# 		else:
+# 			playFrom(ii) if tv_name==None else tv_wscmd(tv_name, f'goto_idx {ii}')
+# 		setInfo(tv_name, asr_out["text"], asr_out['language'], 'S2T', '' if ii==None else lst[ii][len(SHARED_PATH):], wait=True)
+# 		return str(asr_out)
 
 def save_post_file(fn=DEFAULT_S2T_SND_FILE):
 	if request.method!='POST': return ''
@@ -1112,29 +1128,29 @@ def save_post_file(fn=DEFAULT_S2T_SND_FILE):
 	return fn
 
 # Play spoken item on TV
-@app.route('/play_spoken_indir', methods=['GET', 'POST'])
-@app.route('/play_spoken_indir/<tv_name>', methods=['GET', 'POST'])
-@app.route('/play_spoken_indir/<tv_name>/<path:rel_path>', methods=['GET', 'POST'])
-def play_spoken_drama(tv_name=None, rel_path=''):
+@app.route('/play_spoken', methods=['GET', 'POST'])
+@app.route('/play_spoken/<tv_name>', methods=['GET', 'POST'])
+@app.route('/play_spoken/<tv_name>/<path:rel_path>', methods=['GET', 'POST'])
+def play_spoken(tv_name=None, rel_path=''):
 	is_post, url_root = save_post_file(), get_url_root(request)
 	run_thread(recog_and_do, '' if is_post else 'voice/speak_drama.mp3', None if tv_name=='None' else tv_name,
-		rel_path, handle_ASR_indir, url_root)
+		rel_path, handle_ASR_play, url_root)
 	return 'OK'
 
-@app.route('/play_spoken_inlst', methods=['GET', 'POST'])
-@app.route('/play_spoken_inlst/<tv_name>', methods=['GET', 'POST'])
-@app.route('/play_spoken_inlst/<tv_name>/<path:lst_filename>', methods=['GET', 'POST'])
-def play_spoken_song(tv_name=None, lst_filename=''):
-	is_post, url_root = save_post_file(), get_url_root(request)
-	run_thread(recog_and_do, '' if is_post else 'voice/speak_song.mp3', None if tv_name=='None' else tv_name, 
-		lst_filename, handle_ASR_inlst, url_root)
-	return 'OK'
+# @app.route('/play_spoken_inlst', methods=['GET', 'POST'])
+# @app.route('/play_spoken_inlst/<tv_name>', methods=['GET', 'POST'])
+# @app.route('/play_spoken_inlst/<tv_name>/<path:lst_filename>', methods=['GET', 'POST'])
+# def play_spoken_song(tv_name=None, lst_filename=''):
+# 	is_post, url_root = save_post_file(), get_url_root(request)
+# 	run_thread(recog_and_do, '' if is_post else 'voice/speak_song.mp3', None if tv_name=='None' else tv_name, 
+# 		lst_filename, handle_ASR_inlst, url_root)
+# 	return 'OK'
 
 # Play spoken file recorded locally on the local device
 @app.route('/play_recorded', methods=['POST'])
 def play_recorded():
 	recfn, req = save_post_file(), request._get_current_object()
-	run_thread(recog_and_do, '', req.remote_addr, '', handle_ASR_indir, get_url_root(req), recfn)
+	run_thread(recog_and_do, '', req.remote_addr, '', handle_ASR_play, get_url_root(req), recfn)
 	return 'OK'
 
 # For Ecovacs
@@ -1304,7 +1320,7 @@ def voice_cmd(hub_pfx):
 		if ii is None:
 			return lvmsr_voice_cmd(asr_str)
 		cmdID, cmdDesc, cmdExec = cmd_tbl[ii][:3]
-		if '/play_spoken_' in cmdExec and cmdExec[0]=="'" and cmdExec[-1]=="'":
+		if '/play_spoken' in cmdExec and cmdExec[0]=="'" and cmdExec[-1]=="'":
 			return f"EXEC ASR({cmdExec})"
 		else:
 			get_http(hub_pfx + '/rl_run?' + cmdID)
