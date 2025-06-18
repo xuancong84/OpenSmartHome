@@ -34,14 +34,22 @@ HUBS={}
 
 ASRchip_voice_IP='http://192.168.50.4'
 ASRchip_voice_hex = {
+	'asr_fail': ('a5040a', 2.5),
+	'asr_error': ('a5050a', 1),
+
 	'speak_drama': ('a5650a', 3.5),
+	'speak_movie': ('a5650a', 3.5),
+	'speak_file': ('a5650a', 3.5),
 	'speak_song': ('a5640a', 3),
-	'asr_not_found': ('a5020a', 3),
-	'asr_not_found_drama': ('a5020a', 3),
-	'asr_not_found_file': ('a5020a', 3),
-	'asr_found': ('a5000a', 3),
-	'asr_found_drama': ('a5000a', 3),
-	'asr_found_file': ('a5000a', 3),
+	'asr_not_found_song': ('a5020a', 3),
+	'asr_not_found_movie': ('a5200a', 3),
+	'asr_not_found_drama': ('a52a0a', 3),
+	'asr_not_found_file': ('a5160a', 3),
+	'asr_found_song': ('a5000a', 3),
+	'asr_found_drama': ('a5280a', 3),
+	'asr_found_movie': ('a51e0a', 3),
+	'asr_found_file': ('a5140a', 3),
+
 	'set_timer_speak': ('a5660a', 4),
 	'set_timer_okay': ('a50a0a', 3),
 	'set_timer_fail': ('a50b0a', 3),

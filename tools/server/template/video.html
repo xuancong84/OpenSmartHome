@@ -86,8 +86,8 @@ h1 {
 	<h2 id="asr_prompt" style="color: white; font-size: xx-large; margin: 0.5em; line-height: 1.5; font-weight: bold;"></h2>
 	<div id="waveform" style="width:100%; height: 50%; border-radius: 2em; border: solid 4px blue; background-color: #00000080;"></div>
 	<h2 style="font-size: 64pt; justify-content: space-around; display: flex;" >
-		<span class="hand" style="color:lime" onclick="use_recorded=true;recorder.stop();">☑</span>
-		<span class="hand" style="color:red" onclick="recorder.stop();">☒</span>
+		<span class="hand" style="color:lime" onclick="StopRecorder(true)">☑</span>
+		<span class="hand" style="color:red" onclick="StopRecorder()">☒</span>
 	</h2>
 </div>
 <div id="vcontainer" onfullscreenchange="on_fs_chg(this)">
@@ -401,8 +401,7 @@ async function ASR(func=''){
 	recorder = new MediaRecorder(g_stream, {mimeType: 'audio/webm'});
 	recorder.ondataavailable = (e) => { audios.push(e.data); if(recorder.state=='inactive') onRecStop(); };
 	recorder.start();
-	recorder_timeout = setTimeout("recorder.stop()", 15000);
-	use_recorded = false;
+	recorder_timeout = setTimeout("StopRecorder()", 15000);
 }
 var flash_tmr;
 function show_flashmsg(msg, delay=2000){
@@ -411,16 +410,17 @@ function show_flashmsg(msg, delay=2000){
 	clearTimeout(flash_tmr);
 	flash_tmr = setTimeout(()=>{flashmsg.style.display = 'none'}, delay);
 }
-function onRecStop(){
+function StopRecorder(use_recorded=false){
+	recorder.stop();
+	recorder.use_recorded = use_recorded;
 	getByClass('asr', '.style.display="none"');
 	cancelIdleCallback(taskHandle);
 	source.disconnect();
-	siriWave.stop();
-	clearTimeout(recorder_timeout);
-	recorder = null;
+}
+function onRecStop(){
 	disableMic();
 	if(!v.last_pause_state) v.play();
-	if(!use_recorded) return;
+	if(!recorder.use_recorded) return;
 	var blob = new Blob(audios, { type: "audio/webm" });
 	const req = new XMLHttpRequest();
 	req.open("POST", '/play_recorded', true);

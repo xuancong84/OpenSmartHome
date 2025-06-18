@@ -363,7 +363,6 @@ def num2zh(txt):
 	if segs[-1][2]<len(txt):
 		segs += [[False, segs[-1][2], len(txt), txt[segs[-1][2]:]]]
 		
-
 	# convert all segments
 	out = ''
 	for is_num, start, stop, seg in segs:
@@ -371,13 +370,14 @@ def num2zh(txt):
 			out += seg
 		elif seg[0] in '0.':
 			out += ''.join([digit2low[c] for c in seg])
-		elif len(seg)==4 and 1800<int(seg)<2100:	# year number
+		elif len(seg)==4 and seg.isdigit() and 1800<int(seg)<2100:	# year number
 			out += ''.join([digit2low[c] for c in seg])
 		else:
 			cks = seg.split('.', 1)
 			out += g_An2Cn.an2cn(cks[0])
 			if len(cks)>1:
-				out += ''.join([digit2low[c] for c in cks[1]])
+				out += '点'
+				out += '点'.join([digit2low[c] for c in cks[1]])
 	return out
 
 

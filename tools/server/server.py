@@ -41,7 +41,7 @@ player = None
 playlist = None
 mplayer = None
 filelist = []
-P_ktv = None
+P_ext = None
 P_hidecursor = None
 isFirst = True
 isVideo = None
@@ -295,7 +295,7 @@ def set_timer(tm='', name=None, filename=None):
 			SetTimer(tmr_name, tm_sec, lambda: _tvPlay(name, filename, os.url_root), f'将于{tm_til}定时开启电视机{name}并播放{filename}')
 	return 'OK'
 
-def handle_ASR_timer(asr_out, tv_name, filename, url_root):
+def handle_ASR_timer(asr_out, tv_name, _, filename, url_root):
 	tm = txt2time(asr_postprocess(asr_out['text']))
 	if tm is None:
 		return play_audio('voice/set_timer_unknown.mp3', True, tv_name)
@@ -385,7 +385,7 @@ def _normalize_vol(song, remote_ip=None):
 		fn = mrl2path(filelist[cur_ii])
 		if not os.path.isfile(fn): return
 		player.stop()
-		play_audio('voice/processing.mp3')
+		play_audio('voice/processing.mp3', False)
 		norm_song_volume(fn)
 		player.play_item_at_index(cur_ii)
 	elif last_get_file_ip:
@@ -938,18 +938,20 @@ def play_audio_chip(fn, block=False):
 	ev_mutex.set()
 	return ev_mutex
 
-def play_audio(fn, block=False, tv_name=None):
+def play_audio(fn, block=None, tv_name=None):
+	# block: None (auto, i.e., True if from TV, False otherwise)
+	LOG(f'play_audio({fn}, {block}, {tv_name})')
 	ev_mutex.clear()
 	if tv_name:
 		if not is_tv_wsock(tv_name):
-			return play_audio_chip(fn, block)
+			return play_audio_chip(fn, False if block==None else block)
 		res = tv_wscmd(tv_name, f'play_audio("/{f"voice?{random.randint(0,999999)}" if fn==DEFAULT_T2S_SND_FILE else fn}",true)')
 		assert res == 'OK'
 	else:
 		if not is_ble_connected(MP3_SPEAKER):
-			return play_audio_chip(fn, block)
+			return play_audio_chip(fn, False if block==None else block)
 		RUNSYS(f'mplayer -really-quiet -noconsolecontrols {fn}', ev_mutex)
-	if block: ev_mutex.wait()
+	if block or block is None: ev_mutex.wait()
 	return ev_mutex
 
 def record_audio(tm_sec=5, file_path=DEFAULT_S2T_SND_FILE):
@@ -1012,14 +1014,14 @@ class VoicePrompt:
 
 
 # This function might take very long time, must be run in a separate thread
-def recog_and_do(voice_prompt, tv_name, path_name, handler, url_root, audio_file=DEFAULT_S2T_SND_FILE):
+def recog_and_do(prompt, tv_name, path_name, handler, url_root, audio_file=DEFAULT_S2T_SND_FILE):
 	global player, asr_model, ASR_cloud_running, ASR_server_running
 
 	with VoicePrompt(tv_name) as context:
 		# record speech
-		if voice_prompt:
+		if prompt:
 			set_volume(VOICE_VOL[tv_name])
-			play_audio(voice_prompt, True, tv_name)
+			play_audio(prompt if os.path.isfile(prompt) else f'voice/speak_{prompt}.mp3', True, tv_name)
 			record_audio()
 
 		# try cloud ASR
@@ -1032,19 +1034,19 @@ def recog_and_do(voice_prompt, tv_name, path_name, handler, url_root, audio_file
 		# try offline ASR if cloud ASR fails
 		if type(asr_output)==str or not asr_output:
 			if not asr_model:
-				return play_audio('voice/offline_asr_not_available.mp3', True, tv_name) if voice_prompt else "Offline ASR not available!"
+				return play_audio('voice/offline_asr_not_available.mp3', True, tv_name) if prompt else "Offline ASR not available!"
 			if ASR_server_running:
-				return play_audio('voice/unfinished_offline_asr.mp3', True, tv_name) if voice_prompt else "Another offline ASR is running!"
+				return play_audio('voice/unfinished_offline_asr.mp3', True, tv_name) if prompt else "Another offline ASR is running!"
 			run_thread(lambda: [play_audio('voice/wait_for_asr.mp3', True, tv_name), context.restore()])
 			asr_output = get_ASR_offline(audio_file)
 
 		print(f'ASR result: {asr_output}', file=sys.stderr)
 		if asr_output=={} or type(asr_output)==str:
-			return play_audio('voice/asr_error.mp3', True, tv_name) if voice_prompt else f"ASR error: {asr_output}"
+			return play_audio('voice/asr_error.mp3', True, tv_name) if prompt else f"ASR error: {asr_output}"
 		elif not asr_output['text']:
-			return play_audio('voice/asr_fail.mp3', True, tv_name) if voice_prompt else "ASR output is empty!"
+			return play_audio('voice/asr_fail.mp3', True, tv_name) if prompt else "ASR output is empty!"
 		else:
-			return handler(asr_output, tv_name, path_name, url_root.rstrip('/'))
+			return handler(asr_output, tv_name, prompt, path_name, url_root.rstrip('/'))
 
 
 def _play_last(name=None, url_root=None):
@@ -1065,7 +1067,7 @@ def play_last(tv_name=None):
 	run_thread(_play_last, tv_name, get_url_root(request))
 	return 'OK'
 
-def handle_ASR_play(asr_out, tv_name, rel_path, url_root):
+def handle_ASR_play(asr_out, tv_name, prompt, rel_path, url_root):
 	full_path = SHARED_PATH + rel_path
 	if os.path.isdir(full_path):
 		res = findMedia(asr_postprocess(asr_out['text']), asr_out['language'], base_path=full_path)
@@ -1075,29 +1077,29 @@ def handle_ASR_play(asr_out, tv_name, rel_path, url_root):
 
 	if res == None:
 		setInfo(tv_name, asr_out["text"], asr_out['language'], 'S2T', '')
-		play_audio('voice/asr_not_found_drama.mp3' if rel_path else 'voice/asr_not_found_file.mp3', True, tv_name)
+		if prompt:
+			play_audio(f'voice/asr_not_found_{prompt}.mp3', True, tv_name)
 		return 'ASR okay, but media file not found!'
 
 	if type(res)==int:
-		play_audio('voice/asr_found.mp3', True, tv_name)
+		play_audio(f'voice/asr_found_{getMediaType(lst[res])}.mp3', None, tv_name)
 		if rel_path:
 			_tvPlay(f'{tv_name} 0 {res}', full_path if rel_path else json.dumps(lst), url_root) if tv_name else play(f'0 {res}', json.dumps(lst))
 		else:
 			playFrom(res) if tv_name==None else tv_wscmd(tv_name, f'goto_idx {res}')
 		media_fn = lst[res][len(SHARED_PATH):]
 	elif type(res)==tuple:
-		res, epi = res if type(res)==tuple else (res, None)
-		short_path = res[len(SHARED_PATH):]
-		play_audio('voice/asr_found_drama.mp3' if rel_path else 'voice/asr_found_file.mp3', True, tv_name)
+		dn, epi = res if type(res)==tuple else (res, None)
+		short_path = dn[len(SHARED_PATH):]
+		play_audio(f'voice/asr_found_{getMediaType(dn)}.mp3', None, tv_name)
 		if tv_name==None:
 			_play(f'0 {epi}', short_path)
 		else:
 			_tvPlay(f'{tv_name} 0 {epi}', short_path, url_root)
-		media_fn = ls_media_files(res[0])[res[1]][len(SHARED_PATH):]
+		media_fn = ls_media_files(dn)[epi][len(SHARED_PATH):]
 	else:
 		short_path = res[len(SHARED_PATH):]
-		play_audio(('voice/asr_found_drama.mp3' if os.path.isdir(res) else 'voice/asr_found_movie.mp3')
-			if rel_path else 'voice/asr_found_file.mp3', True, tv_name)
+		play_audio(f'voice/asr_found_{getMediaType(res)}.mp3', None, tv_name)
 		if tv_name == None:
 			_play('-1' if os.path.isdir(res) else '0', short_path)
 		else:
@@ -1105,21 +1107,6 @@ def handle_ASR_play(asr_out, tv_name, rel_path, url_root):
 		media_fn = res[len(SHARED_PATH):]
 	setInfo(tv_name, asr_out["text"], asr_out['language'], 'S2T', '' if res==None else media_fn, wait=True)
 	return str(asr_out)
-
-# def handle_ASR_inlst(asr_out, tv_name, lst_filename, url_root):
-# 	lst = load_m3u(SHARED_PATH+lst_filename) if lst_filename else ip2tvdata[Try(lambda: tv2lginfo(tv_name)['ip'], None)]['playlist']
-# 	ii = findSong(asr_postprocess(asr_out['text']), asr_out['language'], lst)
-# 	if ii == None:
-# 		play_audio('voice/asr_not_found.mp3', True, tv_name)
-# 		return 'ASR okay, but item not found!'
-# 	else:
-# 		play_audio('voice/asr_found.mp3', True, tv_name)
-# 		if lst_filename:
-# 			_tvPlay(f'{tv_name} 0 {ii}', lst_filename or json.dumps(lst), url_root) if tv_name else play(f'0 {ii}', json.dumps(lst))
-# 		else:
-# 			playFrom(ii) if tv_name==None else tv_wscmd(tv_name, f'goto_idx {ii}')
-# 		setInfo(tv_name, asr_out["text"], asr_out['language'], 'S2T', '' if ii==None else lst[ii][len(SHARED_PATH):], wait=True)
-# 		return str(asr_out)
 
 def save_post_file(fn=DEFAULT_S2T_SND_FILE):
 	if request.method!='POST': return ''
@@ -1129,22 +1116,14 @@ def save_post_file(fn=DEFAULT_S2T_SND_FILE):
 
 # Play spoken item on TV
 @app.route('/play_spoken', methods=['GET', 'POST'])
-@app.route('/play_spoken/<tv_name>', methods=['GET', 'POST'])
-@app.route('/play_spoken/<tv_name>/<path:rel_path>', methods=['GET', 'POST'])
-def play_spoken(tv_name=None, rel_path=''):
+@app.route('/play_spoken/<tvName_prompt>', methods=['GET', 'POST'])
+@app.route('/play_spoken/<tvName_prompt>/<path:rel_path>', methods=['GET', 'POST'])
+def play_spoken(tvName_prompt='None', rel_path=''):
+	tv_name, prompt = (tvName_prompt.split()+['song'])[:2]
 	is_post, url_root = save_post_file(), get_url_root(request)
-	run_thread(recog_and_do, '' if is_post else 'voice/speak_drama.mp3', None if tv_name=='None' else tv_name,
+	run_thread(recog_and_do, '' if is_post else prompt, None if tv_name=='None' else tv_name,
 		rel_path, handle_ASR_play, url_root)
 	return 'OK'
-
-# @app.route('/play_spoken_inlst', methods=['GET', 'POST'])
-# @app.route('/play_spoken_inlst/<tv_name>', methods=['GET', 'POST'])
-# @app.route('/play_spoken_inlst/<tv_name>/<path:lst_filename>', methods=['GET', 'POST'])
-# def play_spoken_song(tv_name=None, lst_filename=''):
-# 	is_post, url_root = save_post_file(), get_url_root(request)
-# 	run_thread(recog_and_do, '' if is_post else 'voice/speak_song.mp3', None if tv_name=='None' else tv_name, 
-# 		lst_filename, handle_ASR_inlst, url_root)
-# 	return 'OK'
 
 # Play spoken file recorded locally on the local device
 @app.route('/play_recorded', methods=['POST'])
@@ -1195,28 +1174,67 @@ def autoFanOn(name='', level=None):
 	run_thread(autoFanLevel, name, level, True)
 	return 'OK'
 
+def killMode():
+	global P_ext
+	os.killpg(os.getpgid(P_ext.pid), signal.SIGKILL)
+	P_ext = None
+	if sys.platform=='linux' and P_hidecursor is not None:
+		os.killpg(os.getpgid(P_hidecursor.pid), signal.SIGKILL)
+		P_hidecursor = None
+
 # For OpenHomeKaraoke
-@app.route('/KTV/<cmd>')
-def KTV(cmd):
-	global P_ktv
-	if cmd=='on':
+def KTV(turn_on):
+	global P_ext
+	if turn_on:
+		cpufreq_set(1)
 		tv_name, input_id = (KTV_SCREEN.split(':')+[''])[:2]
 		stop()
 		tv_on_if_off(tv_name, True)
 		if input_id:
 			tv_setInput(tv_name, input_id)
 		set_audio_device(KTV_SPEAKER, 5)
-		P_ktv = subprocess.Popen([KTV_EXEC], shell=True, preexec_fn=os.setsid)
+		P_ext = subprocess.Popen([KTV_EXEC], shell=True, preexec_fn=os.setsid)
+		P_ext.mode = 'KTV'
 		if sys.platform=='linux' and P_hidecursor is None:
 			P_hidecursor = subprocess.Popen('DISPLAY=:0 unclutter -idle 2', shell=True, preexec_fn=os.setsid)
-	elif cmd=='off':
-		os.killpg(os.getpgid(P_ktv.pid), signal.SIGKILL)
-		if sys.platform=='linux' and P_hidecursor is not None:
-			os.killpg(os.getpgid(P_hidecursor.pid), signal.SIGKILL)
-			P_hidecursor = None
+	else:
+		killMode()
 		unset_audio_device(KTV_SPEAKER)
-	return 'OK'
+		cpufreq_set(0)
 
+# For Retro-gaming
+def RetroGame(img=''):
+	global P_ext
+	if img:
+		cpufreq_set(1)
+		P_ext = subprocess.Popen(['./bato-launch.sh', img], shell=True, preexec_fn=os.setsid)
+		P_ext.mode = 'RetroGame'
+	else:
+		killMode()
+		cpufreq_set(0)
+
+# Enter mode
+@app.route('/Mode')
+@app.route('/Mode/<mode>')
+@app.route('/Mode/<mode>/<path:args>')
+def Mode(mode='', args=''):
+	global P_ext
+
+	if P_ext != None:
+		cur_mode = Try(lambda: P_ext.mode, '')
+		if cur_mode == 'KTV':
+			KTV(False)
+		elif cur_mode == 'RetroGame':
+			RetroGame()
+		else:
+			killMode()
+
+	if mode == 'KTV':
+		KTV(True)
+	elif mode == 'RetroGame':
+		RetroGame(args)
+		
+	return 'OK'
 
 # For smartphone console
 ip2qr = {}

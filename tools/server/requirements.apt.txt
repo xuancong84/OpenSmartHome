@@ -3,3 +3,4 @@ ffmpeg
 bluez
 mkvtoolnix
 default-jre
+linux-cpupower

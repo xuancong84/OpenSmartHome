@@ -1,4 +1,4 @@
-import os, sys, io, re, time, string, json, threading, yt_dlp, gzip, multiprocessing
+import os, sys, io, re, time, string, json, threading, yt_dlp, gzip, math, multiprocessing
 import pykakasi, pinyin, logging, requests, shutil, subprocess, asyncio, socket
 import pandas as pd
 import jionlp as jio
@@ -216,18 +216,20 @@ def findMedia(name, lang=None, stack=0, stem=None, episode=None, base_path=SHARE
 		stem = name
 		episode = ''
 		if lang=='zh' and stem.endswith('集'):
-			stem = stem[:-1]
+			stem = stem[:-1].strip()
 		while stem[-1].isdigit() or (lang=='zh' and stem[-1] in NORMAL_CN_NUMBER):
 			episode = stem[-1] + episode
-			stem = stem[:-1]
+			stem = stem[:-1].strip()
 		if lang=='zh' and stem.endswith('第'):
-			stem = stem[:-1]
+			stem = stem[:-1].strip()
 		episode = Try(lambda: int(episode if episode.isdigit() else zh2num(episode)), '')
 	d_lst = ls_subdir(base_path)
 	lst = d_lst+ls_media_files(base_path)
 	res = findSong(name, lang, lst)
 	if res==None and name!=stem:
 		res = findSong(stem, lang, lst)
+		if res!=None and episode and isfile(lst[res]):
+			res = None
 	if res!=None:
 		item = lst[res]
 		if isfile(item):
@@ -254,6 +256,42 @@ def getAnyMediaList(base_path=SHARED_PATH, exts=video_file_exts):
 		lst = getAnyMediaList(dir, exts)
 		if lst: return lst
 	return []
+
+def fn2mediaType(fn):
+	try:
+		fext = '.' + fn.rsplit('.', 1)[1].lower()
+		if fext == '.webm':
+			obj = ffprobe_streams(fn)
+			has_video = sum([o1["codec_type"]=='video' for o1 in obj['streams']])
+			return 'video' if has_video else 'audio'
+		if fext in audio_file_exts:
+			return 'audio'
+		if fext in video_file_exts:
+			return 'video'
+	except:
+		pass
+	return 'file'
+
+def getMediaType(fn):
+	# 4 classes: song, movie, drama, file
+	try:
+		if os.path.isdir(fn):
+			lst = ls_media_files(fn)
+			n_song = sum([fn2mediaType(f1)=='audio' for f1 in lst])/len(lst)
+			if n_song==1:
+				return 'song'
+			if n_song==0:
+				return 'drama' if len(lst)>=8 else 'movie'
+		else:
+			mediaType = fn2mediaType(fn)
+			if mediaType == 'audio':
+				return 'song'
+			if mediaType == 'video':
+				dur = getDuration(fn)
+				return 'movie' if dur>6000 else ('drama' if dur>900 else 'song')
+	except:
+		pass
+	return 'file'
 
 
 # For yt-dlp
@@ -318,13 +356,16 @@ def get_subts_tagInfo(t):
 	Try(lambda:out.remove(''))
 	return (':'.join(out) if out else [f'{k}:{v}' for k,v in t.items()][0]).replace('\t', ' ').strip()
 
+def ffprobe_streams(fn):
+	out = RUN(['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', fn], shell=False)
+	return json.loads(out.strip())
+
 fullpath2stt_info = {}
 def list_subtitles(fullpath):
 	realpath = os.path.realpath(fullpath)
 	if realpath not in fullpath2stt_info:
 		try:
-			out = RUN(['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', fullpath], shell=False)
-			obj = json.loads(out.strip())
+			obj = ffprobe_streams(fullpath)
 			fullpath2stt_info[realpath] = [[get_subts_tagInfo(s['tags']), str(s["index"])+('.sup' if s["codec_name"]=="dvd_subtitle" else '.vtt') ]
 								  for s in obj['streams'] if s['codec_type']=='subtitle']
 		except Exception as e:
@@ -622,6 +663,28 @@ def txt2time(txt):
 		return tm
 	except:
 		return None
+
+def cpufreq_list():
+	ret = Try(lambda: open('/sys/bus/cpu/devices/cpu0/cpufreq/scaling_available_frequencies').read().strip().split(), [])
+	if not ret:
+		try:
+			fmax = Try(lambda: open('/sys/bus/cpu/devices/cpu0/cpufreq/cpuinfo_max_freq').read().strip(), None)
+			fmin = Try(lambda: open('/sys/bus/cpu/devices/cpu0/cpufreq/cpuinfo_min_freq').read().strip(), None)
+			if fmax!=None and fmin!=None:
+				f1, f2 = int(fmin), int(fmax)
+				ndigits = 1 - int(math.log10(abs(f2)))
+				ret = [str(round(v, ndigits)) for v in range(f1, f2, round((f2-f1)/10))]
+		except:
+			ret = []
+	return ret
+
+def cpufreq_set(perc=0):
+	# perc: 0 (min), 1 (max)
+	flist = cpufreq_list()
+	if not flist:
+		return False
+	n = round((len(flist)-1)*perc)
+	return runsys(f'sudo cpupower frequency-set -u {flist[n]}')
 
 
 class ASR:
