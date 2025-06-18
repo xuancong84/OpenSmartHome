@@ -255,6 +255,42 @@ def getAnyMediaList(base_path=SHARED_PATH, exts=video_file_exts):
 		if lst: return lst
 	return []
 
+def fn2mediaType(fn):
+	try:
+		fext = '.' + fn.rsplit('.', 1)[1].lower()
+		if fext == '.webm':
+			obj = ffprobe_streams(fn)
+			has_video = sum([o1["codec_type"]=='video' for o1 in obj['streams']])
+			return 'video' if has_video else 'audio'
+		if fext in audio_file_exts:
+			return 'audio'
+		if fext in video_file_exts:
+			return 'video'
+	except:
+		pass
+	return 'file'
+
+def getMediaType(fn):
+	# 4 classes: song, movie, drama, file
+	try:
+		if os.path.isdir(fn):
+			lst = ls_media_files(fn)
+			n_song = sum([fn2mediaType(f1)=='audio' for f1 in lst])/len(lst)
+			if n_song==1:
+				return 'song'
+			if n_song==0:
+				return 'drama' if len(lst)>=8 else 'movie'
+		else:
+			mediaType = fn2mediaType(fn)
+			if mediaType == 'audio':
+				return 'song'
+			if mediaType == 'video':
+				dur = getDuration(fn)
+				return 'movie' if dur>6000 else ('drama' if dur>900 else 'song')
+	except:
+		pass
+	return 'file'
+
 
 # For yt-dlp
 def parse_outfn(L, tmp_dir):
@@ -318,13 +354,16 @@ def get_subts_tagInfo(t):
 	Try(lambda:out.remove(''))
 	return (':'.join(out) if out else [f'{k}:{v}' for k,v in t.items()][0]).replace('\t', ' ').strip()
 
+def ffprobe_streams(fn):
+	out = RUN(['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', fn], shell=False)
+	return json.loads(out.strip())
+
 fullpath2stt_info = {}
 def list_subtitles(fullpath):
 	realpath = os.path.realpath(fullpath)
 	if realpath not in fullpath2stt_info:
 		try:
-			out = RUN(['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', fullpath], shell=False)
-			obj = json.loads(out.strip())
+			obj = ffprobe_streams(fullpath)
 			fullpath2stt_info[realpath] = [[get_subts_tagInfo(s['tags']), str(s["index"])+('.sup' if s["codec_name"]=="dvd_subtitle" else '.vtt') ]
 								  for s in obj['streams'] if s['codec_type']=='subtitle']
 		except Exception as e:
