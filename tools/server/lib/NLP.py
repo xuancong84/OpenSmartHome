@@ -8,9 +8,11 @@ from urllib.parse import unquote
 from werkzeug import local
 from natsort import natsorted
 from googletrans import Translator
+from pydub import AudioSegment as AudSeg
 
 sys.path.append('.')
 from lib.ChineseNumber import *
+from lib.EnglishNumber import *
 from lib.settings import *
 from device_config import *
 from contextlib import redirect_stdout, redirect_stderr
@@ -122,6 +124,36 @@ def url_is_ip(url, ip):
 	s2 = ''.join([c for c in ip if c.isdigit() or c=='.'])
 	return s1==s2
 
+def isVideoFileExt(fn):
+	for ext in video_file_exts:
+		if fn.lower().endswith(ext):
+			return True
+	return False
+
+def get_bak_fn(fn):
+	dirname = os.path.dirname(fn)
+	Try(lambda: os.makedirs(dirname+'/.orig'))
+	return f'{dirname}/.orig/{os.path.basename(fn)}'
+
+def norm_song_volume(fn):
+	audio = AudSeg.from_file(fn)
+	if isVideoFileExt(fn):
+		if not os.path.exists(get_bak_fn(fn+'.m4a')):
+			audio.export(get_bak_fn(fn+'.m4a'), format='ipod')
+		audio += (STD_VOL_DBFS - audio.dBFS)
+		audio.export(fn+'.m4a', format='ipod')
+		RUN(['ffmpeg', '-y', '-i', fn, '-i', fn+'.m4a', '-c', 'copy', '-map', '0', '-map', '-0:a', '-map', '1:a', fn+'.tmp.mp4'], shell=False, timeout=None)
+		os.system('sync')
+		os.rename(f'{fn}.tmp.mp4', fn)
+		os.system('sync')
+		os.remove(fn+'.m4a')
+	else:
+		if not os.path.exists(get_bak_fn(fn+'.m4a')):
+			os.rename(fn, get_bak_fn(fn+'.m4a'))
+		audio += (STD_VOL_DBFS - audio.dBFS)
+		audio.export(fn, format=('mp3' if fn.lower().endswith('.mp3') else 'ipod'))
+
+
 fn2dur = {}
 def getDuration(fn):
 	if fn in fn2dur:
@@ -144,10 +176,11 @@ def asr_postprocess(txt):
 	ret = txt.strip()
 	for c in punctuation:
 		ret = ret.strip(c)
-	return ret
+	return ret.lower()
 
 def filepath2songtitle(fn):
-	s = os.path.basename(unquote(fn).rstrip('/')).rsplit('.', 1)[0].strip()
+	bn = os.path.basename(unquote(fn).rstrip('/'))
+	s = (bn if os.path.isdir(fn) else bn.rsplit('.', 1)[0]).strip()
 	return os.path.basename(os.path.dirname(unquote(fn).rstrip('/')))+s if s.isdigit() else s
 
 
@@ -213,16 +246,20 @@ def match_episode(episode:int, lst):
 
 def findMedia(name, lang=None, stack=0, stem=None, episode=None, base_path=SHARED_PATH):
 	if episode == None:
-		stem = name
-		episode = ''
-		if lang=='zh' and stem.endswith('集'):
-			stem = stem[:-1].strip()
-		while stem[-1].isdigit() or (lang=='zh' and stem[-1] in NORMAL_CN_NUMBER):
-			episode = stem[-1] + episode
-			stem = stem[:-1].strip()
-		if lang=='zh' and stem.endswith('第'):
-			stem = stem[:-1].strip()
-		episode = Try(lambda: int(episode if episode.isdigit() else zh2num(episode)), '')
+		stem, episode = name, ''
+		if lang=='zh':
+			if stem.endswith('集'):
+				stem = stem[:-1].strip()
+			while stem[-1].isdigit() or stem[-1] in NORMAL_CN_NUMBER:
+				episode = stem[-1] + episode
+				stem = stem[:-1].strip()
+			if lang=='zh' and stem.endswith('第'):
+				stem = stem[:-1].strip()
+			episode = Try(lambda: int(episode if episode.isdigit() else zh2num(episode)), '')
+		elif lang=='en':
+			stem, episode = detect_trailing_number(name)
+			if episode and stem.endswith(' episode'):
+				stem = stem[:-8]
 	d_lst = ls_subdir(base_path)
 	lst = d_lst+ls_media_files(base_path)
 	res = findSong(name, lang, lst)
@@ -639,6 +676,8 @@ def execRC(s, stack=0):
 				return send_wol(s)
 			elif p=='CAP':
 				return send_cap(s)
+			elif p=='BLE':
+				return ble_gap_advertise(s['data'])
 	except Exception as e:
 		err = True
 		LOG(e)

@@ -10,7 +10,6 @@ from io import StringIO
 from flask import Flask, request, send_from_directory, render_template, send_file
 from flask_sock import Sock
 from unidecode import unidecode
-from pydub import AudioSegment as AudSeg
 from gtts import gTTS
 from lingua import LanguageDetectorBuilder
 from langcodes import Language as LC
@@ -18,6 +17,7 @@ from lib.DefaultRevisionDict import *
 from lib.gTranslateTTS import gTransTTS
 from lib.settings import *
 from lib.NLP import *
+from lib.chatGPT import *
 from device_config import *
 SHARED_PATH = os.path.expanduser(SHARED_PATH).rstrip('/')+'/'
 
@@ -97,12 +97,6 @@ def play_TTS(txt, tv_name=None):
 	for seg in txts:
 		prepare_TTS(seg)
 		play_audio(DEFAULT_T2S_SND_FILE, True, tv_name)
-
-def isVideoFile(fn):
-	for ext in video_file_exts:
-		if fn.lower().endswith(ext):
-			return True
-	return False
 
 
 ### Start handling of URL requests	###
@@ -197,6 +191,7 @@ def get_playlist():
 		'paused': Try(lambda: not mplayer.is_playing(), None),
 		'list': [] if player==None else [os.path.basename(f) for f in filelist],
 		'timer': Timers[None].desc if (None in Timers and Timers[None].is_alive()) else None,
+		'loopMode': Try(lambda: player.loop_mode, 0),
 	}
 	return json.dumps(obj)
 
@@ -220,12 +215,13 @@ def _play(tm_info, filename=''):
 	if player == None:
 		player = inst.media_list_player_new()
 	player.set_media_list(playlist)
-	isVideo = bool([fn for fn in filelist if isVideoFile(fn)])
+	isVideo = bool([fn for fn in filelist if isVideoFileExt(fn)])
 
 	mplayer = player.get_media_player()
 	mplayer.event_manager().event_attach(event.MediaPlayerOpening, on_media_opening)
 	set_audio_device(MP4_SPEAKER if isVideo else MP3_SPEAKER)
-	player.set_playback_mode(vlc.PlaybackMode.loop)
+	# player.set_playback_mode(vlc.PlaybackMode.loop)
+	loop_mode(0)
 	player.play_item_at_index(ii)
 	threading.Timer(1, lambda:mplayer.audio_set_volume(100)).start()
 	if tm_sec>0:
@@ -305,10 +301,10 @@ def handle_ASR_timer(asr_out, tv_name, _, filename, url_root):
 @app.route('/set_spoken_timer/<tv_name>', methods=['GET', 'POST'])
 @app.route('/set_spoken_timer/<tv_name>/<path:filename>', methods=['GET', 'POST'])
 def set_spoken_timer(tv_name=None, filename=None):
-	tv_name = None if tv_name==' ' else tv_name
+	tv_name = None if tv_name in [None, ' '] else tv_name
 	is_post, url_root = save_post_file(), get_url_root(request)
-	run_thread(recog_and_do, '' if is_post else 'voice/set_timer_speak.mp3',
-		None if tv_name=='None' else tv_name, filename, handle_ASR_timer, url_root)
+	prompt = '' if is_post else 'voice/set_timer_speak.mp3'
+	run_thread(recog_and_do, prompt, tv_name, filename, handle_ASR_timer, url_root)
 	return 'OK'
 
 def send_hub_cmd(hub_name, cmd):
@@ -347,29 +343,6 @@ def rewind(tv_name=None):
 			return 'OK'
 	except Exception as e:
 		return str(e)
-
-def get_bak_fn(fn):
-	dirname = os.path.dirname(fn)
-	Try(lambda: os.makedirs(dirname+'/.orig'))
-	return f'{dirname}/.orig/{os.path.basename(fn)}'
-
-def norm_song_volume(fn):
-	audio = AudSeg.from_file(fn)
-	if isVideoFile(fn):
-		if not os.path.exists(get_bak_fn(fn+'.m4a')):
-			audio.export(get_bak_fn(fn+'.m4a'), format='ipod')
-		audio += (STD_VOL_DBFS - audio.dBFS)
-		audio.export(fn+'.m4a', format='ipod')
-		RUN(['ffmpeg', '-y', '-i', fn, '-i', fn+'.m4a', '-c', 'copy', '-map', '0', '-map', '-0:a', '-map', '1:a', fn+'.tmp.mp4'], shell=False, timeout=None)
-		os.system('sync')
-		os.rename(f'{fn}.tmp.mp4', fn)
-		os.system('sync')
-		os.remove(fn+'.m4a')
-	else:
-		if not os.path.exists(get_bak_fn(fn+'.m4a')):
-			os.rename(fn, get_bak_fn(fn+'.m4a'))
-		audio += (STD_VOL_DBFS - audio.dBFS)
-		audio.export(fn, format=('mp3' if fn.lower().endswith('.mp3') else 'ipod'))
 
 def _normalize_vol(song, remote_ip=None):
 	global player, last_get_file_ip
@@ -449,7 +422,7 @@ def stop():
 	Try(lambda: unset_audio_device(MP3_SPEAKER) if request.query_string == b'off' else 0)
 	return ret
 
-loopModes = [vlc.PlaybackMode.repeat, vlc.PlaybackMode.loop, vlc.PlaybackMode.default]
+loopModes = [vlc.PlaybackMode.loop, vlc.PlaybackMode.repeat, vlc.PlaybackMode.default]
 @app.route('/loop_mode/<int:mode>')
 @app.route('/loop_mode/<tv_name>/<int:mode>')
 def loop_mode(mode=1, tv_name=None):
@@ -460,9 +433,9 @@ def loop_mode(mode=1, tv_name=None):
 			tv_wscmd(tv_name, f'loop_mode {mode}')
 		else:
 			player.set_playback_mode(loopModes[mode])
+			player.loop_mode = mode
 	except Exception as e:
 		ret = str(e)
-	player = None
 	return ret
 
 def is_ble_connected(dev_mac):
@@ -954,7 +927,7 @@ def play_audio(fn, block=None, tv_name=None):
 	if block or block is None: ev_mutex.wait()
 	return ev_mutex
 
-def record_audio(tm_sec=5, file_path=DEFAULT_S2T_SND_FILE):
+def record_audio_for_duration(tm_sec=5, file_path=DEFAULT_S2T_SND_FILE):
 	os.system(f'ffmpeg -y -f pulse -i {get_recorder(MIC_RECORDER)} -ac 1 -t {tm_sec} {file_path}')
 
 
@@ -1022,7 +995,7 @@ def recog_and_do(prompt, tv_name, path_name, handler, url_root, audio_file=DEFAU
 		if prompt:
 			set_volume(VOICE_VOL[tv_name])
 			play_audio(prompt if os.path.isfile(prompt) else f'voice/speak_{prompt}.mp3', True, tv_name)
-			record_audio()
+			record_audio_for_duration()
 
 		# try cloud ASR
 		asr_output = None
@@ -1079,6 +1052,8 @@ def handle_ASR_play(asr_out, tv_name, prompt, rel_path, url_root):
 		setInfo(tv_name, asr_out["text"], asr_out['language'], 'S2T', '')
 		if prompt:
 			play_audio(f'voice/asr_not_found_{prompt}.mp3', True, tv_name)
+		elif tv_name:
+			tv_wscmd(tv_name, "show_flashmsg('ASR okay, but media file not found!')")
 		return 'ASR okay, but media file not found!'
 
 	if type(res)==int:
@@ -1175,7 +1150,7 @@ def autoFanOn(name='', level=None):
 	return 'OK'
 
 def killMode():
-	global P_ext
+	global P_ext, P_hidecursor
 	os.killpg(os.getpgid(P_ext.pid), signal.SIGKILL)
 	P_ext = None
 	if sys.platform=='linux' and P_hidecursor is not None:
@@ -1184,16 +1159,18 @@ def killMode():
 
 # For OpenHomeKaraoke
 def KTV(turn_on):
-	global P_ext
+	global P_ext, P_hidecursor
 	if turn_on:
 		cpufreq_set(1)
 		tv_name, input_id = (KTV_SCREEN.split(':')+[''])[:2]
 		stop()
+		if KTV_SPEAKER_ON:
+			execRC(KTV_SPEAKER_ON)
 		tv_on_if_off(tv_name, True)
 		if input_id:
 			tv_setInput(tv_name, input_id)
 		set_audio_device(KTV_SPEAKER, 5)
-		P_ext = subprocess.Popen([KTV_EXEC], shell=True, preexec_fn=os.setsid)
+		P_ext = subprocess.Popen(KTV_EXEC, shell=True, preexec_fn=os.setsid)
 		P_ext.mode = 'KTV'
 		if sys.platform=='linux' and P_hidecursor is None:
 			P_hidecursor = subprocess.Popen('DISPLAY=:0 unclutter -idle 2', shell=True, preexec_fn=os.setsid)
@@ -1201,16 +1178,19 @@ def KTV(turn_on):
 		killMode()
 		unset_audio_device(KTV_SPEAKER)
 		cpufreq_set(0)
+		if KTV_SPEAKER_OFF:
+			execRC(KTV_SPEAKER_OFF)
 
 # For Retro-gaming
 def RetroGame(img=''):
 	global P_ext
 	if img:
 		cpufreq_set(1)
-		P_ext = subprocess.Popen(['./bato-launch.sh', img], shell=True, preexec_fn=os.setsid)
+		P_ext = subprocess.Popen(['./bato-launch.sh', expand_path(img)], preexec_fn=os.setsid)
 		P_ext.mode = 'RetroGame'
 	else:
 		killMode()
+		P_ext = subprocess.Popen(['./bato-launch.sh', 'stop'], preexec_fn=os.setsid)
 		cpufreq_set(0)
 
 # Enter mode
@@ -1225,7 +1205,7 @@ def Mode(mode='', args=''):
 		if cur_mode == 'KTV':
 			KTV(False)
 		elif cur_mode == 'RetroGame':
-			RetroGame()
+			RetroGame(False)
 		else:
 			killMode()
 
@@ -1345,6 +1325,14 @@ def voice_cmd(hub_pfx):
 		return f'OK: {cmdDesc}'
 	except:
 		return traceback.format_exc()
+
+def _chatGPT():
+	record_voice_until_sil()
+
+@app.route('/chatGPT')
+def chatGPT():
+	run_thread(_chatGPT)
+	return 'OK'
 
 
 if __name__ == '__main__':

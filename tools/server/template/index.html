@@ -230,7 +230,10 @@ input {font-size:15px;}
 		style="position:fixed; z-index:5; width: 50%; height: 50%; background-color: #fff; display: none; border:4px ridge #149BF3;">
 		<h2 id='PlayListMenuHeader' style="color: lime; background-color: #149BF3; text-align: center; cursor: pointer; margin: 0; padding: 10px;" data-drag-handle="true">
 			音乐播放列表
-			<span onclick="openPlayList()" style="float: right;">❎</span>
+			<span style="float: right;">
+				<span id="loopMode" onclick="toggleLoopMode()" title="单曲循环">🔁</span>
+				<span onclick="openPlayList()" title="关闭窗口">❎</span>
+			</span>
 		</h2>
 		<div id="PlayControl" style="margin: 4px;">
 			<button onclick="updatePlayList('/play/0 0 1', 2000);" class="bb">播放 &nbsp; ▶</button>
@@ -291,7 +294,7 @@ input {font-size:15px;}
 		<button onclick="save()" title="Save remote control mappings" class="bb">Save Table</button>&nbsp;
 		<button onclick="load()" title="Load remote control mappings" class="bb">Load Table</button>&nbsp;
 		<button onclick="clear_all()" title="Clear all mappings, this does not delete from storage" class="bb">Clear All</button>&nbsp;
-		<button onclick="GET(cur_hub_pfx+'/reboot')" class="bb">Reboot</button>
+		<button onclick="GET(cur_hub_pfx+'/set_cmd?machine.reset()')" class="bb">Reboot</button>
 	</p>
 	</div>
 
@@ -344,16 +347,22 @@ function POST(url, data = null, onOkay=null, onFail=null){
 	xmlHttp.send(data);
 	return xmlHttp.responseText;
 }
-function toast(msg) {
-	if(!isString(msg))
+function toast(msg, isHTML=false) {
+	if(msg instanceof Error)
+		msg = msg.name + ' : ' + msg.message;
+	else if(!isString(msg))
 		msg = msg.target.responseText || (msg.target.statusText+' '+msg.target.status);
 	var randint = Math.round(Math.random()*10000);
 	var e = document.createElement('div');
 	e.id = `toast${randint}`;
 	e.className = 'toast show';
-	e.innerHTML = msg;
+	e.tabIndex = 0;
+	if(isHTML)e.innerHTML = msg;
+	else e.innerText = msg;
+	e.timeout = setTimeout(function(){ getById(`toast${randint}`).remove() }, 3000);
+	e.onfocus = (ev)=>{clearTimeout(ev.target.timeout);}
+	e.onblur = (ev)=>{ev.target.remove();}
 	document.body.appendChild(e);
-	setTimeout(function(){ getById(`toast${randint}`).remove() }, 3000);
 }
 var tb = getById('rc-table');
 var tb_ble = getById('tb_ble');
@@ -411,6 +420,9 @@ function load(hub_url){
 }
 function init() {
 	if(hub.childElementCount>0) load(hub.value);
+}
+function toggleLoopMode(){
+	GET(`/loop_mode/${loop_mode?0:1}`, (e)=>{updatePlayList()})
 }
 function recordRC(rid, url){
 	GET(cur_hub_pfx+url, (ev)=>{
@@ -531,7 +543,7 @@ ${'<td contenteditable="true" class="wrap"></td>'.repeat(tb.rows[0].childElement
 	return row;
 }
 var playListMenu = getById('PlayListMenu'), playList =  getById('PlayList');
-var cur_i = -1;
+var cur_i = -1, loop_mode;
 function updatePlayList(url, delay){
 	if(url!=null){
 		GET(url);
@@ -544,6 +556,8 @@ function updatePlayList(url, delay){
 				var lst = ('list' in obj?obj.list:[]), paused = ('paused' in obj?obj.paused:null);
 				var css = "style='color:red; font-weight:bold;'";
 				getById('timerDesc').textContent = obj.timer;
+				loop_mode = obj.loopMode;
+				getById('loopMode').textContent = loop_mode?'🔂':'🔁';
 				cur_i = ('cur_i' in obj?obj.cur_i:-1);
 				playList.innerHTML = '';
 				for(var i=0; i<lst.length; i++)
