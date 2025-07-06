@@ -220,6 +220,8 @@ if __name__ == '__main__':
 	parser.add_argument('--cropsize', '-c', type = int, default = 256)
 	parser.add_argument('--postprocess', '-pp', action = 'store_true')
 	parser.add_argument('--tta', '-t', action = 'store_true')
+	parser.add_argument('--asr-in', default='', help='run ASR on the input file and exit')
+	parser.add_argument('--vs-in', default='', help='run vocal splitter on the input file and exit')
 
 	args=parser.parse_args()
 	globals().update(vars(args))
@@ -227,6 +229,10 @@ if __name__ == '__main__':
 	print('Loading OpenAI-Whisper model ...', end = ' ', flush = True)
 	M_ASR = whisper.load_model(asr_model)
 	print('done', flush = True)
+
+	if asr_in:
+		print(M_ASR.transcribe(asr_in), file=sys.stderr)
+		sys.exit(0)
 
 	if vocal_splitter:
 		# Determine the GPU device and load the DNN model
@@ -240,5 +246,11 @@ if __name__ == '__main__':
 		args.model = M_VOS
 		args.device = device
 		print('done', flush = True)
+		if vs_in:
+			ffm_video2wav(vs_in, vs_in+'.wav')
+			split_vocal_by_dnn(vs_in+'.wav', vs_in+'.nonvocal.wav', vs_in+'.vocal.wav')
+			ffm_wav2m4a(vs_in+'.nonvocal.wav', vs_in+'.nonvocal.m4a')
+			ffm_wav2m4a(vs_in+'.vocal.wav', vs_in+'.vocal.m4a')
+			sys.exit(0)
 
 	app.run(host='0.0.0.0', port=port)

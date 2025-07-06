@@ -6,6 +6,8 @@ from collections import defaultdict
 
 # all fields must be set, if absent put ''
 KTV_SPEAKER='10:3C:88:17:20:78'
+KTV_SPEAKER_ON={'protocol':'BLE', 'data': '0201011bffff00ee1bc878f64a4491542fb40e6e1b2120a5443c1ea5e2a6dd'}
+KTV_SPEAKER_OFF={'protocol':'BLE', 'data': '0201011bffff00ee1bc878f64a4491562fb40e6ecaf0f38b95edcf743364c4'}
 KTV_SCREEN='livingTV:HDMI_2'
 KTV_EXEC='~/projects/pikaraoke/run-cloud.sh'
 MP3_SPEAKER='54:B7:E5:9E:F4:14'
@@ -17,6 +19,7 @@ MIC_RECORDER='usb'
 TMP_DIR='/dev/shm'
 DEFAULT_S2T_SND_FILE=f'{TMP_DIR}/speech.webm'
 DEFAULT_T2S_SND_FILE=f'{TMP_DIR}/speak.mp3'
+SPEECH_SAMPLING_RATE=16000
 PLAYSTATE_FILE='.playstate.json.gz'
 DRAMA_DURATION_TH=1200
 LG_TV_CONFIG_FILE='~/.lgtv/config.json'
@@ -168,7 +171,8 @@ FAN_DATA = {
 			{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00\x04{\n  "data": {\n    "fnsp": "0007"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T10:26:49Z"\n}'},
 			{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00\x04{\n  "data": {\n    "fnsp": "0008"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T10:26:49Z"\n}'},
 			{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00\x04{\n  "data": {\n    "fnsp": "0009"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T10:26:49Z"\n}'},
-			{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00\x04{\n  "data": {\n    "fnsp": "0010"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T10:26:49Z"\n}'}]
+			{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00\x04{\n  "data": {\n    "fnsp": "0010"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T10:26:49Z"\n}'}
+		]
 	}
 }
 

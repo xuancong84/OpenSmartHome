@@ -8,6 +8,7 @@ from urllib.parse import unquote
 from werkzeug import local
 from natsort import natsorted
 from googletrans import Translator
+from pydub import AudioSegment as AudSeg
 
 sys.path.append('.')
 from lib.ChineseNumber import *
@@ -121,6 +122,36 @@ def url_is_ip(url, ip):
 	s1 = ''.join([c for c in url if c.isdigit() or c=='.'])
 	s2 = ''.join([c for c in ip if c.isdigit() or c=='.'])
 	return s1==s2
+
+def isVideoFileExt(fn):
+	for ext in video_file_exts:
+		if fn.lower().endswith(ext):
+			return True
+	return False
+
+def get_bak_fn(fn):
+	dirname = os.path.dirname(fn)
+	Try(lambda: os.makedirs(dirname+'/.orig'))
+	return f'{dirname}/.orig/{os.path.basename(fn)}'
+
+def norm_song_volume(fn):
+	audio = AudSeg.from_file(fn)
+	if isVideoFileExt(fn):
+		if not os.path.exists(get_bak_fn(fn+'.m4a')):
+			audio.export(get_bak_fn(fn+'.m4a'), format='ipod')
+		audio += (STD_VOL_DBFS - audio.dBFS)
+		audio.export(fn+'.m4a', format='ipod')
+		RUN(['ffmpeg', '-y', '-i', fn, '-i', fn+'.m4a', '-c', 'copy', '-map', '0', '-map', '-0:a', '-map', '1:a', fn+'.tmp.mp4'], shell=False, timeout=None)
+		os.system('sync')
+		os.rename(f'{fn}.tmp.mp4', fn)
+		os.system('sync')
+		os.remove(fn+'.m4a')
+	else:
+		if not os.path.exists(get_bak_fn(fn+'.m4a')):
+			os.rename(fn, get_bak_fn(fn+'.m4a'))
+		audio += (STD_VOL_DBFS - audio.dBFS)
+		audio.export(fn, format=('mp3' if fn.lower().endswith('.mp3') else 'ipod'))
+
 
 fn2dur = {}
 def getDuration(fn):
@@ -639,6 +670,8 @@ def execRC(s, stack=0):
 				return send_wol(s)
 			elif p=='CAP':
 				return send_cap(s)
+			elif p=='BLE':
+				return ble_gap_advertise(s['data'])
 	except Exception as e:
 		err = True
 		LOG(e)

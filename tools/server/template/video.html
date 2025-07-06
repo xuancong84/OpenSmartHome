@@ -175,7 +175,10 @@ h1 {
 </div>
 <div id="EDITframe" style="color: yellow; background-color: blue; overflow: auto; position: absolute; opacity:0.9; white-space:pre-wrap;
 		font-size: medium; left:5%; width:90%; display: none; z-index: 50;">
-	<button onclick="norm_vol()" title="对当前媒体文件的音量进行标准化调整，重新压缩音频并替换原文件">标准化媒体音量</button>
+	<span style="display: inline-flex;">
+		<button onclick="norm_vol()" title="对当前媒体文件的音量进行标准化调整，重新压缩音频并替换原文件">标准化媒体音量</button>&nbsp;
+		<button onclick="ws=create_wsock()" title="重新与服务端建立WebSocket连接">重新连接WebSocket</button>
+	</span>
 	<div id="INFOframe"></div>
 </div>
 <div id="S2Tframe" style="background-color: #04AA6D; position: absolute; opacity:0.8; font-size: x-large; font-weight: bold; top: 30%; left:5%; width:20%;">
@@ -324,7 +327,7 @@ function play_audio(fn, reply=false){
 		aud.onended = ()=>{ws_send('\taudio_ended')};
 	aud.play();
 }
-var siriWave, g_stream;
+var siriWave=null, g_stream, g_source=null;
 const wav_win = getById('waveform'), updateFreq = 5;
 RA = f => 12194 ** 2 * f ** 4 /((f ** 2 + 20.6 ** 2) * Math.sqrt((f ** 2 + 107.7 ** 2) * (f ** 2 + 737.9 ** 2)) * (f ** 2 + 12194 ** 2));
 A = f => 20 * Math.log10(RA(f)) + 2.0;
@@ -342,7 +345,7 @@ async function ASR(func=''){
 	var context = new (window.AudioContext || window.webkitAudioContext)();
 	await enableMic();
 	if(!g_stream) return;
-	source = context.createMediaStreamSource(g_stream);
+	g_source = context.createMediaStreamSource(g_stream);
 	var analyser = context.createAnalyser();
 	var trackSettings = g_stream.getAudioTracks()[0].getSettings();
 	var sampleRate = trackSettings.sampleRate || context.sampleRate;
@@ -355,7 +358,7 @@ async function ASR(func=''){
 	spectrum = new Uint8Array(analyser.frequencyBinCount);
 	dBASpectrum = new Float32Array(analyser.frequencyBinCount);
 	var waveForm = new Uint8Array(analyser.frequencyBinCount);
-	source.connect(analyser);
+	g_source.connect(analyser);
 	siriWave.start();
 
 	const updateAnimation = function (idleDeadline) {
@@ -411,11 +414,12 @@ function show_flashmsg(msg, delay=2000){
 	flash_tmr = setTimeout(()=>{flashmsg.style.display = 'none'}, delay);
 }
 function StopRecorder(use_recorded=false){
-	recorder.stop();
-	recorder.use_recorded = use_recorded;
 	getByClass('asr', '.style.display="none"');
 	cancelIdleCallback(taskHandle);
-	source.disconnect();
+	if(g_source){ g_source.disconnect(); g_source=null; }
+	if(siriWave){ siriWave.stop(); siriWave=null; }
+	recorder.use_recorded = use_recorded;
+	recorder.stop();
 }
 function onRecStop(){
 	disableMic();
