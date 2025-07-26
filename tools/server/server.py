@@ -697,6 +697,8 @@ def webPlay(tm_info=None, filename=None):
 	return render_template('video.html',
 		listname=Try(lambda:''.join(lst[0].split('/')[-2:-1]), '') or '播放列表',
 		playlist=[i.split('/')[-1] for i in lst],
+		tvlist = TV_LIST,
+		asrlookup = ASR_LOOKUP,
 		file_path=f'/files/{lst[ii][len(SHARED_PATH):]}#t={tm_sec}' if lst else '',
 		**{n:tvd.get(n,'') for n in ['T2S_text', 'T2S_lang', 'S2T_text', 'S2T_lang', 'S2T_match', 'cur_ii']})
 
@@ -1102,9 +1104,10 @@ def play_spoken(tvName_prompt='None', rel_path=''):
 
 # Play spoken file recorded locally on the local device
 @app.route('/play_recorded', methods=['POST'])
-def play_recorded():
+@app.route('/play_recorded/<path:rel_path>', methods=['POST'])
+def play_recorded(rel_path=''):
 	recfn, req = save_post_file(), request._get_current_object()
-	run_thread(recog_and_do, '', req.remote_addr, '', handle_ASR_play, get_url_root(req), recfn)
+	run_thread(recog_and_do, '', req.remote_addr, rel_path, handle_ASR_play, get_url_root(req), recfn)
 	return 'OK'
 
 # For Ecovacs
