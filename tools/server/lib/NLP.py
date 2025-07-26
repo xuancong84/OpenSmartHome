@@ -6,11 +6,11 @@ from unidecode import unidecode
 from hanziconv import HanziConv
 from urllib.parse import unquote
 from werkzeug import local
-from natsort import natsorted
 from googletrans import Translator
 from pydub import AudioSegment as AudSeg
 
 sys.path.append('.')
+from lib.utils import *
 from lib.ChineseNumber import *
 from lib.EnglishNumber import *
 from lib.settings import *
@@ -21,41 +21,16 @@ from lib.HMC_model import Model as HMC_model
 ggl_translator = Translator()
 KKS = pykakasi.kakasi()
 
-def Try(*args):
-	exc = ''
-	for arg in args:
-		try:
-			return arg() if callable(arg) else arg
-		except Exception as e:
-			exc = e
-	return str(exc)
-
-expand_path = lambda t: os.path.expandvars(os.path.expanduser(t))
-detect_lang = lambda t: Try(lambda: asyncio.run(ggl_translator.detect(t)).lang, '')
-
-def Open(fn, mode='r', **kwargs):
-	if fn == '-':
-		return sys.stdin if mode.startswith('r') else sys.stdout
-	fn = expand_path(fn)
-	return gzip.open(fn, mode, **kwargs) if fn.lower().endswith('.gz') else open(fn, mode, **kwargs)
-
 cookies_opt = []
-TransNatSort = lambda lst: natsorted(lst, key=unidecode)
-isdir = lambda t: os.path.isdir(expand_path(t))
-isfile = lambda t: os.path.isfile(expand_path(t))
-listdir = lambda t: TransNatSort(Try(lambda: os.listdir(expand_path(t)), []))
-showdir = lambda t: [(p+'/' if isdir(os.path.join(t,p)) else p) for p in listdir(t) if not p.startswith('.')]
+detect_lang = lambda t: Try(lambda: asyncio.run(ggl_translator.detect(t)).lang, '')
 to_pinyin = lambda t: pinyin.get(t, format='numerical')
 translit = lambda t: unidecode(t).lower()
-get_alpha = lambda t: ''.join([c for c in t if c in string.ascii_letters])
-get_alnum = lambda t: ''.join([c for c in t if c in string.ascii_letters+string.digits])
 to_romaji = lambda t: ' '.join([its['hepburn'] for its in KKS.convert(t)])
 ls_media_files = lambda fullpath, exts=media_file_exts: [f'{fullpath}/{f}'.replace('//','/') for f in listdir(fullpath) if not f.startswith('.') and '.'+f.split('.')[-1].lower() in exts]
 ls_subdir = lambda fullpath: [g.rstrip('/') for f in listdir(fullpath) for g in [f'{fullpath}/{f}'.replace('//','/')] if not f.startswith('.') and isdir(g)]
 mrl2path = lambda t: unquote(t).replace('file://', '').strip() if t.startswith('file://') else (t.strip() if t.startswith('/') else '')
 is_json_lst = lambda s: s.startswith('["') and s.endswith('"]')
 load_m3u = lambda fn: [i for L in Open(fn).readlines() for i in [mrl2path(L)] if i]
-LOG = lambda *args, **kwargs: print('LOG:', *args, **kwargs) if DEBUG_LOG else None
 
 Timers = {}
 

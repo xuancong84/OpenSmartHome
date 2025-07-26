@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # This file contains non-UI-adjustable settings that configures your entire home setup
 
-import os, sys
+import os, sys, json
 from collections import defaultdict
+from lib.utils import *
 
 # all fields must be set, if absent put ''
 KTV_SPEAKER='10:3C:88:17:20:78'
@@ -31,9 +32,21 @@ ASR_CLOUD_URL='http://localhost:8883/run_asr/base'
 ASR_CLOUD_TIMEOUT=8
 VOICE_VOL=defaultdict(lambda: None, {None: 60})
 STD_VOL_DBFS=-21
-DEBUG_LOG = True
 CUSTOM_CMDLINES={}
 HUBS={}
+
+sys.DEBUG_LOG = True
+TV_LIST = {
+	'客厅电视机': 'livingTV',
+	'主人房电视机': 'masterTV',
+	'客人房电视机': 'commonTV',
+}
+ASR_LOOKUP = {
+	'ALL': '',
+	'MTV': 'KTV',
+	'Movies': 'Movies',
+	'Music': 'Music',
+}
 
 ASRchip_voice_IP='http://192.168.50.4'
 ASRchip_voice_hex = {

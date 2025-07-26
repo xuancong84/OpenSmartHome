@@ -65,18 +65,21 @@ h1 {
 }
 .playmenu a {
 	color: #fff; /* text color */
-	display: block;
+	display: flex;
 	cursor: pointer;
 	padding: 2px;
 	text-decoration: none; /* Remove underline from links */
+	justify-content: space-between;
 }
 .playmenu a:hover { background-color: #aaa; }
 .xxlarge { font-size: xx-large; }
 .xlarge { font-size: x-large; }
 .larger { font-size: larger; }
-.vsb { margin-top: 8px; }
+.vsb { margin-top: 8px; overflow-wrap:break-word; }
 .z50 { z-index: 50; }
 .hand {cursor: pointer;}
+/* #list2 a {cursor: pointer;display: flex; justify-content: space-between;} */
+.icon-live_tv {font-size: xxx-large;}
 </style>
 <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -86,7 +89,9 @@ h1 {
 	<h2 id="asr_prompt" style="color: white; font-size: xx-large; margin: 0.5em; line-height: 1.5; font-weight: bold;"></h2>
 	<div id="waveform" style="width:100%; height: 50%; border-radius: 2em; border: solid 4px blue; background-color: #00000080;"></div>
 	<h2 style="font-size: 64pt; justify-content: space-around; display: flex;" >
-		<span class="hand" style="color:lime" onclick="StopRecorder(true)">☑</span>
+		{% for NAME,DIR in asrlookup.items() %}
+		<span class="hand" style="color:lime" onclick="asr_dir='{{DIR}}';StopRecorder(true)">☑{{NAME}}</span>
+		{% endfor %}
 		<span class="hand" style="color:red" onclick="StopRecorder()">☒</span>
 	</h2>
 </div>
@@ -148,7 +153,10 @@ h1 {
 	<span onclick="showMediaInfo()" title="显示当前媒体文件的详细信息" class="icon-info"></span>
 </div>
 <div id="menu1" class="playmenu" style="font-size: xx-large; font-weight: bold; text-align: center; height: 80%;">
-	<h1 id="header1"><span id="title1">{{listname}}</span><span id="loopButton" style="position:absolute; right: 4px; cursor:pointer" onclick="toggle_loop()" title="单曲循环">🔁</span></h1>
+	<h1 id="header1">
+		<span id="title1">{{listname}}</span>
+		<span id="loopButton" style="position:absolute; right: 4px; cursor:pointer" onclick="toggle_loop()" title="单曲循环">🔁</span>
+	</h1>
 	<div id="list1" style="overflow-y: scroll; max-height: 90%;">
 		{% for name in playlist %}
 		<a id="a{{loop.index0}}" onclick="ws_send('goto_idx {{loop.index0}}')">{{name}}</a>
@@ -159,6 +167,7 @@ h1 {
 	<h1 id="header2"><span id="title2" style='display:inline-block'></span>
 		<span id="title2-after" style="position:absolute; right:4px;">
 			<span style="cursor:pointer; color:yellow;" onclick="lsdir('..')" title="返回上一层目录" class="icon-level-up"></span>
+			<span id="loopButton1" style="cursor:pointer" onclick="toggle_loop()" title="单曲循环">🔁</span>
 			<span style="cursor:pointer" onclick="lsdir('.')" title="返回当前播放目录">🏠</span>
 		</span>
 	</h1>
@@ -172,6 +181,13 @@ h1 {
 <div id="menu4" class="playmenu" style="font-size: x-large; font-weight: bold; text-align: left; transform:none; width:auto; max-height: 50%;">
 	<p id="t_audtk_status0" style="margin:0; color: lime; ">请选择音轨：</p>
 	<div id="list4" style="overflow-y: scroll;"></div>
+</div>
+<div id="menu5" class="playmenu" onblur="this.style.display='none'" style="font-size: xx-large; font-weight: bold; left:75%; transform: none; width: auto; max-height: 50%;">
+	<p style="margin:0; color: red;">在电视机上播放：</p>
+	{% for TITLE,NAME in tvlist.items() %}
+	<a onclick="playOnTV('{{NAME}}');menu5.style.display='none';" style="color:yellow;">{{TITLE}}</a>
+	{% endfor %}
+	</div>
 </div>
 <div id="EDITframe" style="color: yellow; background-color: blue; overflow: auto; position: absolute; opacity:0.9; white-space:pre-wrap;
 		font-size: medium; left:5%; width:90%; display: none; z-index: 50;">
@@ -202,14 +218,14 @@ var menuMode = 0;
 var passCounter = 0, markCounter = 0;
 var playlist = {{playlist|tojson}};
 var dir_list, subdir_list;
-var cur_dir = "", cur_file;
+var cur_dir = "", cur_file, asr_dir = "";
 var v = getById("video0");
 var recorder = null, subtt_info = null, subtt_loaded = 0; // 0: not loaded; 1: loading; 2:loaded
 var audios, start_time, recorder_timeout, last_subtt;
 var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
 
 // Set global object handles
-for(var vname of ['ovl', 'ovl2', 'menu1', 'menu2', 'menu3', 'menu4', 'list1', 'list2', 'list3', 'S2Tframe', 'T2Sframe', 'INFOframe', 'EDITframe', 'S2Tlang', 'sc',
+for(var vname of ['ovl', 'ovl2', 'menu1', 'menu2', 'menu3', 'menu4', 'menu5', 'list1', 'list2', 'list3', 'S2Tframe', 'T2Sframe', 'INFOframe', 'EDITframe', 'S2Tlang', 'sc',
 	'showAudioTracks', 'T2Slang', 'S2Ttext', 'T2Stext', 'S2Tmatch', 'recButton', 'QRcontainer', 'showSubtt', 'recButtons', 'flashmsg', 'controls', 'banner0', 'countDownMsg'])
 	window.eval(`var ${vname} = getById("${vname}")`);
 ctx = sc.getContext("2d");
@@ -414,6 +430,7 @@ function show_flashmsg(msg, delay=2000){
 	flash_tmr = setTimeout(()=>{flashmsg.style.display = 'none'}, delay);
 }
 function StopRecorder(use_recorded=false){
+	clearTimeout(recorder_timeout);
 	getByClass('asr', '.style.display="none"');
 	cancelIdleCallback(taskHandle);
 	if(g_source){ g_source.disconnect(); g_source=null; }
@@ -427,7 +444,7 @@ function onRecStop(){
 	if(!recorder.use_recorded) return;
 	var blob = new Blob(audios, { type: "audio/webm" });
 	const req = new XMLHttpRequest();
-	req.open("POST", '/play_recorded', true);
+	req.open("POST", '/play_recorded/'+asr_dir, true);
 	req.onerror = (e)=>{ alert(req.responseText); }
 	req.send(blob);
 }
@@ -446,6 +463,7 @@ function toggle_menu(mode){
 	menuMode = (menuMode==mode?0:mode);
 	menu1.style.display = menuMode==1?"block":"none";
 	menu2.style.display = menuMode==2?"block":"none";
+	menu5.style.display = "none";
 	if(menuMode==1){
 		menu1.style.top=menuIcon0Height+'px';
 		getById('list1').style.maxHeight = `calc(100% - ${getById('header1').offsetHeight}px)`;
@@ -507,6 +525,7 @@ function toggle_hide(objs){
 function toggle_loop(val=null){
 	v.loop = val==null?(!v.loop):val;
 	getById('loopButton').textContent = v.loop?'🔂':'🔁';
+	getById('loopButton1').textContent = v.loop?'🔂':'🔁';
 }
 function clickvid(e){
 	e.preventDefault();
@@ -558,11 +577,11 @@ function showDir(data){
 	for(var fn of data.split('\n')){
 		fulln = cur_dir?(cur_dir+'/'+fn):fn;
 		if(fn.endsWith('/')){
-			list2.innerHTML += `<a id="b${i}" onclick="lsdir(subdir_list[${j}])">${fn}</a>`;
+			list2.innerHTML += `<a id="b${i}" onclick="lsdir(subdir_list[${j}])">${fn}<span class="icon-live_tv" onclick='showPlayOnTV(${i}, event)'></span></a>`;
 			subdir_list.push(fulln);
 			j+=1;
 		}else{
-			list2.innerHTML += `<a id="b${i}" onclick="gotoFile(event,${i})" href="/files/${fulln}">${fn}</a>`;
+			list2.innerHTML += `<a id="b${i}" onclick="gotoFile(event,${i})" href="/files/${fulln}">${fn}<span class="icon-live_tv" onclick='showPlayOnTV(${i}, event)'></span></a>`;
 		}
 		if(cur_file.startsWith(fulln) && fulln.length>scrollTo_cur_max){
 			scrollTo_id = i;
@@ -659,8 +678,24 @@ function norm_vol(){
 	show_banner(1);
 }
 function pad(num, size) {
-		num = num.toString();
-		return "0".repeat(size-num.length) + num;
+	num = num.toString();
+	return "0".repeat(size-num.length) + num;
+}
+function showPlayOnTV(itid, event){
+	event.preventDefault();
+	event.stopPropagation();
+	var it = getById('b'+itid);
+	var middleLine = window.innerHeight/2;
+	var rect = it.getBoundingClientRect();
+	if(rect.top+menu5.offsetHeight/2 > middleLine)
+		menu5.style.top = (rect.top-menu5.offsetHeight+rect.height)+'px';
+	else
+		menu5.style.top = rect.top + 'px';
+	menu5.style.display = 'block';
+	menu5.playID = itid;
+}
+function playOnTV(tv_name){
+	fetch(`/tvPlay/${tv_name}/${dir_list[menu5.playID].replace(/\/$/,'')}`)
 }
 countdown_timer = null;
 function set_countdown(dt_tm){
@@ -793,12 +828,16 @@ function handleKey(key, amount=0){
 	}
 	return true;
 }
+function onClickOutside(ev) {
+	if (!menu5.contains(ev.target)) menu5.style.display = 'none';
+}
 document.onfullscreenchange = (e)=>{
 	if(document.fullscreenElement)
 		getById('toggle-fs').classList.replace('icon-expand', 'icon-fullscreen-exit');
 	else
 		getById('toggle-fs').classList.replace('icon-fullscreen-exit', 'icon-expand');
 }
+document.addEventListener('click', onClickOutside);
 window.addEventListener("keydown", function (event) {
 	var amount = 0;
 	if(event.shiftKey) amount+=4;
