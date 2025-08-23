@@ -114,6 +114,9 @@ VOICE_CMD_FFWD_DCT = {
 	'客人房电视机快退': 'commonTV',
 }
 
+RCO_kitchenPlug1 = {'protocol': 'tuya_outlet', 'dev_id': 'bf0d49a5570b999fc7epjm', 'local_key': '~H[?6zJ$=m9jknMp'}
+RCO_NAS_plug1 = {'protocol': 'tuya_outlet', 'dev_id': 'bfba0ea8a9eff7178aqsgm', 'local_key': '5)+i*vxW?>qYV8.R'}
+
 # For AutoFan control
 # For auto-learning fan levels, this is the duration within it will OverWrite-Last value
 AUTO_LEARN_OWL_SEC = 300

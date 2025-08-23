@@ -1,15 +1,15 @@
 import os, sys, string, json, gzip
 from natsort import natsorted
 from unidecode import unidecode
-
+import traceback
 
 def Try(*args):
 	exc = ''
 	for arg in args:
 		try:
 			return arg() if callable(arg) else arg
-		except Exception as e:
-			exc = e
+		except:
+			exc = traceback.format_exc()
 	return str(exc)
 
 def Open(fn, mode='r', **kwargs):

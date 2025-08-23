@@ -1046,9 +1046,11 @@ def handle_ASR_play(asr_out, tv_name, prompt, rel_path, url_root):
 	full_path = SHARED_PATH + rel_path
 	if os.path.isdir(full_path):
 		res = findMedia(asr_postprocess(asr_out['text']), asr_out['language'], base_path=full_path)
-	else:
+	elif os.path.isfile(full_path):
 		lst = load_m3u(full_path) if rel_path else ip2tvdata[Try(lambda: tv2lginfo(tv_name)['ip'], None)]['playlist']
 		res = findSong(asr_postprocess(asr_out['text']), asr_out['language'], lst)
+	else:
+		return 'Error: Invalid search path'
 
 	if res == None:
 		setInfo(tv_name, asr_out["text"], asr_out['language'], 'S2T', '')
@@ -1159,6 +1161,23 @@ def killMode():
 	if sys.platform=='linux' and P_hidecursor is not None:
 		os.killpg(os.getpgid(P_hidecursor.pid), signal.SIGKILL)
 		P_hidecursor = None
+
+@app.route('/tuyaOutlet/<func>/<path:name_or_obj>')
+def tuyaOutlet(func, name_or_obj):
+	try:
+		rc_obj = eval(name_or_obj)
+		rc_obj['func'] = eval(f'lambda t:t.{func}')
+		return execRC(rc_obj)
+	except:
+		return traceback.format_exc()
+
+@app.route('/execRC/<path:name_or_obj>')
+def ExecRC(name_or_obj):
+	try:
+		return execRC(eval(name_or_obj))
+	except:
+		return traceback.format_exc()
+
 
 # For OpenHomeKaraoke
 def KTV(turn_on):

@@ -831,6 +831,15 @@ function handleKey(key, amount=0){
 function onClickOutside(ev) {
 	if (!menu5.contains(ev.target)) menu5.style.display = 'none';
 }
+v.addEventListener('wheel', function(event) {
+	if (event.deltaY < 0) {
+		v.volume = Math.min(1, v.volume+.01);
+		show_flashmsg(`Volume = ${v.volume.toFixed(2)}`);
+	} else {
+		v.volume = Math.max(0, v.volume-.01);
+		show_flashmsg(`Volume = ${v.volume.toFixed(2)}`);
+	}
+})
 document.onfullscreenchange = (e)=>{
 	if(document.fullscreenElement)
 		getById('toggle-fs').classList.replace('icon-expand', 'icon-fullscreen-exit');

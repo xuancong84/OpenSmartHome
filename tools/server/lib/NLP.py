@@ -2,6 +2,7 @@ import os, sys, io, re, time, string, json, threading, yt_dlp, gzip, math, multi
 import pykakasi, pinyin, logging, requests, shutil, subprocess, asyncio, socket
 import pandas as pd
 import jionlp as jio
+import tinytuya
 from unidecode import unidecode
 from hanziconv import HanziConv
 from urllib.parse import unquote
@@ -488,8 +489,8 @@ def dysonFanGetPower(name):
 				p = data.find(b'"fpwr"')
 				return data[p:p+16], all
 		return 'Speed value not found'
-	except Exception as e:
-		return str(e)
+	except:
+		return traceback.format_exc()
 os.dysonFanGetPower = dysonFanGetPower
 
 def dysonFanGetSpeed(name):
@@ -510,8 +511,8 @@ def dysonFanGetSpeed(name):
 				p = data.find(b'"fnsp"')
 				return int(b''.join([data[p+i:p+i+1] for i in range(6,13) if data[p+i:p+i+1].isdigit()]))
 		return 'Speed value not found'
-	except Exception as e:
-		return str(e)
+	except:
+		return traceback.format_exc()
 os.dysonFanGetSpeed = dysonFanGetSpeed
 
 def dysonFanSetSpeed(name, speed):
@@ -525,8 +526,8 @@ def dysonFanSetSpeed(name, speed):
 		s.sendall(msg % speed)
 		s.close()
 		return 'OK'
-	except Exception as e:
-		return str(e)
+	except:
+		return traceback.format_exc()
 os.dysonFanSetSpeed = dysonFanSetSpeed
 
 def dysonFanAdjSpeed(name, adjust):
@@ -615,8 +616,21 @@ def send_cap(obj):
 	try:
 		s.close()
 		return 'OK'
-	except Exception as e:
-		return str(e)
+	except:
+		return traceback.format_exc()
+
+def RC_tuya_outlet(obj: dict):
+	try:
+		d = tinytuya.OutletDevice(
+			dev_id=obj['dev_id'],
+			address=obj.get('address', 'Auto'),      # Or set to 'Auto' to auto-discover IP address
+			local_key=obj['local_key'], 
+			version=obj.get('version', 3.3)
+		)
+		func = obj.get('func', lambda t: t.status())
+		return func(d)
+	except:
+		return traceback.format_exc()
 
 err = False
 def execRC(s, stack=0):
@@ -653,8 +667,11 @@ def execRC(s, stack=0):
 				return send_cap(s)
 			elif p=='BLE':
 				return ble_gap_advertise(s['data'])
-	except Exception as e:
+			elif p=='tuya_outlet':
+				return RC_tuya_outlet(s)
+	except:
 		err = True
+		e = traceback.format_exc()
 		LOG(e)
 		return str(e)
 	return str(s)

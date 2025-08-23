@@ -1,4 +1,4 @@
-import gc, machine
+import gc, machine, esp32
 from machine import Pin
 from time import ticks_us, ticks_diff, sleep
 from math import sqrt
@@ -19,6 +19,7 @@ class RC():
 		self.recv_dur = recv_dur
 		self.var_lens = var_lens
 		self.proto = proto
+		self.rmt = None
 
 	def fuzzy_comp(self, a, b, tol=0.1):
 		for i in range(1, min(len(a), len(b))):
@@ -103,7 +104,21 @@ class RC():
 	
 		return ret
 
+	def RMTsend(self, obj):
+		try:
+			if self.rmt is None:
+				pnum = int(''.join([c for c in str(self.tx_pin) if c.isdigit()]))
+				carrier = (obj['fPWM'], 50, 1) if 'fPWM' in obj else None
+				self.rmt = esp32.RMT(0, pin=pnum, clock_div=80, tx_carrier=carrier)
+			self.rmt.write_pulses(obj['data']*self.nrepeat, self.tx_inv)
+			return 'OK'
+		except Exception as e:
+			return str(e)
+
 	def send(self, obj):
+		if obj.get('RMT', True):
+			return self.RMTsend(obj)
+
 		if 'fPWM' in obj:
 			return self.sendPWM(obj)
 		
