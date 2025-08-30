@@ -3,10 +3,10 @@ DLN	餐厅吊灯开启|餐桌吊灯开启	嗯	1		[['DLS','sleep(0.2)','DLS','sle
 DLF	餐厅吊灯关闭|餐桌吊灯关闭	嗯	1		['DLS', 'exec("g.DL=-1")']
 DLC	餐桌吊灯换色	好的	1	DLC	['DLS','sleep(0.2)','DLS']
 DFN	餐厅吊扇开启｜餐桌吊扇开启	好的	1		'DFM'
-DFS	餐厅吊扇关闭｜餐桌吊扇关闭	好的	1		{'data': [8128, 799, 182, 797, 186, 793, 189, 790, 191, 788, 195, 785, 198, 297, 684, 299, 688, 784, 197, 782, 200, 779, 202, 777, 205, 775, 208, 288, 693, 773, 208, 772, 218, 285, 696, 771, 211, 768, 214, 282, 701, 282, 698, 769, 212, 768, 216, 280, 708, 282, 698, 284, 697, 286, 695, 287, 694, 773, 208, 772, 212, 284, 697, 770, 212, 285], 'init_level': 0, 'protocol': 'RF433'}
-DFM	餐厅吊扇中档｜餐桌吊扇中档	好的	1		{'data': [8149, 783, 200, 780, 202, 777, 205, 775, 208, 771, 212, 769, 215, 281, 701, 282, 705, 769, 213, 767, 216, 764, 219, 762, 221, 759, 224, 272, 709, 758, 224, 756, 234, 269, 712, 756, 226, 754, 229, 267, 715, 268, 713, 271, 709, 758, 225, 755, 236, 268, 712, 756, 227, 269, 713, 756, 226, 753, 230, 750, 234, 263, 717, 751, 232, 265], 'init_level': 0, 'protocol': 'RF433'}
-DFH	餐厅吊扇快档｜餐桌吊扇快档	好的	1		{'data': [8273, 797, 185, 794, 188, 791, 191, 789, 194, 786, 196, 783, 200, 296, 686, 297, 691, 783, 199, 780, 203, 777, 205, 775, 208, 771, 211, 286, 696, 770, 211, 768, 222, 281, 700, 766, 215, 766, 217, 279, 703, 764, 219, 276, 705, 279, 700, 765, 225, 279, 702, 764, 217, 764, 218, 278, 704, 279, 702, 764, 218, 279, 703, 279, 701, 283], 'init_level': 0, 'protocol': 'RF433'}
-DFL	餐厅吊扇慢档｜餐桌吊扇慢档	好的	1		{'data': [8280, 791, 192, 787, 194, 787, 196, 782, 200, 781, 201, 777, 206, 291, 690, 292, 696, 779, 203, 775, 206, 774, 209, 771, 211, 769, 214, 282, 699, 768, 214, 766, 224, 278, 702, 765, 216, 763, 220, 278, 704, 278, 702, 281, 700, 766, 216, 280, 709, 281, 699, 767, 214, 766, 217, 763, 218, 761, 221, 760, 223, 756, 226, 270, 710, 275], 'init_level': 0, 'protocol': 'RF433'}
+DFS	餐厅吊扇关闭｜餐桌吊扇关闭	好的	1		{'data': [4000, 800, 175, 800, 175, 800, 200, 800, 200, 800, 200, 775, 200, 300, 675, 300, 700, 775, 200, 775, 200, 775, 200, 775, 200, 775, 200, 300, 700, 775, 200, 775, 225, 275, 700, 775, 200, 775, 225, 275, 700, 275, 700, 775, 200, 775, 225, 275, 700, 275, 700, 275, 700, 275, 700, 275, 700, 775, 200, 775, 200, 275, 700, 775, 200, 275], 'init_level': 0, 'protocol': 'RF433'}
+DFM	餐厅吊扇中档｜餐桌吊扇中档	好的	1		{'data': [4000, 775, 200, 775, 200, 775, 200, 775, 200, 775, 200, 775, 225, 275, 700, 275, 700, 775, 225, 775, 225, 775, 225, 750, 225, 750, 225, 275, 700, 750, 225, 750, 225, 275, 700, 750, 225, 750, 225, 275, 725, 275, 725, 275, 700, 750, 225, 750, 225, 275, 700, 750, 225, 275, 725, 750, 225, 750, 225, 750, 225, 275, 725, 750, 225, 275], 'init_level': 0, 'protocol': 'RF433'}
+DFH	餐厅吊扇快档｜餐桌吊扇快档	好的	1		{'data': [4000, 675, 275, 700, 275, 700, 275, 700, 275, 700, 275, 700, 275, 200, 800, 175, 800, 675, 275, 700, 275, 700, 300, 700, 300, 700, 300, 200, 800, 650, 300, 675, 300, 200, 825, 650, 300, 675, 300, 200, 825, 650, 300, 200, 825, 175, 825, 650, 300, 200, 825, 650, 300, 200, 825, 650, 300, 200, 825, 650, 300, 675, 300, 675, 300, 200], 'init_level': 0, 'protocol': 'RF433'}
+DFL	餐厅吊扇慢档｜餐桌吊扇慢档	好的	1		{'data': [4000, 800, 200, 775, 200, 775, 200, 775, 200, 775, 200, 775, 200, 300, 700, 300, 700, 775, 200, 775, 200, 775, 200, 775, 200, 775, 225, 275, 700, 775, 225, 775, 225, 275, 700, 775, 225, 775, 225, 275, 700, 275, 700, 275, 700, 775, 225, 275, 700, 275, 700, 775, 225, 775, 225, 775, 225, 750, 225, 750, 225, 750, 225, 275, 700, 275], 'init_level': 0, 'protocol': 'RF433'}
 RFN	房间落地扇开启	好的	1		{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xba\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00?{\n  "data": {\n    "fpwr": "ON"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-07-20T05:22:15Z"\n}'}
 RFF	房间落地扇关闭	好的	1		{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xbb\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00C{\n  "data": {\n    "fpwr": "OFF"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-07-20T05:22:51Z"\n}'}
 RF8	房间落地扇快档	好的	1	RFA	{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00\x04{\n  "data": {\n    "fnsp": "0008"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T11:02:20Z"\n}'}
@@ -14,10 +14,10 @@ RF7	房间落地扇中档	好的	1	RFA	{'protocol': 'TCP', 'IP': '192.168.50.12'
 RF6	房间落地扇慢档	好的	1	RFA	{'protocol': 'TCP', 'IP': '192.168.50.12', 'PORT': 1883, 'data': b'2\xbc\x01\x00\x1b438/E1G-SG-NGA0425A/command\x00\x04{\n  "data": {\n    "fnsp": "0006"\n  },\n  "h": "438/E1G-SG-NGA0425A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-12-20T11:02:20Z"\n}'}
 RFU	房间落地扇调快	好的	1	RFA	{'protocol': 'MOD','filename':'modules.mpy','cmd':'dysonFanAdj("192.168.50.12","E1G-SG-NGA0425A",1)'}
 RFD	房间落地扇调慢	好的	1	RFA	{'protocol': 'MOD','filename':'modules.mpy','cmd':'dysonFanAdj("192.168.50.12","E1G-SG-NGA0425A",-1)'}
-SLS	沙发吊灯开关	嗯	1		[{'data': [6676, 431, 1047, 433, 1046, 1154, 325, 431, 1048, 1152, 327, 1149, 332, 1144, 336, 419, 1063, 422, 1055, 424, 1054, 1148, 333, 1142, 338, 1139, 341, 1135, 345, 411, 1066, 1134, 351, 409, 1068, 1133, 347, 409, 1069, 1132, 354, 409, 1069, 1131, 348, 408, 1069, 1132, 355, 1128, 359, 404, 1074, 1127, 352, 404, 1073, 1127, 353, 403], 'init_level': 0, 'protocol': 'RF433'}, 'exec("g.SL=0")']
+SLS	沙发吊灯开关	嗯	1		[{'data': [6675, 425, 1050, 425, 1050, 1150, 325, 425, 1050, 1150, 325, 1150, 325, 1150, 325, 425, 1075, 425, 1050, 425, 1050, 1150, 325, 1150, 350, 1150, 350, 1125, 350, 400, 1075, 1125, 350, 400, 1075, 1125, 350, 400, 1075, 1125, 350, 400, 1075, 1125, 350, 400, 1075, 1125, 350, 1125, 350, 400, 1075, 1125, 350, 400, 1075, 1125, 350, 400], 'init_level': 0, 'protocol': 'RF433'}, 'exec("g.SL=0")']
 SLN	沙发吊灯开启	嗯	1		['SLS', 'exec("g.SL=1")']
 SLF	沙发吊灯关闭	嗯	1		['SLS', 'exec("g.SL=-1")']
-PLS	钢琴房吊灯开关	嗯	1		[{'data': [8142, 794, 174, 314, 654, 313, 653, 316, 651, 792, 176, 312, 656, 312, 653, 790, 184, 787, 182, 307, 659, 785, 182, 783, 186, 302, 665, 779, 187, 777, 191, 298, 677, 297, 668, 776, 192, 773, 195, 293, 673, 772, 196, 292, 676, 293, 674, 294, 679, 297, 670, 774, 194, 294, 672, 772, 195, 770, 197, 767, 201, 288, 679, 764, 202, 289], 'init_level': 0, 'protocol': 'RF433'}, 'exec("g.PL=0")']
+PLS	钢琴房吊灯开关	嗯	1		[{'data': [8150, 800, 175, 325, 650, 325, 650, 325, 650, 800, 175, 300, 650, 300, 650, 800, 175, 775, 175, 300, 650, 775, 175, 775, 175, 300, 675, 775, 175, 775, 200, 300, 675, 300, 675, 775, 200, 775, 200, 300, 675, 775, 200, 300, 675, 300, 675, 300, 675, 300, 675, 775, 200, 300, 675, 775, 200, 775, 200, 775, 200, 300, 675, 775, 200, 300], 'init_level': 0, 'protocol': 'RF433'}, 'exec("g.PL=0")']
 PLN	钢琴房吊灯开启	嗯	1		['PLS', 'exec("g.PL=1")'] if g.PL<=0 else None
 PLF	钢琴房吊灯关闭	嗯	1		['PLS', 'exec("g.PL=-1")'] if g.PL>=0 else None
 PLC	钢琴房吊灯换色	嗯	1	PLC	['PLF','sleep(0.2)','PLN']
@@ -33,10 +33,10 @@ SFR	沙发吊扇反转	好的	1		{'data': [6596, 441, 1037, 443, 1036, 1164, 315
 SFNW	沙发吊扇自然风	好的	1		{'data': [5915, 435, 1042, 438, 1041, 1159, 320, 434, 1044, 1157, 323, 1153, 327, 1149, 330, 425, 1058, 427, 1051, 429, 1049, 1152, 328, 1148, 332, 1145, 335, 1141, 338, 418, 1060, 1141, 344, 416, 1062, 1140, 340, 416, 1062, 1138, 348, 1136, 343, 412, 1065, 416, 1061, 419, 1065, 421, 1065, 1142, 337, 421, 1058, 1141, 338, 1139, 341, 1135], 'init_level': 0, 'protocol': 'RF433'}
 KON	厨房外灯开启	好的	2		'http://192.168.50.5/control_output_on'
 KOF	厨房外灯关闭	好的	2		'http://192.168.50.5/control_output_off'
-KIN	厨房内灯开启	好的	2		'http://192.168.50.6/control_output_on'
-KIF	厨房内灯关闭	好的	2		'http://192.168.50.6/control_output_off'
+KIN	厨房内灯开启	好的	2		'http://192.168.50.6/rc_run?KIN'
+KIF	厨房内灯关闭	好的	2		'http://192.168.50.6/rc_run?KIF'
 KLN	厨房灯开启	嗯	1		['KON', 'KIN']
-KLF	厨房灯关闭	嗯	1		['KOF', 'http://192.168.50.6/control_output_off']
+KLF	厨房灯关闭	嗯	1		['KOF', 'KIF']
 PFN	钢琴房吊扇开启	好的	1		{'data': [7991, 800, 168, 321, 647, 321, 647, 321, 645, 800, 168, 319, 648, 320, 646, 798, 176, 795, 174, 314, 652, 792, 174, 789, 178, 310, 657, 787, 180, 785, 184, 305, 669, 306, 660, 784, 183, 782, 187, 301, 666, 302, 664, 304, 662, 782, 184, 780, 196, 299, 667, 778, 188, 776, 193, 297, 671, 296, 669, 776, 192, 296, 670, 774, 193, 297], 'init_level': 0, 'protocol': 'RF433'}
 PFF	钢琴房吊扇关闭	好的	1		{'data': [7993, 799, 168, 320, 648, 319, 649, 320, 646, 797, 171, 318, 649, 319, 647, 796, 178, 793, 175, 314, 653, 790, 178, 788, 180, 307, 658, 786, 181, 783, 185, 303, 672, 304, 661, 782, 185, 780, 188, 300, 667, 300, 665, 779, 188, 777, 191, 297, 677, 299, 667, 777, 190, 775, 193, 772, 196, 292, 675, 293, 673, 295, 672, 772, 194, 295], 'init_level': 0, 'protocol': 'RF433'}
 LFN	客厅落地扇开启	好的	1		{'protocol': 'TCP', 'IP': '192.168.50.11', 'PORT': 1883, 'data': b'2\xba\x01\x00\x1b438/E1G-SG-NGA0301A/command\x00Q{\n  "data": {\n    "fpwr": "ON"\n  },\n  "h": "438/E1G-SG-NGA0301A/command",\n  "mode-reason": "LAPP",\n  "msg": "STATE-SET",\n  "time": "2023-07-20T05:21:36Z"\n}'}
@@ -71,9 +71,7 @@ _TVRCP	电视机播报当前视频名称|电视机播报当前歌曲名称	好�
 _TVRW	电视机从头开始播放	好的	1		'LTVRW'
 _TVLS	电视机单曲循环	好的	1		'LTVLS'
 _TVLL	电视机退出单曲循环	好的	1		'LTVLL'
-_TVTS	电视机定时开关	好的	1		'LTVTS'
-_TVTC	电视机取消定时	好的	1		'LTVTC'
-_KF	进入用餐模式	好的	1		['SFS','DFM','LFN']+([] if g.DL==1 else ['DLN'])
+_KF	进入用餐模式	好的	1		['SFS','DFH']+([] if g.DL==1 else ['DLN'])
 _CW	退出用餐模式	好的	1		([] if g.DL==-1 else ['DLF'])+['DFS','LFF']
 _KF1	开饭喽	已进入用餐模式	2		'_KF'
 _CW1	吃完喽	已退出用餐模式	2		'_CW'
@@ -101,7 +99,7 @@ MPPN	播放器跳到下一曲|播放器跳到下一集	好的	1	MPP	'http://192.
 MPPP	播放器跳回上一曲|播放器跳回上一集	好的	1	MPP	'http://192.168.50.3:8883/previous'
 MPAVN	标准化当前歌曲音量		1		'http://192.168.50.3:8883/normalize_vol/'
 PPS	播放器播放指定歌曲｜播放器播放指定音乐		1		'http://192.168.50.3:8883/play_spoken/None song/Desktop/musics.m3u'
-PPSD	播放器播放指定电视剧｜播放器播放指定电影		1		'http://192.168.50.3:8883/play_spoken/None movie/NAS-Movies'
+PPSD	播放器播放指定电视剧｜播放器播放指定电影		1		'http://192.168.50.3:8883/play_spoken/None movie/Movies'
 PRST	播放器播报当前歌曲名称				'http://192.168.50.3:8883/report_title'
 MPSN	播放器显示字幕	好的	1		'http://192.168.50.3:8883/subtitle/True'
 MPSF	播放器隐藏字幕	好的	1		'http://192.168.50.3:8883/subtitle/False'
@@ -138,9 +136,9 @@ VPR	蓝牙视频开播	好的	1		'http://192.168.50.3:8883/play/0 0 1/KTV'
 VPT	蓝牙视频停播	好的	1		'http://192.168.50.3:8883/stop'
 VLCVU	播放软件音量增加	好的	1	VLCV	'http://192.168.50.3:8883/vlcvolme/up'
 VLCVD	播放软件音量降低	好的	1	VLCV	'http://192.168.50.3:8883/vlcvolme/down'
-KTVN	进入卡拉OK模式	正在开启卡拉OK模式请稍侯	1		['KTVPN','http://192.168.50.3:8883/Mode/KTV']
-KTVF	关闭卡拉OK模式	卡拉OK模式已关闭	1		['http://192.168.50.3:8883/Mode','KTVPF','LTVF']
-KTVQ	退出卡拉OK模式	卡拉OK模式已退出	1		['http://192.168.50.3:8883/Mode','KTVPF']
+KTVN	进入卡拉OK模式	正在开启卡拉OK模式请稍侯	1		'http://192.168.50.3:8883/Mode/KTV'
+KTVF	关闭卡拉OK模式	卡拉OK模式已关闭	1		['http://192.168.50.3:8883/Mode','LTVF']
+KTVQ	退出卡拉OK模式	卡拉OK模式已退出	1		'http://192.168.50.3:8883/Mode'
 SVU	系统音量增加	好的	1	SVA	asr_print('volume_up')
 SVD	系统音量减小	好的	1	SVA	asr_print('volume_down')
 HEAR	能听见吗	我能听见	2		
@@ -175,60 +173,60 @@ YYYY	今昔是何年		2		asr_print(f'read_date {getDateString()[:4]}')
 10	正在识别				
 11	处理完毕				
 12	重新开始播放该歌曲				
-TIME_ASK	小美请播报当前时间				[asr_write(f'a5c9%02x%02x0a'%(int(its[0]), int(its[1]))) for its in [getTimeString().split(':')]]
-DATE_ASK	小美请播报当前日期				[asr_write(f'a5c80%s0%s0%s0%s%02x%02x%02x0a'%(y[0],y[1],y[2],y[3],int(its[1]), int(its[2]),getWeekdayNum()+1)) for its in [getDateString().split('-')] for y in [its[0]]]
-MPSR	蓝牙音乐开播				'http://192.168.50.3:8883/play/0 0 1/Music'
-LTVPV	客厅电视机播放歌曲音乐	好的			'http://192.168.50.3:8883/tvPlay/livingTV 0 0 1/KTV'
-LTVPD	客厅电视机播放电视剧|电视机播放电影	好的			'http://192.168.50.3:8883/play_last/livingTV'
-LTVPS	客厅电视机暂停播放	嗯			'http://192.168.50.3:8883/tv_wscmd/livingTV/pause'
-LTVRS	客厅电视机继续播放	嗯			'http://192.168.50.3:8883/tv_wscmd/livingTV/resume'
-LTVNX	客厅电视机跳到下一集|电视机跳到下一曲	好的		LTVNP	'http://192.168.50.3:8883/tv_wscmd/livingTV/next'
-LTVPR	客厅电视机跳回上一集|电视机跳回上一曲	好的		LTVNP	'http://192.168.50.3:8883/tv_wscmd/livingTV/prev'
-LTVPSV	客厅电视机播放指定歌曲｜电视机播放指定音乐	好的			'http://192.168.50.3:8883/play_spoken/livingTV song/KTV'
-LTVPSD	客厅电视机播放指定电视剧|电视机播放指定电影	好的			'http://192.168.50.3:8883/play_spoken/livingTV drama/NAS-Movies'
-LTVRCP	客厅电视机播报当前视频名称|电视机播报当前歌曲名称	好的			'http://192.168.50.3:8883/report_title/livingTV'
+TIME_ASK	小美请播报当前时间		1		[asr_write(f'a5c9%02x%02x0a'%(int(its[0]), int(its[1]))) for its in [getTimeString().split(':')]]
+DATE_ASK	小美请播报当前日期		1		[asr_write(f'a5c80%s0%s0%s0%s%02x%02x%02x0a'%(y[0],y[1],y[2],y[3],int(its[1]), int(its[2]),getWeekdayNum()+1)) for its in [getDateString().split('-')] for y in [its[0]]]
+MPSR	蓝牙音乐开播	好的	1		'http://192.168.50.3:8883/play/0 0 1/Music'
+LTVPV	客厅电视机播放歌曲音乐	好的	1		'http://192.168.50.3:8883/tvPlay/livingTV 0 0 1/KTV'
+LTVPD	客厅电视机播放电视剧|客厅电视机播放电影	好的	1		'http://192.168.50.3:8883/play_last/livingTV'
+LTVPS	客厅电视机暂停播放	嗯	1		'http://192.168.50.3:8883/tv_wscmd/livingTV/pause'
+LTVRS	客厅电视机继续播放	嗯	1		'http://192.168.50.3:8883/tv_wscmd/livingTV/resume'
+LTVNX	客厅电视机跳到下一集|电视机跳到下一曲	好的	1	LTVNP	'http://192.168.50.3:8883/tv_wscmd/livingTV/next'
+LTVPR	客厅电视机跳回上一集|电视机跳回上一曲	好的	1	LTVNP	'http://192.168.50.3:8883/tv_wscmd/livingTV/prev'
+LTVPSV	客厅电视机播放指定歌曲｜电视机播放指定音乐	好的	1		'http://192.168.50.3:8883/play_spoken/livingTV song/KTV'
+LTVPSD	客厅电视机播放指定电视剧|电视机播放指定电影	好的	1		'http://192.168.50.3:8883/play_spoken/livingTV drama/Movies'
+LTVRCP	客厅电视机播报当前视频名称|电视机播报当前歌曲名称	好的	1		'http://192.168.50.3:8883/report_title/livingTV'
 LTVRW	客厅电视机重新开始播放	好的	1		'http://192.168.50.3:8883/rewind/livingTV'
-LTLS	客厅电视机单曲循环|客厅电视机单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/livingTV/1'
-LTLL	客厅电视机退出单曲循环|客厅电视机退出单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/livingTV/0'
+LTVLS	客厅电视机单曲循环|客厅电视机单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/livingTV/1'
+LTVLL	客厅电视机退出单曲循环|客厅电视机退出单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/livingTV/0'
 LTVTS	客厅电视机定时开关	好的	1		'http://192.168.50.3:8883/set_spoken_timer/livingTV/Desktop/videos.m3u'
 LTVTC	客厅电视机取消定时	好的	1		'http://192.168.50.3:8883/set_timer/ /livingTV'
 MTVN	主人房电视机开启	好的	1		[{'protocol': 'WOL', 'data': '74:e6:b8:20:1d:db'},{'protocol': 'WOL', 'data': '64:cb:e9:04:18:3a'}]
 MTVF	主人房电视机关闭	好的	1		{'protocol': 'CAP', 'filename': 'masterTVoff.tcp'}
 MTVVU	主人房电视机音量增加	好的	1	MTVV	'http://192.168.50.3:8883/tvVolume/masterTV/+15%'
 MTVVD	主人房电视机音量降低	好的	1	MTVV	'http://192.168.50.3:8883/tvVolume/masterTV/-15%'
-MTVPV	主人房电视机播放歌曲音乐	好的			'http://192.168.50.3:8883/tvPlay/masterTV 0 0 1/KTV'
-MTVPD	主人房电视机播放电视剧|主人房电视机播放电影	好的			'http://192.168.50.3:8883/play_last/masterTV'
-MTVPS	主人房电视机暂停播放	好的			'http://192.168.50.3:8883/tv_wscmd/masterTV/pause'
-MTVRS	主人房电视机继续播放	好的			'http://192.168.50.3:8883/tv_wscmd/masterTV/resume'
-MTVNX	主人房电视机跳到下一集|主人房电视机跳到下一曲	好的		MTVNP	'http://192.168.50.3:8883/tv_wscmd/masterTV/next'
-MTVPR	主人房电视机跳回上一集|主人房电视机跳回上一曲	好的		MTVNP	'http://192.168.50.3:8883/tv_wscmd/masterTV/prev'
-MTVPSV	主人房电视机播放指定歌曲｜主人房电视机播放指定音乐	好的			'http://192.168.50.3:8883/play_spoken/masterTV song/KTV'
-MTVPSD	主人房电视机播放指定电视剧|主人房电视机播放指定电影	好的			'http://192.168.50.3:8883/play_spoken/masterTV drama/NAS-Movies'
-MTVRCP	主人房电视机播报当前视频名称|主人房电视机播报当前歌曲名称	好的			'http://192.168.50.3:8883/report_title/masterTV'
+MTVPV	主人房电视机播放歌曲音乐	好的	1		'http://192.168.50.3:8883/tvPlay/masterTV 0 0 1/KTV'
+MTVPD	主人房电视机播放电视剧|主人房电视机播放电影	好的	1		'http://192.168.50.3:8883/play_last/masterTV'
+MTVPS	主人房电视机暂停播放	好的	1		'http://192.168.50.3:8883/tv_wscmd/masterTV/pause'
+MTVRS	主人房电视机继续播放	好的	1		'http://192.168.50.3:8883/tv_wscmd/masterTV/resume'
+MTVNX	主人房电视机跳到下一集|主人房电视机跳到下一曲	好的	1	MTVNP	'http://192.168.50.3:8883/tv_wscmd/masterTV/next'
+MTVPR	主人房电视机跳回上一集|主人房电视机跳回上一曲	好的	1	MTVNP	'http://192.168.50.3:8883/tv_wscmd/masterTV/prev'
+MTVPSV	主人房电视机播放指定歌曲｜主人房电视机播放指定音乐	好的	1		'http://192.168.50.3:8883/play_spoken/masterTV song/KTV'
+MTVPSD	主人房电视机播放指定电视剧|主人房电视机播放指定电影	好的	1		'http://192.168.50.3:8883/play_spoken/masterTV drama/Movies'
+MTVRCP	主人房电视机播报当前视频名称|主人房电视机播报当前歌曲名称	好的	1		'http://192.168.50.3:8883/report_title/masterTV'
 MTVRW	主人房电视机重新开始播放	好的	1		'http://192.168.50.3:8883/rewind/masterTV'
-MTLS	主人房电视机单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/masterTV/1'
-MTLL	主人房电视机退出单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/masterTV/0'
+MTVLS	主人房电视机单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/masterTV/1'
+MTVLL	主人房电视机退出单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/masterTV/0'
 MTVTS	主人房电视机定时开关	好的	1		'http://192.168.50.3:8883/set_spoken_timer/masterTV/Desktop/videos.m3u'
 MTVTC	主人房电视机取消定时	好的	1		'http://192.168.50.3:8883/set_timer/ /masterTV'
-MACAIRPD	苹果笔记本播放电视剧｜苹果电脑播放电视剧	好的			'http://192.168.50.3:8883/custom_cmdline/macair_play'
+MACAIRPD	苹果笔记本播放电视剧｜苹果电脑播放电视剧	好的	1		'http://192.168.50.3:8883/custom_cmdline/macair_play'
 KTVPN	卡拉OK机开启	好的	1		'http://192.168.50.3:8883/py_exec/ble_gap_advertise("0201011bffff00ee1bc878f64a4491542fb40e6e1b2120a5443c1ea5e2a6dd",0.35)'
 KTVPF	卡拉OK机关闭	好的	1		'http://192.168.50.3:8883/py_exec/ble_gap_advertise("0201011bffff00ee1bc878f64a4491562fb40e6ecaf0f38b95edcf743364c4",0.35)'
 CTVN	客人房电视机开启	好的	1		[{'protocol': 'WOL', 'data': '7c:64:6c:b9:05:6e'},{'protocol': 'WOL', 'data': 'b8:16:5f:72:06:6c'}]
 CTVF	客人房电视机关闭	好的	1		'http://192.168.50.3:8883/tv/commonTV/off'
 CTVVU	客人房电视机音量增加	好的	1	CTVV	'http://192.168.50.3:8883/tvVolume/commonTV/+15%'
 CTVVD	客人房电视机音量降低	好的	1	CTVV	'http://192.168.50.3:8883/tvVolume/commonTV/-15%'
-CTVPV	客人房电视机播放歌曲音乐	好的			'http://192.168.50.3:8883/tvPlay/commonTV 0 0 1/KTV'
-CTVPD	客人房电视机播放电视剧|客人房电视机播放电影	好的			'http://192.168.50.3:8883/play_last/commonTV'
-CTVPS	客人房电视机暂停播放	好的			'http://192.168.50.3:8883/tv_wscmd/commonTV/pause'
-CTVRS	客人房电视机继续播放	好的			'http://192.168.50.3:8883/tv_wscmd/commonTV/resume'
-CTVNX	客人房电视机跳到下一集|客人房电视机跳到下一曲	好的		CTVNP	'http://192.168.50.3:8883/tv_wscmd/commonTV/next'
-CTVPR	客人房电视机跳回上一集|客人房电视机跳回上一曲	好的		CTVNP	'http://192.168.50.3:8883/tv_wscmd/commonTV/prev'
-CTVPSV	客人房电视机播放指定歌曲｜客人房电视机播放指定音乐	好的			'http://192.168.50.3:8883/play_spoken/commonTV song/KTV'
-CTVPSD	客人房电视机播放指定电视剧|客人房电视机播放指定电影	好的			'http://192.168.50.3:8883/play_spoken/commonTV drama/NAS-Movies'
-CTVRCP	客人房电视机播报当前视频名称|客人房电视机播报当前歌曲名称	好的			'http://192.168.50.3:8883/report_title/commonTV'
+CTVPV	客人房电视机播放歌曲音乐	好的	1		'http://192.168.50.3:8883/tvPlay/commonTV 0 0 1/KTV'
+CTVPD	客人房电视机播放电视剧|客人房电视机播放电影	好的	1		'http://192.168.50.3:8883/play_last/commonTV'
+CTVPS	客人房电视机暂停播放	好的	1		'http://192.168.50.3:8883/tv_wscmd/commonTV/pause'
+CTVRS	客人房电视机继续播放	好的	1		'http://192.168.50.3:8883/tv_wscmd/commonTV/resume'
+CTVNX	客人房电视机跳到下一集|客人房电视机跳到下一曲	好的	1	CTVNP	'http://192.168.50.3:8883/tv_wscmd/commonTV/next'
+CTVPR	客人房电视机跳回上一集|客人房电视机跳回上一曲	好的	1	CTVNP	'http://192.168.50.3:8883/tv_wscmd/commonTV/prev'
+CTVPSV	客人房电视机播放指定歌曲｜客人房电视机播放指定音乐	好的	1		'http://192.168.50.3:8883/play_spoken/commonTV song/KTV'
+CTVPSD	客人房电视机播放指定电视剧|客人房电视机播放指定电影	好的	1		'http://192.168.50.3:8883/play_spoken/commonTV drama/Movies'
+CTVRCP	客人房电视机播报当前视频名称|客人房电视机播报当前歌曲名称	好的	1		'http://192.168.50.3:8883/report_title/commonTV'
 CTVRW	客人房电视机重新开始播放	好的	1		'http://192.168.50.3:8883/rewind/commonTV'
-CTLS	客人房电视机单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/commonTV/1'
-CTLL	客人房电视机退出单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/commonTV/0'
+CTVLS	客人房电视机单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/commonTV/1'
+CTVLL	客人房电视机退出单曲循环	好的	1		'http://192.168.50.3:8883/loop_mode/commonTV/0'
 CTVTS	客人房电视机定时开关	好的	1		'http://192.168.50.3:8883/set_spoken_timer/commonTV/Desktop/videos.m3u'
 CTVTC	客人房电视机取消定时	好的	1		'http://192.168.50.3:8883/set_timer/ /commonTV'
 MTLN	主人房厕所灯开启	好的	1		'http://192.168.50.36/rc_run?L1N'
@@ -238,10 +236,11 @@ CTLF	客厅厕所灯关闭	好的	1		'http://192.168.50.37/rc_run?L1F'
 MPSSM	蓝牙音乐定时播放催眠曲|蓝牙音响定时播放催眠曲	好的	1		['http://192.168.50.3:8883/play/0 0 1/Desktop/sleep.m3u', 'http://192.168.50.3:8883/set_timer/23:00']
 MPTS	蓝牙音乐定时开关|蓝牙音响定时开关	好的	1		'http://192.168.50.3:8883/set_spoken_timer'
 MPTC	蓝牙音乐取消定时|蓝牙音响取消定时	好的	1		'http://192.168.50.3:8883/set_timer/ /'
-TMSS	设置定时开关	好的	1		{'protocol': 'TMR', 'timeout': 10, 'voice':asr_write("a5670a"), 'exec': 'f"http://192.168.50.3:8883/set_spoken_timer/{wifi[\'config\'][0]}/{key}"'}
+TMSS	设置定时开关	好的	1		#{'protocol': 'TMR', 'timeout': 10, 'voice':asr_write("a5670a"), 'exec': 'f"http://192.168.50.3:8883/set_spoken_timer/{wifi[\'config\'][0]}/{key}"'}
 TMCS	取消定时开关	好的	1		{'protocol': 'TMR', 'timeout': 10, 'exec': f"http://192.168.50.3:8883/set_timer/ /{wifi[\'config\'][0]}/{key}"}
 TMCA	取消所有定时开关	好的	1		f"http://192.168.50.3:8883/set_timer/ /{wifi['config'][0]}/*"
 RGN	进入怀旧游戏模式	好的	1		['LTVN','sleep(3)','http://192.168.50.3:8883/Mode/RetroGame/~/packages/batocera-bcm2712-41-20241217.img']
 RGQ	退出怀旧游戏模式	好的	1		'http://192.168.50.3:8883/Mode'
 RGF	关闭怀旧游戏模式	好的	1		['RGQ', 'LTVF']
-					f"http://192.168.50.3:8883/set_spoken_timer/{wifi['config'][0]}/SLS"
+_TVTS	电视机定时开关	好的	1		'LTVTS'
+_TVTC	电视机取消定时	好的	1		'LTVTC'

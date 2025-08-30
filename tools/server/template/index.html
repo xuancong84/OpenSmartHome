@@ -134,7 +134,6 @@ table, th, td {border: 1px solid;}
 h3 {margin-bottom:10px;}
 input {font-size:15px;}
 .bb { font-weight: bold; }
-.ptr {cursor: pointer;}
 .toggle {
   --width: 80px;
   --height: calc(var(--width) / 3);
@@ -366,9 +365,8 @@ function toast(msg, isHTML=false) {
 }
 var tb = getById('rc-table');
 var tb_ble = getById('tb_ble');
-var ble_rid = null;
-var rid = 0;
-var drag_rid;
+var ble_row = null;
+var drag_row;
 var G = {};
 var hub = getById('hub'), cur_hub_pfx='';
 var doGetParam = false;
@@ -405,15 +403,9 @@ function load(hub_url){
 		cur_hub_pfx = hub_url.replace(/\/$/, '');
 		var txt = GET(cur_hub_pfx+'/rc_load').trim();
 		if(!txt) return;
-		var lines = txt.split('\n');
 		clear_all();
-		for (var line of lines) {
-			var its = line.split('\t');
-			var row = add_new_row();
-			for (var x = 0; x < Math.min(its.length, row.childElementCount); x++)
-				row.children[x+1].textContent = its[x];
-			row.children[row.childElementCount-1].children[0].style.display = its[its.length-1].includes('_spoken')?"inline":"none";
-		}
+		for (var line of txt.split('\n'))
+			add_new_row(-1, line.split('\t'));
 	} catch (err) {
 		alert(err);
 	}
@@ -424,7 +416,7 @@ function init() {
 function toggleLoopMode(){
 	GET(`/loop_mode/${loop_mode?0:1}`, (e)=>{updatePlayList()})
 }
-function recordRC(rid, url){
+function recordRC(row, url){
 	GET(cur_hub_pfx+url, (ev)=>{
 		try{
 			var obj = JSON.parse(ev.target.responseText);
@@ -433,33 +425,33 @@ function recordRC(rid, url){
 				alert(obj.info);
 				delete obj.info;
 			}
-			getById('R'+rid).children[data_i].textContent = JSON.stringify(obj);
+			row.children[data_i].textContent = JSON.stringify(obj);
 		}catch(e){toast(e)}
 	}, toast)
 }
-function recordRF(rid) {
+function recordRF(obj) {
 	if(confirm("Please hold down the remote controller button and click OK to record:"))
-		recordRC(rid, '/rf_record');
+		recordRC(obj.parentElement.parentElement, '/rf_record');
 }
-function recordIR(rid) {
+function recordIR(obj) {
 	if(confirm("Please press the remote controller button at least 3 times within 3 seconds after clicking OK:"))
-		recordRC(rid, '/ir_record');
+		recordRC(obj.parentElement.parentElement, '/ir_record');
 }
-function openBLE(rid){
-	ble_rid = rid;
+function openBLE(obj){
+	ble_row = obj.parentElement.parentElement;
 	getById('bleFront').style.display = getById('bleBack').style.display = 'block';
 }
 function closeBLE(n=0){
 	if(n>0)
-		getById('R'+ble_rid).children[data_i].textContent = `{'protocol': 'BLE', 'cmd': 'gap_advertise', 'data':'${tb_ble.rows[n].children[5].textContent}'}`;
+		ble_row.children[data_i].textContent = `{'protocol': 'BLE', 'cmd': 'gap_advertise', 'data':'${tb_ble.rows[n].children[5].textContent}'}`;
 	getById('bleFront').style.display = getById('bleBack').style.display = 'none';
 }
 function sendBLE(n){
 	var data = `{'protocol': 'BLE', 'cmd': 'gap_advertise', 'data':'${tb_ble.rows[n].children[5].textContent}'}`;
 	toast(POST(cur_hub_pfx+'/rc_exec', data));
 }
-function emit(rid) {
-	var v = getById('R'+rid).children[data_i].textContent;
+function emit(obj) {
+	var v = obj.parentElement.parentElement.children[data_i].textContent;
 	POST(cur_hub_pfx+'/rc_exec', v, toast, toast);
 }
 function start_ble_scan(){
@@ -502,44 +494,69 @@ function stop_ble_scan(){
 		}catch(e){alert(e)}
 	}, (xhr) => {alert(xhr)})
 }
-function deleteRow(rid) {
-	getById('R' + rid).remove();
+function reindexRows(){
 	for (var i = 1; i < tb.rows.length - 1; i++)
 		tb.rows[i].children[0].textContent = i;
 }
-function allowDrop(ev) {ev.preventDefault();}
-function drop(rid){
-	if(drag_rid==rid) return;
-	var upper = Math.min(drag_rid, rid), lower = Math.max(drag_rid, rid);
-	var inc = drag_rid==upper?1:-1;
-	for(var i=drag_rid; i!=rid; i+=inc){
-		var src=getById('R'+i), tgt=getById('R'+(i+inc));
-		for(var x=1; x<tb.rows[0].childElementCount-1; x++)
-			[src.children[x].textContent, tgt.children[x].textContent] = [tgt.children[x].textContent, src.children[x].textContent];
-	}
+function event_vert_posi(obj, ev){
+	const rect = obj.getBoundingClientRect();
+	const y = ev.clientY - rect.top;
+	const h = rect.height;
+	return y/(h+1e-6);
 }
-async function recordSend(rid){
-	var row = getById('R'+rid);
+function deleteRow(obj) {
+	obj.parentElement.parentElement.remove();
+	reindexRows();
+}
+function allowDrop(ev) {ev.preventDefault();}
+function drop(row, ev){
+	if(drag_row==row) return;
+	const vp = event_vert_posi(row, ev);
+	var new_row = add_new_row((vp<0.5)?row.rowIndex:row.rowIndex+1);
+	new_row.outerHTML = drag_row.outerHTML;
+	drag_row.remove();
+	reindexRows();
+}
+async function recordSend(obj){
+	var row = obj.parentElement.parentElement;
 	ASR(row.children[data_i].textContent.slice(1,-1));
 }
-function add_new_row() {
-	var insp = tb.rows.length - 1;
+function hint_insrow(obj, ev){
+	const vp = event_vert_posi(obj, ev);
+	obj.style.cursor = (vp<0.2 || vp>0.8)?"copy":"grab";
+	obj.title = (vp<0.2 || vp>0.8)?"Insert a cloned row here":"Drag to move the row up/down";
+}
+function do_insrow(obj, ev){
+	const vp = event_vert_posi(obj, ev);
+	if(vp<0.2 || vp>0.8){
+		drag_row = add_new_row();
+		for(var x=1; x<tb.rows[0].childElementCount-1; x++)
+			drag_row.children[x].textContent = obj.parentElement.children[x].textContent;
+		drop((vp<0.2)?obj.parentElement:obj.parentElement.nextElementSibling, ev);
+	}
+}
+function add_new_row(insp=-1, its=null) {
+	insp = insp<0?(insp+tb.rows.length):insp;
 	var row = tb.insertRow(insp);
-	row.setAttribute('id', 'R'+rid);
-	row.innerHTML = `<th class="ptr" draggable=true ondragstart="drag_rid=${rid};" ondrop="drop(${rid})" ondragover="allowDrop(event)">${insp}</th>
+	row.innerHTML = `<th onmousemove="hint_insrow(this, event)" onclick="do_insrow(this, event)" draggable=true ondragend="drag_row=null;event.dataTransfer.dropEffect='grabbing';"
+	ondragstart="drag_row=this.parentElement;event.dataTransfer.effectAllowed='copyMove';" ondrop="drop(this.parentElement, event)" ondragover="allowDrop(event)">${insp}</th>
 ${'<td contenteditable="true" class="wrap"></td>'.repeat(tb.rows[0].childElementCount-2)}
 <td style="text-align:center">
-	<input type='button' onclick='recordSend(${rid})' value='Record-Send' title="Record voice locally and send this commond using POST" style="display:none">
-	<input type='button' onclick='recordRF(${rid})' value='Record-RF' title="Record 433MHz remote controller signal">
-	<input type='button' onclick='recordIR(${rid})' value='Record-IR' title="Record infrared remote controller signal">
-	<input type='button' onclick='openBLE(${rid})' value='Record-BLE' title="Record BLE signal">
-	<input type='button' onclick='emit(${rid})' value='Send' title="Execute this command">
-	<input type='button' onclick='deleteRow(${rid})' value='Delete' title="Delete this row">
+	<input type='button' onclick='recordSend(this)' value='Record-Send' title="Record voice locally and send this commond using POST" style="display:none">
+	<input type='button' onclick='recordRF(this)' value='Record-RF' title="Record 433MHz remote controller signal">
+	<input type='button' onclick='recordIR(this)' value='Record-IR' title="Record infrared remote controller signal">
+	<input type='button' onclick='openBLE(this)' value='Record-BLE' title="Record BLE signal">
+	<input type='button' onclick='emit(this)' value='Send' title="Execute this command">
+	<input type='button' onclick='deleteRow(this)' value='Delete' title="Delete this row">
 </td>`;
 	row.children[row.childElementCount-2].onblur = (e)=>{
 		e.target.nextElementSibling.children[0].style.display = e.target.textContent.includes('_spoken')?"inline":"none";
 	};
-	rid++;
+	if(its!=null){
+		for (var x = 0; x < Math.min(its.length, row.childElementCount); x++)
+			row.children[x+1].textContent = its[x];
+		row.children[row.childElementCount-1].children[0].style.display = its[its.length-1].includes('_spoken')?"inline":"none";
+	}
 	return row;
 }
 var playListMenu = getById('PlayListMenu'), playList =  getById('PlayList');

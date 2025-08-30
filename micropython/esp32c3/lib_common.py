@@ -173,15 +173,14 @@ def getFullDateTime():
 	return getDateString(tm)+" ("+getWeekdayString(tm)+") "+getTimeString(tm)
 
 def syncNTP():
-	t = time.time()
+	t0 = time.time()
 	for i in range(3):
-		try:
-			ntptime.settime()
+		Try(lambda: ntptime.settime())
+		gc.collect()
+		if abs(time.time()-t0)>100:
 			break
-		except:
-			time.sleep(1)
-			gc.collect()
-	t = time.time()-t
+		time.sleep(1)
+	t = time.time()-t0
 	for k, v in Timers.items():
 		v[0] += t
 

@@ -207,7 +207,7 @@ def execRC(s, stack=0):
 			else:
 				return s if err else execRC(Eval(s), stack+1)
 		elif type(s)==dict:
-			p = s.get('protocol', 'RF433')
+			p = s.get('protocol', None)
 			prt(p, s)
 			if p=='RF433':
 				return rfc.send(s)
@@ -229,6 +229,7 @@ def execRC(s, stack=0):
 				return run_module(s)
 			elif p=='TMR':
 				return set_timer(s)
+			return str(s)
 
 	except Exception as e:
 		err = True
@@ -241,7 +242,7 @@ lastCMD, lastTMS, lastSRC = '', 0, ''
 def execRL(s, SRC=''):
 	global lastCMD, lastTMS, lastSRC
 	tms = time.time()
-	run = s!=lastCMD or abs(tms-lastTMS)>P['RL_MAX_DELAY'] or SRC==lastSRC
+	run = s!=lastCMD or SRC==lastSRC or abs(tms-lastTMS)>P['RL_MAX_DELAY']
 	lastCMD, lastTMS, lastSRC = s, tms, SRC
 	return execRC(s) if run else 'SKIP'
 

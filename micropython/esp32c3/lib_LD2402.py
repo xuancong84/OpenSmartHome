@@ -295,7 +295,7 @@ class MSENSOR:
 						self.sensor_pwr_dpin(False)
 					self.is_dark_mode = False
 		else: # in day
-			if (type(self.dark_level)==int and self.dark_level>(self.P['DARK_TH_HIGH']+self.P['DARK_TH_LOW'])/2):
+			if self.dark_level > (self.P['DARK_TH_HIGH']+self.P['DARK_TH_LOW'])*0.5:
 				self.sensor_pwr_dpin(True)
 				self.is_dark_mode = True
 				self.sensor_on_block_until = millis + self.P['sensor_on_block_ms']
