@@ -65,7 +65,7 @@ def save_playstate(obj):
 os.save_state = lambda: save_playstate(ip2tvdata)
 get_base_url = lambda: f'{"https" if ssl else "http"}://{local_IP}:{port}'
 
-ip2websock, ip2ydsock = {}, {}
+ip2websock, ip2ydsock, ip2plsock = {}, {}, {}
 os.ip2ydsock = ip2ydsock
 # ip2tvdata: {'IP':{'playlist':[full filenames], 'cur_ii': current_index, 'shuffled': bool (save play position if false), 
 # 	'markers':[(key1,val1),...], 'T2Slang':'', 'T2Stext':'', 'S2Tlang':'', 'S2Ttext':''}}
@@ -195,9 +195,14 @@ def get_playlist():
 	}
 	return json.dumps(obj)
 
-def on_media_opening(_):
+def onPlaylistChanged(*args):
+	for ip, ws in ip2plsock.items():
+		ws.send('updatePlayList()')
+
+def on_media_opening(*args):
 	global isFirst, isVideo
 	print(f'Starting to play: {mrl2path(mplayer.get_media().get_mrl())}', file=sys.stderr)
+	onPlaylistChanged()
 	if isVideo:
 		wait_tm = (3 if isJustAfterBoot else 2) if isFirst else 1
 		threading.Timer(wait_tm, lambda:mplayer.set_fullscreen(False)).start()
@@ -220,7 +225,6 @@ def _play(tm_info, filename=''):
 	mplayer = player.get_media_player()
 	mplayer.event_manager().event_attach(event.MediaPlayerOpening, on_media_opening)
 	set_audio_device(MP4_SPEAKER if isVideo else MP3_SPEAKER)
-	# player.set_playback_mode(vlc.PlaybackMode.loop)
 	loop_mode(0)
 	player.play_item_at_index(ii)
 	threading.Timer(1, lambda:mplayer.audio_set_volume(100)).start()
@@ -255,13 +259,12 @@ def togglePause():
 @app.route('/set_timer/<tm>')
 @app.route('/set_timer/<tm>/<name>')
 @app.route('/set_timer/<tm>/<name>/<path:filename>')
-def set_timer(tm='', name=None, filename=None):
+def set_timer(tm='', name=None, filename=''):
 	# each device can only have one on/off timer; if device is on, set timer to turn it off; otherwise, set timer to turn it on
 	# if name is in `HUB`, it will send execRC command to the hub
 	global player
-	tmr_name = f'{name}\t{filename}'
 	if tm==' ':
-		DelTimers(name) if filename=='*' else DelTimer(tmr_name)
+		DelTimer(name)
 		if is_tv_wsock(name):
 			tv_wscmd(name, 'clear_countdown()')
 		return 'Timer deleted OK'
@@ -269,26 +272,28 @@ def set_timer(tm='', name=None, filename=None):
 		tm_sec = (pd.Timestamp(tm)-pd.Timestamp.now()).total_seconds()
 		tm_sec = tm_sec+3600*24 if tm_sec<0 else tm_sec
 	else:
-		tm_sec = Try(lambda: pd.to_timedelta(float(tm), unit='H'), lambda: pd.to_timedelta(tm), None)
+		tm_sec = Try(lambda: pd.to_timedelta(float(tm), unit='H').total_seconds(), lambda: pd.to_timedelta(tm).total_seconds(), None)
 		if tm_sec==None:
 			return f'Error: cannot parse time {tm}'
 	tm_til = str(pd.Timestamp.now()+pd.to_timedelta(f'{tm_sec}s'))[:19]
 	if name==None:
 		if player==None:
-			SetTimer(tmr_name, tm_sec, lambda: play('0 0 1'), f'将于{tm_til}定时开启音乐播放')
+			SetTimer(name, tm_sec, lambda: play('0 0 1', filename), f'将于{tm_til}定时开启音乐播放')
 		else:
-			SetTimer(tmr_name, tm_sec, lambda: stop(), f'将于{tm_til}定时关闭音乐播放')
+			SetTimer(name, tm_sec, lambda: stop(), f'将于{tm_til}定时关闭音乐播放')
+		onPlaylistChanged()
 	elif get_hub_url(name):
-		SetTimer(tmr_name, tm_sec, lambda: send_hub_cmd(name, filename), f'将于{tm_til}定时向{name}发送指令{name}')
+		SetTimer(name, tm_sec, lambda: send_hub_cmd(name, filename), f'将于{tm_til}定时向{name}发送指令{name}')
 	elif is_tv_on(name):
-		SetTimer(tmr_name, tm_sec, lambda: tv(name, 'off'), f'将于{tm_til}定时关闭电视机{name}')
+		SetTimer(name, tm_sec, lambda: tv(name, 'off'), f'将于{tm_til}定时关闭电视机{name}')
 		if is_tv_wsock(name):
 			tv_wscmd(name, f'set_countdown({tm_sec})')
 	else:
-		if filename==None:
-			SetTimer(tmr_name, tm_sec, lambda: tv(name, 'on'), f'将于{tm_til}定时开启电视机{name}')
+		if filename:
+			SetTimer(name, tm_sec, lambda: _tvPlay(name, filename, os.url_root), f'将于{tm_til}定时开启电视机{name}并播放{filename}')
 		else:
-			SetTimer(tmr_name, tm_sec, lambda: _tvPlay(name, filename, os.url_root), f'将于{tm_til}定时开启电视机{name}并播放{filename}')
+			SetTimer(name, tm_sec, lambda: tv(name, 'on'), f'将于{tm_til}定时开启电视机{name}')
+			
 	return 'OK'
 
 def handle_ASR_timer(asr_out, tv_name, _, filename, url_root):
@@ -416,6 +421,7 @@ def stop():
 	try:
 		player.stop()
 		player.release()
+		onPlaylistChanged()
 	except Exception as e:
 		ret = str(e)
 	player = None
@@ -434,6 +440,7 @@ def loop_mode(mode=1, tv_name=None):
 		else:
 			player.set_playback_mode(loopModes[mode])
 			player.loop_mode = mode
+			onPlaylistChanged()
 	except Exception as e:
 		ret = str(e)
 	return ret
@@ -497,12 +504,15 @@ def set_volume(cmd=None, tv_name=None):
 	if tv_name != None:
 		return tvVolume(name=tv_name, vol=cmd) if is_tv_on(tv_name) else 'ignored'
 	try:
+		ret = None
 		if type(cmd) in [int, float] or cmd.isdigit():
 			ret = os.system(f'amixer sset Master {int(cmd)}%' if sys.platform=='linux' else f'osascript -e "set volume output volume {int(cmd)}"')
 		elif cmd=='up':
 			ret = os.system('amixer sset Master 10%+' if sys.platform=='linux' else 'osascript -e "set volume output volume (output volume of (get volume settings) + 10)"')
 		elif cmd=='down':
 			ret = os.system('amixer sset Master 10%-' if sys.platform=='linux' else 'osascript -e "set volume output volume (output volume of (get volume settings) - 10)"')
+		if ret is not None:
+			onPlaylistChanged()			
 		return get_volume()
 	except Exception as e:
 		return str(e)
@@ -617,14 +627,14 @@ def tvVolume(name='', vol=''):
 def ws_init(sock):
 	global ip2websock
 	key = sock.sock.getpeername()[0]
+	LOG(f'TV Websock: {key} connected', file=sys.stderr)
 	ip2websock[key] = sock
 	while sock.connected:
 		try:
 			cmd = sock.receive()
 			tv_wscmd(key, cmd)
 		except:
-			print(f'Websock: {key} disconnected', file=sys.stderr)
-			# traceback.print_exc()
+			LOG(f'TV Websock: {key} disconnected', file=sys.stderr)
 	ip2websock.pop(key)
 
 def wait_for_ws(tv_name, max_time=10):
@@ -637,14 +647,29 @@ def wait_for_ws(tv_name, max_time=10):
 def yd_init(sock):
 	global ip2ydsock
 	key = sock.sock.getpeername()[0]
+	LOG(f'yt-dlp Websock: {key} connected', file=sys.stderr)
 	ip2ydsock[key] = sock
 	while sock.connected:
 		try:
 			cmd = sock.receive()
 		except:
-			print(f'Websock: {key} disconnected', file=sys.stderr)
-			# traceback.print_exc()
+			LOG(f'yt-dlp Websock: {key} disconnected', file=sys.stderr)
 	ip2ydsock.pop(key)
+
+@sock.route('/pl_init')
+def pl_init(sock):
+	global ip2plsock
+	key = sock.sock.getpeername()[0]
+	LOG(f'Playlist Websock: {key} connected', file=sys.stderr)
+	ip2plsock[key] = sock
+	sock.send('updatePlayList')
+	while sock.connected:
+		try:
+			cmd = sock.receive()
+		except:
+			LOG(f'Playlist Websock: {key} disconnected', file=sys.stderr)
+			# traceback.print_exc()
+	ip2plsock.pop(key)
 
 def load_playable(ip, tm_info, filename):
 	if ip==None and filename=='':

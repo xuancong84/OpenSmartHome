@@ -33,10 +33,11 @@ mrl2path = lambda t: unquote(t).replace('file://', '').strip() if t.startswith('
 is_json_lst = lambda s: s.startswith('["') and s.endswith('"]')
 load_m3u = lambda fn: [i for L in Open(fn).readlines() for i in [mrl2path(L)] if i]
 
+# Map 'dev_name' to threading.Timer()
 Timers = {}
 
 def SetTimer(name, period, F, desc=''):
-	DelTimer(name) if name in Timers else None
+	DelTimer(name)
 	Timers[name] = tt = threading.Timer(period, F)
 	tt.start()
 	tt.name, tt.desc, tt.start_time = name, desc, pd.Timestamp.now()
@@ -44,11 +45,6 @@ def SetTimer(name, period, F, desc=''):
 def DelTimer(name):
 	if name in Timers:
 		Timers.pop(name).cancel()
-
-def DelTimers(prefix):
-	del_list = [name for name in Timers if name.startswith(prefix+'\t')]
-	for tmr in del_list:
-		Timers.pop(tmr).cancel()
 
 def get_url_root(r):
 	os.last_url_root = r.url_root.rstrip('/') if r.url_root.count(':')>=2 else r.url_root.rstrip('/')+f':{r.server[1]}'

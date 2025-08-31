@@ -235,8 +235,8 @@ input {font-size:15px;}
 			</span>
 		</h2>
 		<div id="PlayControl" style="margin: 4px;">
-			<button onclick="updatePlayList('/play/0 0 1', 2000);" class="bb">播放 &nbsp; ▶</button>
-			<button onclick="updatePlayList('/stop?off', 1000);" class="bb">停止 &nbsp; ■</button>
+			<button onclick="GET('/play/0 0 1');" class="bb">播放 &nbsp; ▶</button>
+			<button onclick="GET('/stop?off');" class="bb">停止 &nbsp; ■</button>
 			<button onclick="GET('/togglePause')" class="bb">暂停/继续 &nbsp; ⏯</button>&nbsp;
 			<label style="white-space: nowrap;">
 				<b>音量：</b>
@@ -414,7 +414,7 @@ function init() {
 	if(hub.childElementCount>0) load(hub.value);
 }
 function toggleLoopMode(){
-	GET(`/loop_mode/${loop_mode?0:1}`, (e)=>{updatePlayList()})
+	GET(`/loop_mode/${loop_mode?0:1}`);
 }
 function recordRC(row, url){
 	GET(cur_hub_pfx+url, (ev)=>{
@@ -560,37 +560,34 @@ ${'<td contenteditable="true" class="wrap"></td>'.repeat(tb.rows[0].childElement
 	return row;
 }
 var playListMenu = getById('PlayListMenu'), playList =  getById('PlayList');
-var cur_i = -1, loop_mode;
-function updatePlayList(url, delay){
-	if(url!=null){
-		GET(url);
-		setTimeout(()=>{updatePlayList()}, delay);
-	}else{
-		GET('/get_playlist',
-			(ev)=>{
-				playListMenu.style.display = 'block';
-				var obj = JSON.parse(ev.target.responseText);
-				var lst = ('list' in obj?obj.list:[]), paused = ('paused' in obj?obj.paused:null);
-				var css = "style='color:red; font-weight:bold;'";
-				getById('timerDesc').textContent = obj.timer;
-				loop_mode = obj.loopMode;
-				getById('loopMode').textContent = loop_mode?'🔂':'🔁';
-				cur_i = ('cur_i' in obj?obj.cur_i:-1);
-				playList.innerHTML = '';
-				for(var i=0; i<lst.length; i++)
-					playList.innerHTML += `<p class="hand" onclick="GET('/playFromN/${i}');updatePlayList()" ${i==cur_i?css:""}>${lst[i]}</p>`;
-				getById('volumeSlider').value = obj.volume;
-				onresize();
-			},
-			(ev)=>{alert(ev.currentTarget.response)}
-		);
-	}
+var cur_i = -1, loop_mode, ws;
+function updatePlayList(){
+	GET('/get_playlist',
+		(ev)=>{
+			var obj = JSON.parse(ev.target.responseText);
+			var lst = ('list' in obj?obj.list:[]), paused = ('paused' in obj?obj.paused:null);
+			var css = "style='color:red; font-weight:bold;'";
+			getById('timerDesc').textContent = obj.timer;
+			loop_mode = obj.loopMode;
+			getById('loopMode').textContent = loop_mode?'🔂':'🔁';
+			cur_i = ('cur_i' in obj?obj.cur_i:-1);
+			playList.innerHTML = '';
+			for(var i=0; i<lst.length; i++)
+				playList.innerHTML += `<p class="hand" onclick="GET('/playFromN/${i}')" ${i==cur_i?css:""}>${lst[i]}</p>`;
+			getById('volumeSlider').value = obj.volume;
+			onresize();
+		},
+		(ev)=>{alert(ev.currentTarget.response)}
+	);
 }
 function openPlayList(){
 	if(playListMenu.style.display=='none'){
-		updatePlayList();
+		playListMenu.style.display = 'block';
+		ws = new WebSocket((window.location.href.startsWith('https:')?'wss://':'ws://') + location.host + '/pl_init');
+		ws.addEventListener('message', ev => { setTimeout(ev.data, 1); });
 	}else{
 		playListMenu.style.display='none';
+		ws.close();
 	}
 }
 
@@ -599,7 +596,6 @@ function setupDraggable(){
   dragHandleEl = document.querySelector('[data-drag-handle]');
   dragHandleEl.addEventListener('mousedown', dragStart);
   dragHandleEl.addEventListener('mouseup', dragEnd);
-  dragHandleEl.addEventListener('mouseout', dragEnd);
 }
 function setupResizable(onresize){
   const resizeEl = document.querySelector('[data-resizable]');
