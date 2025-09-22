@@ -11,6 +11,7 @@ KTV_SPEAKER_ON={'protocol':'BLE', 'data': '0201011bffff00ee1bc878f64a4491542fb40
 KTV_SPEAKER_OFF={'protocol':'BLE', 'data': '0201011bffff00ee1bc878f64a4491562fb40e6ecaf0f38b95edcf743364c4'}
 KTV_SCREEN='livingTV:HDMI_2'
 KTV_EXEC='~/projects/pikaraoke/run-cloud.sh'
+GAME_SCREEN='livingTV:HDMI_2'
 MP3_SPEAKER='54:B7:E5:9E:F4:14'
 MP3_DFTLIST='Desktop/musics.m3u'
 MP4_SPEAKER=['hdmi', 'audio.stereo']

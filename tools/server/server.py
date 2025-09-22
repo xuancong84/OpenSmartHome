@@ -662,7 +662,7 @@ def pl_init(sock):
 	key = sock.sock.getpeername()[0]
 	LOG(f'Playlist Websock: {key} connected', file=sys.stderr)
 	ip2plsock[key] = sock
-	sock.send('updatePlayList')
+	sock.send('updatePlayList()')
 	while sock.connected:
 		try:
 			cmd = sock.receive()
@@ -1233,6 +1233,13 @@ def RetroGame(img=''):
 	global P_ext
 	if img:
 		cpufreq_set(1)
+		try:
+			tv_name, input_id = (GAME_SCREEN.split(':')+[''])[:2]
+			tv_on_if_off(tv_name, True)
+			if input_id:
+				tv_setInput(tv_name, input_id)
+		except:
+			pass
 		P_ext = subprocess.Popen(['./bato-launch.sh', expand_path(img)], preexec_fn=os.setsid)
 		P_ext.mode = 'RetroGame'
 	else:
