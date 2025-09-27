@@ -80,6 +80,17 @@ get_tv_ip = lambda t: Try(lambda: tv2lginfo(t)['ip'], t)
 get_tv_data = lambda t: ip2tvdata[Try(lambda: tv2lginfo(t)['ip'], t)]
 get_hub_url = lambda name: HUBS.get(name, name if [s for s in HUBS.values() if url_is_ip(name, s)] else '')
 
+
+# Pre-filter when multiple ASR hubs send the same request within RL_MAX_DELAY seconds
+last_request_from, last_request_url, last_request_time = None, None, 0
+@app.before_request
+def common_prefilter():
+	global last_request_from, last_request_url, last_request_time
+	if request.method=='GET':
+		if last_request_from!=request.remote_addr and last_request_url==request.url and time.time()-last_request_time<RL_MAX_DELAY:
+			return 'Ignored', 204
+		last_request_from, last_request_url, last_request_time = request.remote_addr, request.url, time.time()
+
 # Detect language, invoke Google-translate TTS and play the speech audio
 def prepare_TTS(txt, fn=DEFAULT_T2S_SND_FILE):
 	lang_id = Try(lambda: lang2id[lang_detector.detect_language_of(txt)], 'km')

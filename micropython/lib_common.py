@@ -10,7 +10,7 @@ P = {
 	'SMART_CTRL': True,
 	'SAVELOG': False,
 	'timezone': 8,
-	'RL_MAX_DELAY': 10,
+	'RL_MAX_DELAY': 5,
 	'LOGFILE': 'static/log.txt',
 	'DEBUG_dpin_num': '',	# only GPIO 2 or None: for debug blinking
 	'PIN_RF_IN': '',		# GPIO5 tested working

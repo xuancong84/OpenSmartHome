@@ -259,9 +259,13 @@ input {font-size:15px;}
 		<option value="{{hub_url}}" title="{{hub_url}}">{{hub_name}}</option>
 		{% endfor %}
 		</select>&nbsp;
-		<button onclick="openInNewTab(hub.value)" title="Go to the controller hub's main page" class="bb">GOTO</button>
+		<button onclick="openInNewTab(hub.value)" title="Go to the controller hub's main page" class="bb">GOTO</button> &nbsp;&nbsp;
 		<button onclick="openInNewTab(cur_hub_pfx+'/file.html')" title="Go to the controller hub's file transfer page" class="bb">File ...</button>
-		<button onclick="openInNewTab(cur_hub_pfx+'/wifi.html')" title="Go to the controller hub's WiFi settings page" class="bb">WiFi ...</button>
+		<button onclick="openInNewTab(cur_hub_pfx+'/wifi.html')" title="Go to the controller hub's WiFi settings page" class="bb">WiFi ...</button> &nbsp;&nbsp;
+		<button onclick="save()" title="Save remote control mappings" class="bb">Save Table</button>&nbsp;
+		<button onclick="load()" title="Load remote control mappings" class="bb">Load Table</button>&nbsp;
+		<button onclick="clear_all()" title="Clear all mappings, this does not delete from storage" class="bb">Clear All</button>&nbsp;
+		<button onclick="GET(cur_hub_pfx+'/set_cmd?machine.reset()')" class="bb">Reboot</button>
 		</h3>
 		<hr>
 	</div>
@@ -288,12 +292,6 @@ input {font-size:15px;}
 		<li>If ReqL is empty, the row defines a voice ID, i.e., send Code to the ASR chip to speak the words in Description.</li>
 		<li>It is better to sort the commands with most frequently used one on top, you can drag the SN index to sort the rows.</li>
 	</ul>
-	</p>
-	<p>
-		<button onclick="save()" title="Save remote control mappings" class="bb">Save Table</button>&nbsp;
-		<button onclick="load()" title="Load remote control mappings" class="bb">Load Table</button>&nbsp;
-		<button onclick="clear_all()" title="Clear all mappings, this does not delete from storage" class="bb">Clear All</button>&nbsp;
-		<button onclick="GET(cur_hub_pfx+'/set_cmd?machine.reset()')" class="bb">Reboot</button>
 	</p>
 	</div>
 
