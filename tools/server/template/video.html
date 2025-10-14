@@ -96,7 +96,7 @@ h1 {
 	</h2>
 </div>
 <div id="vcontainer" onfullscreenchange="on_fs_chg(this)">
-	<video id='video0' autoplay controls onended="ws_send('next')" onclick="clickvid(event)"
+	<video id='video0' autoplay controls onended="goto_idx(cur_ii+1)" onclick="clickvid(event)"
 			onseeked="markCounter=0" ontouchmove="timerRst()" onmousemove="timerRst()">
 	</video>
 	<canvas id="sc"></canvas>
@@ -125,12 +125,12 @@ h1 {
 		<span onclick="toggle_hide([controls])" title="播放设置" class="icon-gear"></span>
 		<span onclick="handleKey('f')" id="toggle-fs" title="切换全屏" class="icon-expand"></span>
 	</div>
-	<div class="overlay hoverShow" style="left:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="ws_send('prev')" title="跳回前一部">◀</div>
-	<div class="overlay hoverShow" style="right:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="ws_send('next')" title="跳到下一部">▶</div>
+	<div class="overlay hoverShow" style="left:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="goto_idx(cur_ii-1)" title="跳回前一部">◀</div>
+	<div class="overlay hoverShow" style="right:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="goto_idx(cur_ii+1)" title="跳到下一部">▶</div>
 </div>
 <div id="ovl">
-	<div class="overlay" style="left:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="ws_send('prev')" title="跳回前一部">◀</div>
-	<div class="overlay" style="right:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="ws_send('next')" title="跳到下一部">▶</div>
+	<div class="overlay" style="left:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="goto_idx(cur_ii-1)" title="跳回前一部">◀</div>
+	<div class="overlay" style="right:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="goto_idx(cur_ii+1)" title="跳到下一部">▶</div>
 	<div class="overlay" id="menuIcon0" style="left:50%; top:0px; transform: translateX(-50%);" onclick="toggle_menu(1)" title="当前播放列表">▤</div>
 </div>
 <div id="ovl2">
@@ -159,7 +159,7 @@ h1 {
 	</h1>
 	<div id="list1" style="overflow-y: scroll; max-height: 90%;">
 		{% for name in playlist %}
-		<a id="a{{loop.index0}}" onclick="ws_send('goto_idx {{loop.index0}}')">{{name}}</a>
+		<a id="a{{loop.index0}}" onclick="goto_idx({{loop.index0}})">{{name}}</a>
 		{% endfor %}
 	</div>
 </div>
@@ -217,6 +217,7 @@ var idleTime = 0;
 var menuMode = 0;
 var passCounter = 0, markCounter = 0;
 var playlist = {{playlist|tojson}};
+var is_random = {{is_random}};
 var dir_list, subdir_list;
 var cur_dir = "", cur_file, asr_dir = "";
 var v = getById("video0");
@@ -545,15 +546,20 @@ function timerInc() {
 		ovl2.style.display = (!menuMode)?"none":"";
 		document.body.style.overflow = "hidden";
 	}
-	markCounter += (1-v.paused);
-	passCounter += v.paused;
+	if(v.paused||is_random) passCounter += 1;
+	else markCounter += 1;
 	if(markCounter>60){
 		markCounter = 0;
-		ws_send(`mark ${v.currentTime}`);
+		ws_send(`mark ${v.currentTime} ${cur_file}`);
 	}else if(passCounter>60){
 		passCounter = 0;
 		ws_send('pass');
 	}
+}
+function MARK(){
+	var dirname = decodeURI(v.src).replace(/.*\/files\//,'').replace(/\/[^\/]*$/, '')+'/';
+	var obj = {'playlist': playlist.map(s=>dirname+s), 'cur_ii': cur_ii, 'cur_tm': v.currentTime};
+	ws_send(`MARK ${JSON.stringify(obj)}`);
 }
 function timerRst() {
 	if(countdown_timer!=null) countDownMsg.style.display = "";
@@ -564,6 +570,10 @@ function gotoFile(ev, i){
 	ev.preventDefault();
 	ws_send("goto_file "+dir_list[i]);
 	setvidx(i, 'b');
+}
+function goto_idx(i){
+	cur_ii = (i+playlist.length)%playlist.length;
+	setvsrc(decodeURI(v.src).replace(/[^\\/]*$/, '') + playlist[cur_ii], cur_ii);
 }
 function showDir(data){
 	list2.innerHTML = '';
@@ -598,7 +608,7 @@ function updateList(arr){
 	getById('title1').textContent = `${cur_dir}`;
 	list1.innerHTML = '';
 	for(var [i,fn] of playlist.entries())
-		list1.innerHTML += `<a id="a${i}" onclick="ws_send('goto_idx ${i}')">${fn}</a>`;
+		list1.innerHTML += `<a id="a${i}" onclick="goto_idx(${i})">${fn}</a>`;
 }
 function list_subtitles(s_lst){
 	subtt_info = JSON.parse(s_lst);
@@ -818,10 +828,10 @@ function handleKey(key, amount=0){
 			v.paused?v.play():v.pause();
 			break;
 		case "p":
-			ws_send('prev');
+			goto_idx(cur_ii-1);
 			break;
 		case "n":
-			ws_send('next');
+			goto_idx(cur_ii+1);
 			break;
 		default:
 			return false;

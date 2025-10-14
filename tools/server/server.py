@@ -59,16 +59,23 @@ def get_local_IP():
 
 local_IP = get_local_IP()
 load_playstate = lambda: Try(lambda: InfiniteDefaultRevisionDict().from_json(Open(PLAYSTATE_FILE)), InfiniteDefaultRevisionDict())
-def save_playstate(obj):
-	with Open(PLAYSTATE_FILE, 'wt') as fp:
-		obj.to_json(fp, indent=1)
+last_save_time = time.time()
+def save_playstate(obj, lazy=False):
+	if (not lazy) or (time.time()-last_save_time>3600):
+		prune_dict(obj)
+		with Open(PLAYSTATE_FILE, 'wt') as fp:
+			obj.to_json(fp, indent=1)
+		last_save_time = time.time()
+
 os.save_state = lambda: save_playstate(ip2tvdata)
 get_base_url = lambda: f'{"https" if ssl else "http"}://{local_IP}:{port}'
 
-ip2websock, ip2ydsock, ip2plsock = {}, {}, {}
+IP2websock = IP_Dict()
+ip2ydsock, ip2plsock = {}, {}
 os.ip2ydsock = ip2ydsock
-# ip2tvdata: {'IP':{'playlist':[full filenames], 'cur_ii': current_index, 'shuffled': bool (save play position if false), 
-# 	'markers':[(key1,val1),...], 'T2Slang':'', 'T2Stext':'', 'S2Tlang':'', 'S2Ttext':''}}
+# ip2tvdata: {'IP':{'markers':{list1_json: [cur_ii1, time1],...},
+#					'playlist':[], 'cur_ii':int,
+# 					'T2Slang':'', 'T2Stext':'', 'S2Tlang':'', 'S2Ttext':''}}
 os.sys_state = ip2tvdata = load_playstate()
 _tv2lginfo = Try(lambda: json.load(Open(LG_TV_CONFIG_FILE)), {})
 def tv2lginfo(tv_name):
@@ -77,7 +84,7 @@ def tv2lginfo(tv_name):
 		os.lastTVname = tv_name
 	return ret
 get_tv_ip = lambda t: Try(lambda: tv2lginfo(t)['ip'], t)
-get_tv_data = lambda t: ip2tvdata[Try(lambda: tv2lginfo(t)['ip'], t)]
+get_tv_data = lambda t: ip2tvdata[ip_strip(Try(lambda: tv2lginfo(t)['ip'], t))]
 get_hub_url = lambda name: HUBS.get(name, name if [s for s in HUBS.values() if url_is_ip(name, s)] else '')
 
 
@@ -224,7 +231,7 @@ def on_media_opening(*args):
 
 def _play(tm_info, filename=''):
 	global inst, player, playlist, filelist, mplayer, isVideo
-	filelist, ii, tm_sec, randomize = load_playable(None, tm_info, filename)
+	filelist, ii, tm_sec, is_random = load_playable(None, tm_info, filename)
 
 	stop()
 	playlist = inst.media_list_new(filelist)
@@ -365,7 +372,7 @@ def _normalize_vol(song, remote_ip=None):
 	if song:
 		fn = os.path.expanduser(song if song.startswith('~') else (SHARED_PATH+'/'+song))
 		norm_song_volume(fn)
-		if remote_ip in ip2websock and remote_ip in ip2tvdata:
+		if remote_ip in IP2websock and ip_strip(remote_ip) in ip2tvdata:
 			tv_wscmd(remote_ip, f'show_banner(-1);v.src=v.src+"?{time.time()}"')
 	elif player is not None:
 		mrl = mplayer.get_media().get_mrl()
@@ -389,7 +396,8 @@ def _normalize_vol(song, remote_ip=None):
 @app.route('/normalize_vol')
 @app.route('/normalize_vol/<path:song>')
 def normalize_vol(song=''):
-	run_thread(_normalize_vol, song, request.remote_addr)
+	client_port = request.environ.get('REMOTE_PORT')
+	run_thread(_normalize_vol, song, f'{request.remote_addr}:{client_port}')
 	return 'OK'
 
 @app.route('/playFrom/<name>')
@@ -549,10 +557,10 @@ def vlcvolume(cmd=''):
 def setInfo(tv_name, text, lang, prefix, match=None, wait=False):
 	langName = LC.get(lang).display_name('zh')
 	ip = get_tv_ip(tv_name)
-	ip2tvdata[ip].update({f'{prefix}_lang': langName, f'{prefix}_text': text}|({} if match==None else {f'{prefix}_match': match}))
+	ip2tvdata[ip_strip(ip)].update({f'{prefix}_lang': langName, f'{prefix}_text': text}|({} if match==None else {f'{prefix}_match': match}))
 	if ip and is_tv_on(tv_name):
 		wait_for_ws(tv_name) if wait else None
-		ip2websock[ip].send(f'{prefix}lang.textContent="{langName}";{prefix}text.textContent="{text}";'+(f'{prefix}match.textContent="{match}"' if match!=None else ''))
+		IP2websock.send(ip, f'{prefix}lang.textContent="{langName}";{prefix}text.textContent="{text}";'+(f'{prefix}match.textContent="{match}"' if match!=None else ''))
 
 def _report_title(tv_name):
 	with VoicePrompt(tv_name) as context:
@@ -574,7 +582,7 @@ def report_title(tv_name=None):
 
 @app.route('/is_tv_on/<tv_name>')
 def is_tv_on(tv_name):
-	return ping(get_tv_ip(tv_name))
+	return ping(ip_strip(get_tv_ip(tv_name)))
 
 @app.route('/is_tv_ready/<tv_name>')
 def is_tv_ready(tv_name):
@@ -583,7 +591,7 @@ def is_tv_ready(tv_name):
 # Whether TV browser websocket is connected (so that it can play sound)
 @app.route('/is_tv_wsock/<tv_name>')
 def is_tv_wsock(tv_name):
-	return is_tv_on(tv_name) and (get_tv_ip(tv_name) in ip2websock)
+	return is_tv_on(tv_name) and get_tv_ip(tv_name) in IP2websock
 
 @app.route('/tv_on/<tv_name>')
 def tv_on_if_off(tv_name, wait_ready=False):
@@ -636,22 +644,23 @@ def tvVolume(name='', vol=''):
 
 @sock.route('/ws_init')
 def ws_init(sock):
-	global ip2websock
-	key = sock.sock.getpeername()[0]
+	global IP2websock
+	addr = sock.sock.getpeername()
+	key = f'{addr[0]}:{addr[1]}'
 	LOG(f'TV Websock: {key} connected', file=sys.stderr)
-	ip2websock[key] = sock
+	IP2websock[key] = sock
 	while sock.connected:
 		try:
 			cmd = sock.receive()
 			tv_wscmd(key, cmd)
 		except:
 			LOG(f'TV Websock: {key} disconnected', file=sys.stderr)
-	ip2websock.pop(key)
+	IP2websock.pop(key)
 
 def wait_for_ws(tv_name, max_time=10):
-	global ip2websock
+	global IP2websock
 	tm, ip = time.time(), get_tv_ip(tv_name)
-	while (ip not in ip2websock) and (time.time()-tm<max_time):
+	while (ip not in IP2websock) and (time.time()-tm<max_time):
 		time.sleep(0.1)
 
 @sock.route('/yd_init')
@@ -687,7 +696,7 @@ def load_playable(ip, tm_info, filename):
 		filename = MP3_DFTLIST
 	fullname = filename if type(filename)==str and filename.startswith(SHARED_PATH) else (SHARED_PATH+str(filename))
 	tm_sec, ii, randomize = ([int(float(i)) for i in tm_info.split()]+[0,0])[:3]
-	tvd = ip2tvdata[ip]
+	tvd = ip2tvdata[ip_strip(ip)]
 	if not filename:
 		lst = tvd['playlist']
 	elif is_json_lst(filename):
@@ -722,18 +731,19 @@ def webPlay(tm_info=None, filename=None):
 	if tm_info==None:
 		tvd = get_tv_data(request.remote_addr)
 		if 'last_movie_drama' in tvd:
-			lst, ii, tm_sec = load_playable(request.remote_addr, '-1', tvd['last_movie_drama'])[:3]
+			lst, ii, tm_sec, is_random = load_playable(request.remote_addr, '-1', tvd['last_movie_drama'])
 		else:
 			lst = Try(lambda: tvd['playlist'], lambda: json.loads(list(tvd['markers'].keys())[-1]), lambda: getAnyMediaList())
 			if lst:
 				ii, tm_sec = tvd['markers'].get(json.dumps(lst), [tvd.get('cur_ii', 0), 0])
 	else:
-		lst, ii, tm_sec, randomize = load_playable(request.remote_addr, tm_info, filename)
+		lst, ii, tm_sec, is_random = load_playable(request.remote_addr, tm_info, filename)
 		tvd = ip2tvdata[request.remote_addr]
 	return render_template('video.html',
 		listname=Try(lambda:''.join(lst[0].split('/')[-2:-1]), '') or '播放列表',
 		playlist=[i.split('/')[-1] for i in lst],
 		tvlist = TV_LIST,
+		is_random = is_random,
 		asrlookup = ASR_LOOKUP,
 		file_path=f'/files/{lst[ii][len(SHARED_PATH):]}#t={tm_sec}' if lst else '',
 		**{n:tvd.get(n,'') for n in ['T2S_text', 'T2S_lang', 'S2T_text', 'S2T_lang', 'S2T_match', 'cur_ii']})
@@ -741,7 +751,7 @@ def webPlay(tm_info=None, filename=None):
 @app.route('/tv_runjs')
 def tv_runjs():
 	name, cmd = unquote(request.query_string.decode()).split('/', 1)
-	ip2websock[get_tv_ip(name)].send(cmd)
+	IP2websock.send(get_tv_ip(name), cmd)
 	return 'OK'
 
 def _tvPlay(name, listfilename, url_root):
@@ -753,27 +763,35 @@ def _tvPlay(name, listfilename, url_root):
 		tv_on_if_off(tv_name, True)
 		return tv(tv_name, f'openBrowserAt "{url_root}/webPlay/{tm_info}/{listfilename}"')
 	else:
-		ws = ip2websock[get_tv_ip(tv_name)]
-		return ws.send(f'seturl("{url_root}/webPlay/{tm_info}/{listfilename}")') or 'OK'
+		return IP2websock.send(get_tv_ip(tv_name), f'seturl("{url_root}/webPlay/{tm_info}/{listfilename}")') or 'OK'
 
 @app.route('/tvPlay/<name>/<path:listfilename>')
 def tvPlay(name, listfilename, url_root=None):
 	run_thread(_tvPlay, name, listfilename, url_root or get_url_root(request))
 	return 'OK'
 
-last_save_time = time.time()
-def mark(name, tms):
-	tvd = get_tv_data(name)
-	if tvd['shuffled']:
-		return 'Ignored'
-	tvd['markers'].update({json.dumps(tvd['playlist']): [tvd['cur_ii'], tms]})
+def updateMarker(tvd):
+	tvd['markers'].update({json.dumps(tvd['playlist']): [tvd['cur_ii'], tvd['cur_tm']]})
 	fn = tvd['playlist'][tvd['cur_ii']]
 	if getDuration(fn) >= DRAMA_DURATION_TH:
 		tvd['last_movie_drama'] = fn
 	prune_dict(tvd['markers'])
-	if time.time()-last_save_time>3600:
-		save_playstate(prune_dict(ip2tvdata))
-		last_save_time = time.time()
+	save_playstate(ip2tvdata, True)
+
+def mark(name, tms, cur_file):
+	tvd = get_tv_data(name)
+	mrk_cur_file = SHARED_PATH + cur_file
+	tvd_cur_file = Try(lambda: tvd['playlist'][tvd['cur_ii']], None)
+	if mrk_cur_file != tvd_cur_file:
+		return tv_wscmd(name, 'MARK()')
+	tvd['cur_tm'] = float(tms)
+	updateMarker(tvd)
+
+def MARK(name, data):
+	tvd = get_tv_data(name)
+	data['playlist'] = [SHARED_PATH+s for s in data['playlist']]
+	tvd.update(data)
+	updateMarker(tvd)
 
 ip2subtt = {}
 def _load_subtitles(video_file, n_subs, ip):
@@ -798,7 +816,7 @@ def _load_subtitles(video_file, n_subs, ip):
 					runsys(f'DISPLAY=:0 java -jar lib/BDSup2Sub512.jar -o "{out_dir}/{k}.sup" "{out_dir}/{k}.idx"')
 			LOG(f'Finished loading {n_subs} subtitle tracks from "{video_file}"')
 		ip2subtt[ip] = video_file
-	ip2websock[ip].send('load_subtitles()')
+	IP2websock.send(ip, 'load_subtitles()')
 
 def _show_mediainfo(fn, ip):
 	fsize = os.stat(SHARED_PATH+fn).st_size
@@ -813,8 +831,8 @@ def tv_wscmd(name, cmd):
 	LOG(name+' : '+cmd)
 	try:
 		ip = get_tv_ip(name)
-		ws = ip2websock[ip]
-		tvd = ip2tvdata[ip]
+		ws = IP2websock[ip]
+		tvd = ip2tvdata[ip_strip(ip)]
 		if cmd.startswith('\t'):
 			ev_reply = cmd[1:]
 			ev_mutex.set()
@@ -825,6 +843,10 @@ def tv_wscmd(name, cmd):
 			return ev_reply
 		elif cmd == 'resume':
 			ws.send('v.play()')
+		elif cmd == 'next':
+			ws.send('goto_idx(cur_ii+1)')
+		elif cmd == 'prev':
+			ws.send('goto_idx(cur_ii-1)')
 		elif cmd == 'rewind':
 			ws.send('v.currentTime=0')
 		elif cmd == 'hideQR':
@@ -834,8 +856,12 @@ def tv_wscmd(name, cmd):
 		elif cmd == 'report_title':
 			report_title(name)
 		elif cmd.startswith('mark '):
-			mark(name, float(cmd.split()[1]))
+			mark(name, *cmd.split(' ', 2)[1:])
 			tv(name, 'screenOn')
+		elif cmd.startswith('MARK '):
+			MARK(name, json.loads(cmd.split(' ', 1)[1]))
+		elif cmd.startswith('goto_idx '):
+			ws.send(f'goto_idx({int(cmd.split()[1])})')
 		elif cmd.startswith('norm_vol '):
 			run_thread(_normalize_vol, cmd.split(' ', 1)[1], ip)
 		elif cmd.startswith('loop_mode '):
@@ -857,24 +883,15 @@ def tv_wscmd(name, cmd):
 		elif cmd.startswith('show_mediainfo '):
 			args = cmd.split(' ', 1)
 			run_thread(_show_mediainfo, args[1], ip)
+		elif cmd.startswith('goto_file '):
+			fn = SHARED_PATH + cmd.split(' ',1)[1].strip('/')
+			flist = load_m3u(fn) if fn.lower().endswith('.m3u') else ls_media_files(os.path.dirname(fn))
+			cur_ii = Try(lambda: [ii for ii,fulln in enumerate(flist) if fulln.endswith('/'+os.path.basename(fn))][0], 0)
+			ws.send('\tupdateList\t'+'\n'.join([s.split('/')[-1] for s in flist]))
+			ws.send(f'setvsrc("/files/{flist[cur_ii][len(SHARED_PATH):]}",{cur_ii})')
 		else:
-			if cmd in ['next', 'prev']:
-				tvd['cur_ii'] = (tvd['cur_ii']+(1 if cmd=='next' else -1))%len(tvd['playlist'])
-			elif cmd.startswith('goto_idx '):
-				tvd['cur_ii'] = int(cmd.split()[1])
-			elif cmd.startswith('goto_file '):
-				fn = cmd.split(' ',1)[1].strip('/')
-				if fn.lower().endswith('.m3u'):
-					load_m3u(fn)
-				flist = ls_media_files(SHARED_PATH+os.path.dirname(fn))
-				tvd['playlist'] = flist
-				tvd['cur_ii'] = [ii for ii,fulln in enumerate(flist) if fulln.endswith('/'+fn)][0]
-				ws.send('\tupdateList\t'+'\n'.join([s.split('/')[-1] for s in flist]))
-			else:
-				ws.send(cmd)
-				return 'OK'
-			fn = tvd['playlist'][tvd['cur_ii']]
-			ws.send(f'setvsrc("/files/{fn[len(SHARED_PATH):]}",{tvd["cur_ii"]})')
+			ws.send(cmd)
+			
 		return 'OK'
 	except Exception as e:
 		return str(e)
@@ -1083,7 +1100,7 @@ def handle_ASR_play(asr_out, tv_name, prompt, rel_path, url_root):
 	if os.path.isdir(full_path):
 		res = findMedia(asr_postprocess(asr_out['text']), asr_out['language'], base_path=full_path)
 	elif os.path.isfile(full_path):
-		lst = load_m3u(full_path) if rel_path else ip2tvdata[Try(lambda: tv2lginfo(tv_name)['ip'], None)]['playlist']
+		lst = load_m3u(full_path) if rel_path else ip2tvdata[Try(lambda: ip_strip(tv2lginfo(tv_name)['ip']), None)]['playlist']
 		res = findSong(asr_postprocess(asr_out['text']), asr_out['language'], lst)
 	else:
 		return 'Error: Invalid search path'
@@ -1458,6 +1475,6 @@ if __name__ == '__main__':
 			except:
 				traceback.print_exc()
 
-	save_playstate(prune_dict(ip2tvdata))
+	save_playstate(ip2tvdata)
 	import os
 	os._exit(0)

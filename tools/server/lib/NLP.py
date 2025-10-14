@@ -32,6 +32,42 @@ ls_subdir = lambda fullpath: [g.rstrip('/') for f in listdir(fullpath) for g in 
 mrl2path = lambda t: unquote(t).replace('file://', '').strip() if t.startswith('file://') else (t.strip() if t.startswith('/') else '')
 is_json_lst = lambda s: s.startswith('["') and s.endswith('"]')
 load_m3u = lambda fn: [i for L in Open(fn).readlines() for i in [mrl2path(L)] if i]
+ip_strip = lambda ip: ip.split(':')[0] if ':' in ip else ip
+
+class IP_Dict(dict):
+	def _dispatch_(self, name, key, *args, **kwargs):
+		F = getattr(self[key], name, None)
+		return None if F is None else F(*args, **kwargs)
+
+	def __getattr__(self, name):
+		if name.startswith('_') and name.endswith('_'):
+			raise AttributeError(name)
+
+		def wrapper(key, *args, **kwargs):
+			return self._dispatch_(name, key, *args, **kwargs)
+
+		return wrapper
+
+	def __getitem__(self, ip):
+		obj = super().get(ip, None)
+		if obj != None:
+			return obj
+		if ':' in ip:
+			ip = ip.split(':')[0]
+			obj = super().get(ip, None)
+			if obj != None:
+				return obj
+			for k,v in self.items():
+				if k.startswith(ip+':'):
+					return v
+		else:
+			for k,v in self.items():
+				if k.startswith(ip+':'):
+					return v
+		return None
+	
+	def __contains__(self, key):
+		return self[key] != None
 
 # Map 'dev_name' to threading.Timer()
 Timers = {}
