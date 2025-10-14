@@ -32,7 +32,7 @@ ls_subdir = lambda fullpath: [g.rstrip('/') for f in listdir(fullpath) for g in 
 mrl2path = lambda t: unquote(t).replace('file://', '').strip() if t.startswith('file://') else (t.strip() if t.startswith('/') else '')
 is_json_lst = lambda s: s.startswith('["') and s.endswith('"]')
 load_m3u = lambda fn: [i for L in Open(fn).readlines() for i in [mrl2path(L)] if i]
-ip_strip = lambda ip: ip.split(':')[0] if ':' in ip else ip
+ip_strip = lambda ip: ip.split(':')[0] if (type(ip)==str and ':' in ip) else ip
 
 class IP_Dict(dict):
 	def _dispatch_(self, name, key, *args, **kwargs):

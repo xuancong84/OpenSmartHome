@@ -575,6 +575,11 @@ function goto_idx(i){
 	cur_ii = (i+playlist.length)%playlist.length;
 	setvsrc(decodeURI(v.src).replace(/[^\\/]*$/, '') + playlist[cur_ii], cur_ii);
 }
+function open_in_tab(fn){
+	event.preventDefault();
+	event.stopPropagation();
+	window.open(`${location.origin}/webPlay/0/${fn}`, "_blank");
+}
 function showDir(data){
 	list2.innerHTML = '';
 	getById('title2').textContent = `Folder: /${cur_dir}`;
@@ -587,11 +592,19 @@ function showDir(data){
 	for(var fn of data.split('\n')){
 		fulln = cur_dir?(cur_dir+'/'+fn):fn;
 		if(fn.endsWith('/')){
-			list2.innerHTML += `<a id="b${i}" onclick="lsdir(subdir_list[${j}])">${fn}<span class="icon-live_tv" onclick='showPlayOnTV(${i}, event)'></span></a>`;
+			list2.innerHTML += `<a id="b${i}" onclick="lsdir(subdir_list[${j}])">${fn}
+			<span>
+				<span class="icon-new-tab" title="在新页面中打开" onclick="open_in_tab('${fulln}')"></span>
+				<span class="icon-live_tv" title="在电视机上打开" onclick='showPlayOnTV(${i}, event)'></span>
+			</span></a>`;
 			subdir_list.push(fulln);
 			j+=1;
 		}else{
-			list2.innerHTML += `<a id="b${i}" onclick="gotoFile(event,${i})" href="/files/${fulln}">${fn}<span class="icon-live_tv" onclick='showPlayOnTV(${i}, event)'></span></a>`;
+			list2.innerHTML += `<a id="b${i}" onclick="gotoFile(event,${i})" href="/files/${fulln}">${fn}
+			<span>
+				<span class="icon-new-tab" title="在新页面中打开" onclick="open_in_tab('${fulln}')"></span>
+				<span class="icon-live_tv" title="在电视机上打开" onclick="showPlayOnTV(${i}, event)"></span>
+			</span></a>`;
 		}
 		if(cur_file.startsWith(fulln) && fulln.length>scrollTo_cur_max){
 			scrollTo_id = i;
