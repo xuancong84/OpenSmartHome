@@ -302,10 +302,10 @@ function setvsrc(url, ii=0){
 
 	if(!menuMode) show_flashmsg(decodeURI(ttl.split('/').slice(-1)).split('#')[0]);
 	if(menuMode!=2) return;
-	if(cur_file.endsWith(getById('b'+ii).text)) setvidx(ii, 'b');
+	if(cur_file.endsWith(getById('b'+ii).name)) setvidx(ii, 'b');
 	else{
 		for(var ii=0; ii<dir_list.length; ii++)
-			if(cur_file.endsWith(getById('b'+ii).text)) setvidx(ii, 'b');
+			if(cur_file.endsWith(getById('b'+ii).name)) setvidx(ii, 'b');
 	}
 }
 function promptOpenFolder(){
@@ -475,7 +475,7 @@ function toggle_menu(mode){
 		else{
 			var ii = -1, i = 0;
 			for(; getById('b'+i)!=null; i++)
-				if(cur_file == (cur_dir?(cur_dir+'/'+getById('b'+i).text):getById('b'+i).text)) ii = i;
+				if(cur_file == (cur_dir?(cur_dir+'/'+getById('b'+i).name):getById('b'+i).name)) ii = i;
 			if(ii>=0) setvidx(ii, 'b');
 		}
 		getById("title2").style.width = `calc(100% - ${getById("title2-after").offsetWidth}px)`;
@@ -592,7 +592,7 @@ function showDir(data){
 	for(var fn of data.split('\n')){
 		fulln = cur_dir?(cur_dir+'/'+fn):fn;
 		if(fn.endsWith('/')){
-			list2.innerHTML += `<a id="b${i}" onclick="lsdir(subdir_list[${j}])">${fn}
+			list2.innerHTML += `<a id="b${i}" onclick="lsdir(subdir_list[${j}])" name="${fn}">${fn}
 			<span>
 				<span class="icon-new-tab" title="在新页面中打开" onclick="open_in_tab('${fulln}')"></span>
 				<span class="icon-live_tv" title="在电视机上打开" onclick='showPlayOnTV(${i}, event)'></span>
@@ -600,7 +600,7 @@ function showDir(data){
 			subdir_list.push(fulln);
 			j+=1;
 		}else{
-			list2.innerHTML += `<a id="b${i}" onclick="gotoFile(event,${i})" href="/files/${fulln}">${fn}
+			list2.innerHTML += `<a id="b${i}" onclick="gotoFile(event,${i})" href="/files/${fulln}" name="${fn}">${fn}
 			<span>
 				<span class="icon-new-tab" title="在新页面中打开" onclick="open_in_tab('${fulln}')"></span>
 				<span class="icon-live_tv" title="在电视机上打开" onclick="showPlayOnTV(${i}, event)"></span>
