@@ -177,7 +177,7 @@ def get_voice(fn=''):
 
 @app.route('/subtt/<path:fn>')
 def subtt(fn='0.vtt'):
-	return send_from_directory(f'{TMP_DIR}/.subtitles/{request.remote_addr}/', fn, conditional=True)
+	return send_from_directory(f'{TMP_DIR}/.subtitles/', fn, conditional=True)
 
 @app.route('/subtitle/<show>')
 def show_subtitle(show=None):
@@ -793,29 +793,22 @@ def MARK(name, data):
 	tvd.update(data)
 	updateMarker(tvd)
 
-ip2subtt = {}
-def _load_subtitles(video_file, n_subs, ip):
-	if ip2subtt.get(ip, '') != video_file:
-		out_dir = f'{TMP_DIR}/.subtitles/{ip}'
-		if not os.path.isdir(out_dir):
-			Try(lambda: os.makedirs(out_dir))
-		if video_file in ip2subtt.values():
-			ip2 = [k for k,v in ip2subtt.items() if v==video_file][0]
-			runsys(f'cp -rf {TMP_DIR}/.subtitles/{ip2}/* {out_dir}/')
-			LOG(f'Copyed {n_subs} subtitle files from {ip2} to {ip} ...')
-		else:
-			stt_info = fullpath2stt_info.get(os.path.realpath(video_file), [])
-			txt_stt = [fn.split('.')[0] for lang, fn in stt_info if fn.endswith('.vtt')]
-			bmp_stt = [fn.split('.')[0] for lang, fn in stt_info if fn.endswith('.sup')]
-			LOG(f'Loading {n_subs} subtitle tracks ({len(txt_stt)} text & {len(bmp_stt)} bitmap tracks) from "{video_file}" ...')
-			if txt_stt:
-				RUN(['ffmpeg', '-y', '-i', video_file]+[it for k in txt_stt for it in ['-map', f'0:{k}', '-f', 'webvtt', f'{out_dir}/{k}.vtt']], shell=False, timeout=9999)
-			if bmp_stt:
-				RUN(['mkvextract', 'tracks', video_file] + [f'{k}:{out_dir}/{k}' for k in bmp_stt], shell=False, timeout=9999)
-				for k in bmp_stt:
-					runsys(f'DISPLAY=:0 java -jar lib/BDSup2Sub512.jar -o "{out_dir}/{k}.sup" "{out_dir}/{k}.idx"')
-			LOG(f'Finished loading {n_subs} subtitle tracks from "{video_file}"')
-		ip2subtt[ip] = video_file
+def _load_subtitles(video_file, ip, force=False):
+	out_dir = f'{TMP_DIR}/.subtitles/{video_file[len(SHARED_PATH):]}'
+	if force or (not os.path.isdir(out_dir)) or (not listdir(out_dir)):
+		Try(lambda: os.makedirs(out_dir))
+		stt_info = fullpath2stt_info.get(os.path.realpath(video_file), [])
+		txt_stt = [fn.split('.')[0] for lang, fn in stt_info if fn.endswith('.vtt')]
+		bmp_stt = [fn.split('.')[0] for lang, fn in stt_info if fn.endswith('.sup')]
+		n_subs = len(txt_stt+bmp_stt)
+		LOG(f'Loading {n_subs} subtitle tracks ({len(txt_stt)} text & {len(bmp_stt)} bitmap tracks) from "{video_file}" ...')
+		if txt_stt:
+			RUN(['ffmpeg', '-y', '-i', video_file]+[it for k in txt_stt for it in ['-map', f'0:{k}', '-f', 'webvtt', f'{out_dir}/{k}.vtt']], shell=False, timeout=9999)
+		if bmp_stt:
+			RUN(['mkvextract', 'tracks', video_file] + [f'{k}:{out_dir}/{k}' for k in bmp_stt], shell=False, timeout=9999)
+			for k in bmp_stt:
+				runsys(f'DISPLAY=:0 java -jar lib/BDSup2Sub512.jar -o "{out_dir}/{k}.sup" "{out_dir}/{k}.idx"')
+		LOG(f'Finished loading {n_subs} subtitle tracks from "{video_file}"')
 	IP2websock.send(ip, 'load_subtitles()')
 
 def _show_mediainfo(fn, ip):
@@ -877,9 +870,9 @@ def tv_wscmd(name, cmd):
 			ws.send(f'\tlist_subtitles\t{json.dumps(subs)}')
 		elif cmd.startswith('load_subtitles '):
 			args = cmd.split(' ', 2)
-			n_subs = int(args[1])
+			force = int(args[1])
 			file_path = SHARED_PATH+args[2]
-			run_thread(_load_subtitles, file_path, n_subs, ip)
+			run_thread(_load_subtitles, file_path, ip, force)
 		elif cmd.startswith('show_mediainfo '):
 			args = cmd.split(' ', 1)
 			run_thread(_show_mediainfo, args[1], ip)
