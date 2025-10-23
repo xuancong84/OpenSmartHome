@@ -177,7 +177,7 @@ def get_voice(fn=''):
 
 @app.route('/subtt/<path:fn>')
 def subtt(fn='0.vtt'):
-	return send_from_directory(f'{TMP_DIR}/.subtitles/{request.remote_addr}/', fn, conditional=True)
+	return send_from_directory(f'{TMP_DIR}/.subtitles/', fn, conditional=True)
 
 @app.route('/subtitle/<show>')
 def show_subtitle(show=None):
@@ -232,17 +232,17 @@ def on_media_opening(*args):
 def _play(tm_info, filename=''):
 	global inst, player, playlist, filelist, mplayer, isVideo
 	filelist, ii, tm_sec, is_random = load_playable(None, tm_info, filename)
+	isVideo = bool([fn for fn in filelist if isVideoFileExt(fn)])
 
 	stop()
+	set_audio_device(MP4_SPEAKER if isVideo else MP3_SPEAKER)
 	playlist = inst.media_list_new(filelist)
 	if player == None:
 		player = inst.media_list_player_new()
 	player.set_media_list(playlist)
-	isVideo = bool([fn for fn in filelist if isVideoFileExt(fn)])
 
 	mplayer = player.get_media_player()
 	mplayer.event_manager().event_attach(event.MediaPlayerOpening, on_media_opening)
-	set_audio_device(MP4_SPEAKER if isVideo else MP3_SPEAKER)
 	loop_mode(0)
 	player.play_item_at_index(ii)
 	threading.Timer(1, lambda:mplayer.audio_set_volume(100)).start()
@@ -509,7 +509,7 @@ def connectble(dev_mac):
 		pair_ble(dev_mac)
 	if is_ble_connected(dev_mac):
 		return '0'
-	disconnectble()
+	disconnectble(dev_mac)
 	ret = os.system(f'bluetoothctl connect {dev_mac}' if sys.platform=='linux' else f'blueutil --connect {dev_mac}')
 	return str(ret)
 
@@ -562,12 +562,14 @@ def setInfo(tv_name, text, lang, prefix, match=None, wait=False):
 		wait_for_ws(tv_name) if wait else None
 		IP2websock.send(ip, f'{prefix}lang.textContent="{langName}";{prefix}text.textContent="{text}";'+(f'{prefix}match.textContent="{match}"' if match!=None else ''))
 
-def _report_title(tv_name):
+def _report_title(tv_name, title=''):
 	with VoicePrompt(tv_name) as context:
 		ev = play_audio('voice/cur_song_title.mp3', False, tv_name)
 		if tv_name:
-			data = get_tv_data(tv_name)
-			langId, txt = prepare_TTS(filepath2songtitle(data['playlist'][data['cur_ii']]))
+			if not title:
+				data = get_tv_data(tv_name)
+				title = data['playlist'][data['cur_ii']]
+			langId, txt = prepare_TTS(filepath2songtitle(title))
 			setInfo(tv_name, txt, langId, 'T2S')
 		else:
 			prepare_TTS(filepath2songtitle(mrl2path(mplayer.get_media().get_mrl())))
@@ -576,8 +578,8 @@ def _report_title(tv_name):
 
 @app.route('/report_title')
 @app.route('/report_title/<tv_name>')
-def report_title(tv_name=None):
-	run_thread(_report_title, tv_name)
+def report_title(tv_name=None, title=''):
+	run_thread(_report_title, tv_name, title)
 	return 'OK'
 
 @app.route('/is_tv_on/<tv_name>')
@@ -793,29 +795,22 @@ def MARK(name, data):
 	tvd.update(data)
 	updateMarker(tvd)
 
-ip2subtt = {}
-def _load_subtitles(video_file, n_subs, ip):
-	if ip2subtt.get(ip, '') != video_file:
-		out_dir = f'{TMP_DIR}/.subtitles/{ip}'
-		if not os.path.isdir(out_dir):
-			Try(lambda: os.makedirs(out_dir))
-		if video_file in ip2subtt.values():
-			ip2 = [k for k,v in ip2subtt.items() if v==video_file][0]
-			runsys(f'cp -rf {TMP_DIR}/.subtitles/{ip2}/* {out_dir}/')
-			LOG(f'Copyed {n_subs} subtitle files from {ip2} to {ip} ...')
-		else:
-			stt_info = fullpath2stt_info.get(os.path.realpath(video_file), [])
-			txt_stt = [fn.split('.')[0] for lang, fn in stt_info if fn.endswith('.vtt')]
-			bmp_stt = [fn.split('.')[0] for lang, fn in stt_info if fn.endswith('.sup')]
-			LOG(f'Loading {n_subs} subtitle tracks ({len(txt_stt)} text & {len(bmp_stt)} bitmap tracks) from "{video_file}" ...')
-			if txt_stt:
-				RUN(['ffmpeg', '-y', '-i', video_file]+[it for k in txt_stt for it in ['-map', f'0:{k}', '-f', 'webvtt', f'{out_dir}/{k}.vtt']], shell=False, timeout=9999)
-			if bmp_stt:
-				RUN(['mkvextract', 'tracks', video_file] + [f'{k}:{out_dir}/{k}' for k in bmp_stt], shell=False, timeout=9999)
-				for k in bmp_stt:
-					runsys(f'DISPLAY=:0 java -jar lib/BDSup2Sub512.jar -o "{out_dir}/{k}.sup" "{out_dir}/{k}.idx"')
-			LOG(f'Finished loading {n_subs} subtitle tracks from "{video_file}"')
-		ip2subtt[ip] = video_file
+def _load_subtitles(video_file, ip, force=False):
+	out_dir = f'{TMP_DIR}/.subtitles/{video_file[len(SHARED_PATH):]}'
+	if force or (not os.path.isdir(out_dir)) or (not listdir(out_dir)):
+		Try(lambda: os.makedirs(out_dir))
+		stt_info = fullpath2stt_info.get(os.path.realpath(video_file), [])
+		txt_stt = [fn.split('.')[0] for lang, fn in stt_info if fn.endswith('.vtt')]
+		bmp_stt = [fn.split('.')[0] for lang, fn in stt_info if fn.endswith('.sup')]
+		n_subs = len(txt_stt+bmp_stt)
+		LOG(f'Loading {n_subs} subtitle tracks ({len(txt_stt)} text & {len(bmp_stt)} bitmap tracks) from "{video_file}" ...')
+		if txt_stt:
+			RUN(['ffmpeg', '-y', '-i', video_file]+[it for k in txt_stt for it in ['-map', f'0:{k}', '-f', 'webvtt', f'{out_dir}/{k}.vtt']], shell=False, timeout=9999)
+		if bmp_stt:
+			RUN(['mkvextract', 'tracks', video_file] + [f'{k}:{out_dir}/{k}' for k in bmp_stt], shell=False, timeout=9999)
+			for k in bmp_stt:
+				runsys(f'DISPLAY=:0 java -jar lib/BDSup2Sub512.jar -o "{out_dir}/{k}.sup" "{out_dir}/{k}.idx"')
+		LOG(f'Finished loading {n_subs} subtitle tracks from "{video_file}"')
 	IP2websock.send(ip, 'load_subtitles()')
 
 def _show_mediainfo(fn, ip):
@@ -853,8 +848,8 @@ def tv_wscmd(name, cmd):
 			ws.send('QRcontainer.style.display="none";')
 		elif cmd == 'play_spoken':
 			play_spoken(name)
-		elif cmd == 'report_title':
-			report_title(name)
+		elif cmd.startswith('report_title '):
+			report_title(name, cmd.split(' ', 1)[1])
 		elif cmd.startswith('mark '):
 			mark(name, *cmd.split(' ', 2)[1:])
 			tv(name, 'screenOn')
@@ -877,9 +872,9 @@ def tv_wscmd(name, cmd):
 			ws.send(f'\tlist_subtitles\t{json.dumps(subs)}')
 		elif cmd.startswith('load_subtitles '):
 			args = cmd.split(' ', 2)
-			n_subs = int(args[1])
+			force = int(args[1])
 			file_path = SHARED_PATH+args[2]
-			run_thread(_load_subtitles, file_path, n_subs, ip)
+			run_thread(_load_subtitles, file_path, ip, force)
 		elif cmd.startswith('show_mediainfo '):
 			args = cmd.split(' ', 1)
 			run_thread(_show_mediainfo, args[1], ip)
@@ -1162,7 +1157,8 @@ def play_spoken(tvName_prompt='None', rel_path=''):
 @app.route('/play_recorded/<path:rel_path>', methods=['POST'])
 def play_recorded(rel_path=''):
 	recfn, req = save_post_file(), request._get_current_object()
-	run_thread(recog_and_do, '', req.remote_addr, rel_path, handle_ASR_play, get_url_root(req), recfn)
+	client_port = request.environ.get('REMOTE_PORT')
+	run_thread(recog_and_do, '', f'{req.remote_addr}:{client_port}', rel_path, handle_ASR_play, get_url_root(req), recfn)
 	return 'OK'
 
 # For Ecovacs
