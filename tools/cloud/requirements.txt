@@ -1,6 +1,8 @@
 flask
 flask-sock
 openai-whisper
+faster-whisper
+ctranslate2
 numpy
 torch>=1.5.1
 tqdm>=4.30
