@@ -27,8 +27,8 @@ detect_lang = lambda t: Try(lambda: asyncio.run(ggl_translator.detect(t)).lang, 
 to_pinyin = lambda t: pinyin.get(t, format='numerical')
 translit = lambda t: unidecode(t).lower()
 to_romaji = lambda t: ' '.join([its['hepburn'] for its in KKS.convert(t)])
-ls_media_files = lambda fullpath, exts=media_file_exts: [f'{fullpath}/{f}'.replace('//','/') for f in listdir(fullpath) if not f.startswith('.') and '.'+f.split('.')[-1].lower() in exts]
-ls_subdir = lambda fullpath: [g.rstrip('/') for f in listdir(fullpath) for g in [f'{fullpath}/{f}'.replace('//','/')] if not f.startswith('.') and isdir(g)]
+ls_media_files = lambda fullpath, exts=media_file_exts: [trimpath(f'{fullpath}/{f}') for f in listdir(fullpath) if not f.startswith('.') and '.'+f.split('.')[-1].lower() in exts]
+ls_subdir = lambda fullpath: [g.rstrip('/') for f in listdir(fullpath) for g in [trimpath(f'{fullpath}/{f}')] if not f.startswith('.') and isdir(g)]
 mrl2path = lambda t: unquote(t).replace('file://', '').strip() if t.startswith('file://') else (t.strip() if t.startswith('/') else '')
 is_json_lst = lambda s: s.startswith('["') and s.endswith('"]')
 load_m3u = lambda fn: [i for L in Open(fn).readlines() for i in [mrl2path(L)] if i]
@@ -115,8 +115,8 @@ def runsys(cmd, event=None):
 def RUNSYS(cmd, event=None):
 	threading.Thread(target=runsys, args=(cmd, event)).start()
 
-def run_thread(F, *args):
-	thread = threading.Thread(target=lambda: F(*args))
+def run_thread(F, *args, **kwargs):
+	thread = threading.Thread(target=lambda: F(*args, **kwargs))
 	thread.start()
 	return thread
 
@@ -752,7 +752,7 @@ def cpufreq_set(perc=0):
 
 class ASR:
 	def __init__(self, model_name='base', backend='faster_whisper:int8', verbose=True) -> None:
-		bk_name, bk_bit = (backend.split(':')+['int8'])[:2]
+		bk_name, bk_bit = list_get_args(backend.split(':'), 2, ['int8'])
 		if bk_name == 'faster_whisper':
 			from faster_whisper import WhisperModel
 			self.model = WhisperModel(model_name, compute_type=bk_bit)

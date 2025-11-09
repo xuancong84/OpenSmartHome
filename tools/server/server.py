@@ -314,7 +314,7 @@ def set_timer(tm='', name=None, filename=''):
 			
 	return 'OK'
 
-def handle_ASR_timer(asr_out, tv_name, _, filename, url_root):
+def handle_ASR_timer(asr_out, tv_name, _, filename, url_root, **kwargs):
 	tm = txt2time(asr_postprocess(asr_out['text']))
 	if tm is None:
 		return play_audio('voice/set_timer_unknown.mp3', True, tv_name)
@@ -697,7 +697,7 @@ def load_playable(ip, tm_info, filename):
 	if ip==None and filename=='':
 		filename = MP3_DFTLIST
 	fullname = filename if type(filename)==str and filename.startswith(SHARED_PATH) else (SHARED_PATH+str(filename))
-	tm_sec, ii, randomize = ([int(float(i)) for i in tm_info.split()]+[0,0])[:3]
+	tm_sec, ii, randomize = list_get_args(tm_info.split(), 3, [0,0], lambda t: int(float(t)))
 	tvd = ip2tvdata[ip_strip(ip)]
 	if not filename:
 		lst = tvd['playlist']
@@ -708,7 +708,7 @@ def load_playable(ip, tm_info, filename):
 	elif os.path.isdir(fullname):
 		lst = ls_media_files(fullname) or getAnyMediaList(fullname, media_file_exts)
 	elif os.path.isfile(fullname):
-		lst, randomize = ls_media_files(os.path.dirname(fullname)), 0
+		lst = ls_media_files(os.path.dirname(fullname))
 		ii = Try(lambda: lst.index(fullname), 0)
 	else:
 		while not os.path.isdir(fullname):
@@ -721,7 +721,10 @@ def load_playable(ip, tm_info, filename):
 			return [""], 0, 0, 0
 	if ii<0 or tm_sec<0:
 		ii, tm_sec = tvd['markers'].get(json.dumps(lst), [0,0])
-	if randomize: random.shuffle(lst)
+	if randomize:
+		elem = lst[ii] if 0<=ii<len(lst) else None
+		random.shuffle(lst)
+		ii = ii if elem is None else lst.index(elem)
 	lst = [(s if s.startswith(SHARED_PATH) else SHARED_PATH+s) for s in lst]
 	tvd.update({'playlist': lst, 'cur_ii': ii, 'shuffled': randomize})
 	return lst, ii, tm_sec, randomize
@@ -757,7 +760,7 @@ def tv_runjs():
 	return 'OK'
 
 def _tvPlay(name, listfilename, url_root):
-	tv_name, tm_info = (name.split(' ',1)+[0])[:2]
+	tv_name, tm_info = list_get_args(name.split(' ',1), 2, ['0'])
 	if is_json_lst(listfilename):
 		get_tv_data(tv_name)['playlist'] = json.loads(listfilename)
 		listfilename = ''
@@ -1037,7 +1040,7 @@ class VoicePrompt:
 
 
 # This function might take very long time, must be run in a separate thread
-def recog_and_do(prompt, tv_name, path_name, handler, url_root, audio_file=DEFAULT_S2T_SND_FILE):
+def recog_and_do(prompt, tv_name, path_name, handler, url_root, audio_file=DEFAULT_S2T_SND_FILE, **kwargs):
 	global player, asr_model, ASR_cloud_running, ASR_server_running
 
 	with VoicePrompt(tv_name) as context:
@@ -1069,13 +1072,13 @@ def recog_and_do(prompt, tv_name, path_name, handler, url_root, audio_file=DEFAU
 		elif not asr_output['text']:
 			return play_audio('voice/asr_fail.mp3', True, tv_name) if prompt else "ASR output is empty!"
 		else:
-			return handler(asr_output, tv_name, prompt, path_name, url_root.rstrip('/'))
+			return handler(asr_output, tv_name, prompt, path_name, url_root.rstrip('/'), **kwargs)
 
 
 def _play_last(name=None, url_root=None):
 	tvd, tms, ii = get_tv_data(name), 0, 0
 	if 'last_movie_drama' in tvd:
-		pl, ii, tms = load_playable(get_tv_ip(name), '-1', tvd['last_movie_drama'])[:3]
+		pl, ii, tms, _ = load_playable(get_tv_ip(name), '-1', tvd['last_movie_drama'])
 	else:
 		pl = Try(lambda: tvd['playlist'], lambda: json.loads(list(tvd['markers'].keys())[-1]), lambda: getAnyMediaList())
 		if pl:
@@ -1090,7 +1093,7 @@ def play_last(tv_name=None):
 	run_thread(_play_last, tv_name, get_url_root(request))
 	return 'OK'
 
-def handle_ASR_play(asr_out, tv_name, prompt, rel_path, url_root):
+def handle_ASR_play(asr_out, tv_name, prompt, rel_path, url_root, **kwargs):
 	full_path = SHARED_PATH + rel_path
 	if os.path.isdir(full_path):
 		res = findMedia(asr_postprocess(asr_out['text']), asr_out['language'], base_path=full_path)
@@ -1108,9 +1111,14 @@ def handle_ASR_play(asr_out, tv_name, prompt, rel_path, url_root):
 			tv_wscmd(tv_name, "show_flashmsg('ASR okay, but media file not found!')")
 		return 'ASR okay, but media file not found!'
 
+	shuffle = kwargs.get('shuffle', 0)
 	if type(res)==int:
 		play_audio(f'voice/asr_found_{getMediaType(lst[res])}.mp3', None, tv_name)
 		if rel_path:
+			if shuffle:
+				elem = lst[res]
+				random.shuffle(lst)
+				res = lst.index(elem)
 			_tvPlay(f'{tv_name} 0 {res}', full_path if rel_path else json.dumps(lst), url_root) if tv_name else play(f'0 {res}', json.dumps(lst))
 		else:
 			playFrom(res) if tv_name==None else tv_wscmd(tv_name, f'goto_idx {res}')
@@ -1128,9 +1136,9 @@ def handle_ASR_play(asr_out, tv_name, prompt, rel_path, url_root):
 		short_path = res[len(SHARED_PATH):]
 		play_audio(f'voice/asr_found_{getMediaType(res)}.mp3', None, tv_name)
 		if tv_name == None:
-			_play('-1' if os.path.isdir(res) else '0', short_path)
+			_play('-1' if os.path.isdir(res) else f'0 0 {shuffle}', short_path)
 		else:
-			_tvPlay(tv_name+(' -1' if os.path.isdir(res) else ' 0'), short_path, url_root)
+			_tvPlay(tv_name+(' -1' if os.path.isdir(res) else f' 0 0 {shuffle}'), short_path, url_root)
 		media_fn = res[len(SHARED_PATH):]
 	setInfo(tv_name, asr_out["text"], asr_out['language'], 'S2T', '' if res==None else media_fn, wait=True)
 	return str(asr_out)
@@ -1146,10 +1154,10 @@ def save_post_file(fn=DEFAULT_S2T_SND_FILE):
 @app.route('/play_spoken/<tvName_prompt>', methods=['GET', 'POST'])
 @app.route('/play_spoken/<tvName_prompt>/<path:rel_path>', methods=['GET', 'POST'])
 def play_spoken(tvName_prompt='None', rel_path=''):
-	tv_name, prompt = (tvName_prompt.split()+['song'])[:2]
+	tv_name, prompt, shuffle = list_get_args(tvName_prompt.split(), 3, ['song', '0'])
 	is_post, url_root = save_post_file(), get_url_root(request)
 	run_thread(recog_and_do, '' if is_post else prompt, None if tv_name=='None' else tv_name,
-		rel_path, handle_ASR_play, url_root)
+		rel_path, handle_ASR_play, url_root, **{'shuffle': int(shuffle)})
 	return 'OK'
 
 # Play spoken file recorded locally on the local device
@@ -1233,7 +1241,7 @@ def KTV(turn_on):
 	global P_ext, P_hidecursor
 	if turn_on:
 		cpufreq_set(1)
-		tv_name, input_id = (KTV_SCREEN.split(':')+[''])[:2]
+		tv_name, input_id = list_get_args(KTV_SCREEN.split(':'), 2, [''])
 		stop()
 		if KTV_SPEAKER_ON:
 			execRC(KTV_SPEAKER_ON)
@@ -1258,7 +1266,7 @@ def RetroGame(img=''):
 	if img:
 		cpufreq_set(1)
 		try:
-			tv_name, input_id = (GAME_SCREEN.split(':')+[''])[:2]
+			tv_name, input_id = list_get_args(GAME_SCREEN.split(':'), 2, [''])
 			tv_on_if_off(tv_name, True)
 			if input_id:
 				tv_setInput(tv_name, input_id)
