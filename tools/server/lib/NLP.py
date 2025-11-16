@@ -3,6 +3,9 @@ import pykakasi, pinyin, logging, requests, shutil, subprocess, asyncio, socket
 import pandas as pd
 import jionlp as jio
 import tinytuya
+from multiprocessing import Process
+from strands import Agent
+from strands.tools import tool
 from unidecode import unidecode
 from hanziconv import HanziConv
 from urllib.parse import unquote
@@ -97,23 +100,108 @@ def Eval(cmd, default=None):
 	except:
 		return default
 
+# For running shell commands:
+# RUN(): run a single command and return its output
+# runsys(): quick alias to os.system()
+# RUNCMD(): subprocess.run multiple, support python callables
+# POPENCMD(): subprocess.Popen multiple, support python callables
+
+@tool
 def RUN(cmd, shell=True, timeout=3, **kwargs):
+	"""Run shell commands using `subprocess.check_output()`.
+
+	Args:
+		cmd (str): command-line string
+		shell (bool = True): whether run it in a bash shell
+		timeout (int = 3): timeout in seconds
+		**kwargs: other arguments to be passed to `subprocess.check_output()`
+
+	Returns:
+		(str): the command's stdout or stderr (upon error)
+	"""
 	LOG(f'RUN: {cmd}')
 	try:
 		ret = subprocess.check_output(cmd, shell=shell, timeout=timeout, **kwargs)
-	except subprocess.CalledProcessError as e:
-		ret = e.output
+	except Exception as e:
+		ret = str(e)
 	return ret if type(ret)==str else ret.decode()
 
-def runsys(cmd, event=None):
-	LOG('RUNSYS: ' + cmd)
-	ret = os.system(cmd)
+@tool
+def runsys(*cmds, event=None, **kwargs):
+	"""Run shell command(s) using `os.system()` or python function(s) until it finishes.
+
+	Args:
+		*cmds (tuple of (str, callable)): the shell command (if str), or the python function (if callable)
+
+	Returns:
+		(str): every command's:
+		 - if no exception: exit code (or python function return casted to str)
+		 - if exception: the Exception casted to str
+		 joined by "\n\n".
+	"""
+	rets = []
+	for cmd in cmds:
+		LOG(f'RUNSYS: {cmd}')
+		try:
+			rets += [cmd() if callable(cmd) else os.system(cmd)]
+		except Exception as e:
+			rets += [e]
 	if event!=None:
 		event.set()
-	return ret
+	return '\n\n'.join([str(ret) for ret in rets])
 
-def RUNSYS(cmd, event=None):
-	threading.Thread(target=runsys, args=(cmd, event)).start()
+def RUNSYS(*cmds, **kwargs):
+	threading.Thread(target=runsys, args=cmds, kwargs=kwargs).start()
+
+@tool
+def POPENCMD(*cmds, **kwargs):
+	"""Run shell command(s) or python function(s) one by one, using `subprocess.Popen()` or `multiprocessing.Process()`.
+
+	Args:
+		*cmds (tuple of (str, list or callable)): the shell command (if str or list), or the python function (if callable)
+		**kwargs: other arguments to be passed to `subprocess.check_output()`
+
+	Returns:
+		A tuple of each cmd's:
+		 - if no exception: subprocess.CompletedProcess (for shell command) or return value (for Python callable)
+		 - if exception: the Python Exception object
+	"""
+	rets = ()
+	for cmd in cmds:
+		LOG(f'RUN: {cmd}')
+		try:
+			if callable(cmd):
+				ret = Process(target=cmd)
+				ret.start()
+			else:
+				ret = subprocess.Popen(cmd, **kwargs)
+		except Exception as e:
+			ret = e
+		rets += (ret, )
+	return rets
+
+@tool
+def RUNCMD(*cmds, **kwargs):
+	"""Run shell command(s) or python function(s) one by one, using `subprocess.run()` or `.call()`.
+
+	Args:
+		*cmds (tuple of (str, list or callable)): the shell command (if str or list), or the python function (if callable)
+		**kwargs: other arguments to be passed to `subprocess.check_output()`
+
+	Returns:
+		A tuple of each cmd's:
+		 - if no exception: subprocess.CompletedProcess (for shell command) or return value (for Python callable)
+		 - if exception: the Python Exception object
+	"""
+	rets = ()
+	for cmd in cmds:
+		LOG(f'RUN: {cmd}')
+		try:
+			ret = cmd() if callable(cmd) else subprocess.run(cmd, **kwargs)
+		except Exception as e:
+			ret = e
+		rets += (ret, )
+	return rets
 
 def run_thread(F, *args, **kwargs):
 	thread = threading.Thread(target=lambda: F(*args, **kwargs))
@@ -371,7 +459,7 @@ def call_yt_dlp(argv, mobile_ip, tmp_dir):
 
 def download_video(song_url, include_subtitles, high_quality, redownload, mobile_ip):
 	logging.info("Downloading video: " + song_url)
-	tmp_dir = os.path.expanduser(f'{DOWNLOAD_PATH}/tmp/')
+	tmp_dir = expand_path(f'{DOWNLOAD_PATH}/tmp/')
 
 	# If file already present, skip downloading
 	cmd_base = ['--fixup', 'force', '--socket-timeout', '3', '-R', 'infinite', '--remux-video', 'mp4'] \
@@ -388,7 +476,7 @@ def download_video(song_url, include_subtitles, high_quality, redownload, mobile
 		out_fn = call_yt_dlp(cmd, mobile_ip, tmp_dir)
 	if get_filesize(out_fn):
 		logging.info("Song successfully downloaded: " + song_url)
-		ret_fn = os.path.expanduser(DOWNLOAD_PATH)+'/'+os.path.basename(out_fn)
+		ret_fn = expand_path(DOWNLOAD_PATH)+'/'+os.path.basename(out_fn)
 		shutil.move(out_fn, ret_fn)
 		return ret_fn
 	else:
@@ -423,14 +511,13 @@ def ble_gap_advertise(payload, duration=1):
 		assert len(s)%2==0
 		assert all(c in string.hexdigits for c in s)
 		data = ' '.join([s[i:i+2] for i in range(0, len(s), 2)])
-		sudo = '' if RUN('whoami')=='root' else 'sudo '
 
-		runsys(f'{sudo}hciconfig hci0 up')
-		runsys(f'{sudo}hcitool -i hci0 cmd 0x08 0x0008 {"%02x"%(len(s)//2)} {data}')
-		runsys(f'{sudo}hcitool -i hci0 cmd 0x08 0x0006 a0 00 a0 00 03 00 00 00 00 00 00 00 00 07 00')
-		runsys(f'{sudo}hcitool -i hci0 cmd 0x08 0x000a 01')
+		runsys(f'sudo hciconfig hci0 up')
+		runsys(f'sudo hcitool -i hci0 cmd 0x08 0x0008 {"%02x"%(len(s)//2)} {data}')
+		runsys(f'sudo hcitool -i hci0 cmd 0x08 0x0006 a0 00 a0 00 03 00 00 00 00 00 00 00 00 07 00')
+		runsys(f'sudo hcitool -i hci0 cmd 0x08 0x000a 01')
 		time.sleep(duration)
-		runsys(f'{sudo}hcitool -i hci0 cmd 0x08 0x000a 00')
+		runsys(f'sudo hcitool -i hci0 cmd 0x08 0x000a 00')
 		return True
 	except:
 		return False
@@ -773,11 +860,11 @@ class ASR:
 		return {}
 
 	def _transcribe_whisper(self, filepath):
-		obj = self.model.transcribe(os.path.expanduser(filepath))
+		obj = self.model.transcribe(expand_path(filepath))
 		return obj
 
 	def _transcribe_faster_whisper(self, filepath):
-		segs, info = self.model.transcribe(os.path.expanduser(filepath))
+		segs, info = self.model.transcribe(expand_path(filepath))
 		txt = ' '.join([seg.text for seg in segs])
 		return {'text': txt, 'language': info.language}
 

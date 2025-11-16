@@ -1,4 +1,5 @@
 import os, sys, string, json, gzip
+import pandas as pd
 from natsort import natsorted
 from unidecode import unidecode
 import traceback
@@ -45,3 +46,6 @@ def list_get_args(lst, N, defaults, cast=None):
 		ret = [cast(i) for i in ret]
 	return ret
 
+def parseRC(txt):
+	its = [L.split('\t') for L in txt.strip().splitlines()]
+	return [(it[0], c, it[-1]) for it in its for c in it[1].replace('｜', '|').split('|')]

@@ -13,6 +13,7 @@ KTV_SCREEN='livingTV:HDMI_2'
 KTV_EXEC='~/projects/pikaraoke/run-cloud.sh'
 GAME_SCREEN='livingTV:HDMI_2'
 MP3_SPEAKER='54:B7:E5:9E:F4:14'
+MP3_OFF_DELAY=200	# turn off MP3 speaker after this seconds
 MP3_DFTLIST='Desktop/musics.m3u'
 MP4_SPEAKER=['hdmi', 'audio.stereo']
 MP4_DFTLIST='KTV'
@@ -21,6 +22,8 @@ MIC_RECORDER='usb'
 TMP_DIR='/dev/shm'
 DEFAULT_S2T_SND_FILE=f'{TMP_DIR}/speech.webm'
 DEFAULT_T2S_SND_FILE=f'{TMP_DIR}/speak.mp3'
+DEFAULT_GPT_SND_FILE=f'{TMP_DIR}/gpt-speak.mp3'
+GPT_TMP_RDIR='GPT'
 SPEECH_SAMPLING_RATE=16000
 PLAYSTATE_FILE='.playstate.json.gz'
 DRAMA_DURATION_TH=1200	# duration threshold for whether to track the last movie/drama
@@ -30,7 +33,8 @@ SHARED_PATH='~/Public'
 DOWNLOAD_PATH=SHARED_PATH+'/Download'
 MAX_WALK_LEVEL=2
 ASR_CLOUD_URL='http://localhost:8883/run_asr/base'
-ASR_CLOUD_TIMEOUT=8
+ASR_CLOUD_TIMEOUT=15
+VAD_THRESHOLD=0.5
 VOICE_VOL=defaultdict(lambda: None, {None: 60})
 STD_VOL_DBFS=-21	# for volume normalization on media files
 RL_MAX_DELAY=3		# if multiple ASR hubs hear the same voice and send the same request within this seconds, ignore subsequent ones
@@ -38,6 +42,8 @@ CUSTOM_CMDLINES={}
 HUBS={}
 
 sys.DEBUG_LOG = True
+SHARED_PATH = expand_path(SHARED_PATH).rstrip('/')+'/'
+DOWNLOAD_PATH = expand_path(DOWNLOAD_PATH)
 TV_LIST = {
 	'客厅电视机': 'livingTV',
 	'主人房电视机': 'masterTV',
@@ -52,6 +58,12 @@ ASR_LOOKUP = {
 
 ASRchip_voice_IP='http://192.168.50.4'
 ASRchip_voice_hex = {
+	'en': ('a5320a', 0.8),
+	'ok': ('a5330a', 1),
+	'ok_what': ('a5340a', 1.5),
+	'ok_wait': ('a5350a', 1.5),
+	'ok_let_me_think': ('a5360a', 2),
+
 	'asr_fail': ('a5040a', 2.5),
 	'asr_error': ('a5050a', 1),
 

@@ -25,7 +25,7 @@ P = {
 	'CLS_MSENSOR': '',		# e.g., LD1115H or LD2402, will be passed to `import lib_{CLS_MSENSOR}` and eval(CLS_MSENSOR)
 	}
 
-url_string = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~/?'
+url_string = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~/?='
 is_valid_pin = lambda pin, P=P: (type(P.get(pin, '')) in [int, tuple]) or P.get(pin, '')
 read_py_obj = lambda f: Try(lambda: eval(open(f).read()), '')
 execRC = dft_eval = flashLED = lambda **kw:None

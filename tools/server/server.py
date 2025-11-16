@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os, sys, traceback, argparse, math, requests, json, re, webbrowser
-import subprocess, random, time, threading, socket
+import subprocess, random, time, threading, socket, scipy, sympy, mpmath
 import vlc, signal, qrcode, qrcode.image.svg
 import pandas as pd
 from collections import *
@@ -19,7 +19,6 @@ from lib.settings import *
 from lib.NLP import *
 from lib.chatGPT import *
 from device_config import *
-SHARED_PATH = os.path.expanduser(SHARED_PATH).rstrip('/')+'/'
 
 _regex_ip = re.compile("^(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
 isIP = _regex_ip.match
@@ -47,6 +46,8 @@ isFirst = True
 isVideo = None
 subtitle = True
 last_get_file_ip = ''
+g_last_speak_time = 0
+g_last_speak_popen = None
 isJustAfterBoot = True if sys.platform=='darwin' else float(open('/proc/uptime').read().split()[0])<120
 random.seed(time.time())
 ASR_server_running = ASR_cloud_running = False
@@ -77,7 +78,17 @@ os.ip2ydsock = ip2ydsock
 #					'playlist':[], 'cur_ii':int,
 # 					'T2Slang':'', 'T2Stext':'', 'S2Tlang':'', 'S2Ttext':''}}
 os.sys_state = ip2tvdata = load_playstate()
-_tv2lginfo = Try(lambda: json.load(Open(LG_TV_CONFIG_FILE)), {})
+
+@tool
+def tv_list():
+	"""List all available TVs in the house
+
+	Returns:
+		A dict of {TV_name: {"mac": MAC_address, "ip": IP_address}}
+	"""
+	return Try(lambda: json.load(Open(LG_TV_CONFIG_FILE)), {})
+_tv2lginfo = tv_list()
+
 def tv2lginfo(tv_name):
 	ret = _tv2lginfo.get(tv_name, tv_name)
 	if tv_name!=ret:
@@ -99,8 +110,8 @@ def common_prefilter():
 		last_request_from, last_request_url, last_request_time = request.remote_addr, request.url, time.time()
 
 # Detect language, invoke Google-translate TTS and play the speech audio
-def prepare_TTS(txt, fn=DEFAULT_T2S_SND_FILE):
-	lang_id = Try(lambda: lang2id[lang_detector.detect_language_of(txt)], 'km')
+def prepare_TTS(txt, lang_id=None, fn=DEFAULT_T2S_SND_FILE):
+	lang_id = lang_id or Try(lambda: lang2id[lang_detector.detect_language_of(txt)], 'km')
 	LOG(f'TTS txt="{txt}" lang_id={lang_id}')
 	try:
 		tts = gTTS(txt, lang=lang_id)
@@ -109,6 +120,7 @@ def prepare_TTS(txt, fn=DEFAULT_T2S_SND_FILE):
 		gTransTTS(txt, lang_id, fn+'.mp3')
 	os.system(f'ffmpeg -y -i "{fn}.mp3" -af "adelay=300ms:all=true,volume=2" "{fn}"')
 	return lang_id, txt
+os.prepare_TTS = prepare_TTS
 
 def play_TTS(txt, tv_name=None):
 	txts = txt if type(txt)==list else [txt]
@@ -129,14 +141,38 @@ def custom_cmdline(cmd, wait=False):
 		traceback.print_exc()
 		return str(e)
 
+@tool
 @app.route('/py_exec/<path:cmd>')
 def py_exec(cmd):
+	"""Execute python code in the global context, i.e., exec(cmd, globals(), globals())
+
+	Args:
+		cmd (str): python command
+
+	Returns:
+		str: "OK" if no exception; stack trace if error
+	"""
 	try:
 		exec(cmd, globals(), globals())
 		return "OK"
-	except Exception as e:
-		traceback.print_exc()
-		return str(e)
+	except:
+		return traceback.format_exc()
+
+@tool
+@app.route('/py_eval/<path:cmd>')
+def py_eval(cmd):
+	"""Evaluate python code in the global context, i.e., eval(cmd, globals(), globals())
+
+	Args:
+		cmd (str): python expression
+
+	Returns:
+		str: string form of the output or stack trace if error, i.e., str(output)
+	"""
+	try:
+		return eval(cmd, globals(), globals())
+	except:
+		return traceback.format_exc()
 
 @app.route('/sh_exec/<path:cmd>')
 def sh_exec(cmd):
@@ -165,10 +201,23 @@ def get_favicon():
 def get_index_page():
 	return render_template('index.html', hubs=HUBS)
 
+@tool
 @app.route('/get_http/<path:url>')
 def get_http(url):
-	res = requests.get(url if url.startswith('http://') else f'http://{url}')
+	"""Send HTTP request to the given URL
+
+	Args:
+		url (str): the URL
+
+	Returns:
+		(str, int): response text and status code
+	"""
+	try:
+		res = requests.get(url if url.startswith('http://') else f'http://{url}')
+	except:
+		return '', 404
 	return res.text, res.status_code
+os.get_http = get_http
 
 @app.route('/voice')
 @app.route('/voice/<path:fn>')
@@ -315,6 +364,7 @@ def set_timer(tm='', name=None, filename=''):
 	return 'OK'
 
 def handle_ASR_timer(asr_out, tv_name, _, filename, url_root, **kwargs):
+	if not asr_out['text']: return
 	tm = txt2time(asr_postprocess(asr_out['text']))
 	if tm is None:
 		return play_audio('voice/set_timer_unknown.mp3', True, tv_name)
@@ -330,7 +380,14 @@ def set_spoken_timer(tv_name=None, filename=None):
 	run_thread(recog_and_do, prompt, tv_name, filename, handle_ASR_timer, url_root)
 	return 'OK'
 
+@tool
 def send_hub_cmd(hub_name, cmd):
+	"""Send RC (remote control) command to the hub
+
+	Args:
+		hub_name (str): name of the controller hub
+		cmd (str): the RC code
+	"""
 	get_http(get_hub_url(hub_name) + f'/rc_run?{cmd}')
 
 @app.route('/next')
@@ -370,7 +427,7 @@ def rewind(tv_name=None):
 def _normalize_vol(song, remote_ip=None):
 	global player, last_get_file_ip
 	if song:
-		fn = os.path.expanduser(song if song.startswith('~') else (SHARED_PATH+'/'+song))
+		fn = expand_path(song if song.startswith('~') else (SHARED_PATH+'/'+song))
 		norm_song_volume(fn)
 		if remote_ip in IP2websock and ip_strip(remote_ip) in ip2tvdata:
 			tv_wscmd(remote_ip, f'show_banner(-1);v.src=v.src+"?{time.time()}"')
@@ -563,7 +620,7 @@ def setInfo(tv_name, text, lang, prefix, match=None, wait=False):
 		IP2websock.send(ip, f'{prefix}lang.textContent="{langName}";{prefix}text.textContent="{text}";'+(f'{prefix}match.textContent="{match}"' if match!=None else ''))
 
 def _report_title(tv_name, title=''):
-	with VoicePrompt(tv_name) as context:
+	with VoicePrompt(tv_name, 'voice/cur_song_title.mp3') as context:
 		ev = play_audio('voice/cur_song_title.mp3', False, tv_name)
 		if tv_name:
 			if not title:
@@ -595,8 +652,18 @@ def is_tv_ready(tv_name):
 def is_tv_wsock(tv_name):
 	return is_tv_on(tv_name) and get_tv_ip(tv_name) in IP2websock
 
+@tool
 @app.route('/tv_on/<tv_name>')
 def tv_on_if_off(tv_name, wait_ready=False):
+	"""Turn on the specified TV
+
+	Args:
+		tv_name (str): TV name string
+		wait_ready (bool = False): whether to wait for TV to be ping-able
+
+	Returns:
+		str: "OK"
+	"""
 	tvinfo = tv2lginfo(tv_name)
 	if not is_tv_on(tv_name):
 		send_wol({'data': tvinfo['mac']})
@@ -604,6 +671,7 @@ def tv_on_if_off(tv_name, wait_ready=False):
 			while not is_tv_ready(tv_name):
 				time.sleep(1)
 	return 'OK'
+os.tv_on_if_off = tv_on_if_off
 
 @app.route('/tv_setInput/<tv_name>')
 def tv_setInput(tv_name, input_id):
@@ -613,7 +681,7 @@ def tv_setInput(tv_name, input_id):
 
 @app.route('/tv/<name>/<cmd>')
 def tv(name='', cmd=''):
-	if cmd.lower() == 'on':
+	if cmd == 'on':
 		return tv_on_if_off(name)
 	for i in range(3):
 		try:
@@ -621,9 +689,20 @@ def tv(name='', cmd=''):
 		except:
 			pass
 	return 'Failed after trying 3 times!'
+os.tv = tv
 
+@tool
 @app.route('/tvVolume/<name>/<vol>')
 def tvVolume(name='', vol=''):
+	"""Get or adjust TV volume
+
+	Args:
+		name (str): TV name
+		vol (str): e.g., "+5%", "15" (the normal level, different on different TVs), "-10%", "" (get the current volume)
+
+	Returns:
+		str: operation status
+	"""
 	try:
 		vol = str(vol)
 		is_perc = vol.endswith('%')
@@ -759,8 +838,19 @@ def tv_runjs():
 	IP2websock.send(get_tv_ip(name), cmd)
 	return 'OK'
 
-def _tvPlay(name, listfilename, url_root):
+@tool
+def _tvPlay(name, listfilename, url_root=''):
+	"""Turn on the specified TV and play the list of media files on the TV web-browser
+
+	Args:
+		name (str): TV name
+		listfilename (list): list of media filenames
+
+	Returns:
+		str: result
+	"""
 	tv_name, tm_info = list_get_args(name.split(' ',1), 2, ['0'])
+	url_root = url_root or os.url_root
 	if is_json_lst(listfilename):
 		get_tv_data(tv_name)['playlist'] = json.loads(listfilename)
 		listfilename = ''
@@ -900,11 +990,28 @@ list_sinks = lambda: RUN('pactl list sinks short')
 list_sources = lambda: RUN('pactl list sources short')
 
 @app.route('/speaker/<cmd>/<name>')
-def speaker(cmd, name):
+def speaker(cmd, name, return_obj=False):
 	if name.endswith('_SPEAKER'):
 		name = Eval(name, name)
 	t = run_thread(set_audio_device if cmd=='on' else unset_audio_device, name)
-	return str(t.ident)
+	return t if return_obj else str(t.ident)
+os.speaker = speaker
+
+def _off_speaker_delayed():
+	global g_last_speak_time, g_last_speak_popen, player
+	if g_last_speak_time: return
+	g_last_speak_time = time.time()
+	while True:
+		time.sleep(10)
+		if player != None: continue
+		if (time.time()-g_last_speak_time < MP3_OFF_DELAY): continue
+		if g_last_speak_popen != None and g_last_speak_popen.poll()==None:
+			g_last_speak_popen.wait()
+			g_last_speak_time = time.time()
+		
+	speaker('off', 'MP3_SPEAKER')
+	g_last_speak_time = 0
+os._off_speaker_delayed = _off_speaker_delayed
 
 def set_audio_device(devs, wait=3):
 	for dev in (devs if type(devs)==list else [devs]):
@@ -964,8 +1071,15 @@ def play_audio_chip(fn, block=False):
 	ev_mutex.set()
 	return ev_mutex
 
+def _set_mutex_after_speak():
+	global g_last_speak_time, g_last_speak_popen, ev_mutex
+	g_last_speak_popen.wait()
+	ev_mutex.set()
+	g_last_speak_time = time.time() if g_last_speak_time else 0
+
 def play_audio(fn, block=None, tv_name=None):
 	# block: None (auto, i.e., True if from TV, False otherwise)
+	global g_last_speak_time
 	LOG(f'play_audio({fn}, {block}, {tv_name})')
 	ev_mutex.clear()
 	if tv_name:
@@ -976,9 +1090,13 @@ def play_audio(fn, block=None, tv_name=None):
 	else:
 		if not is_ble_connected(MP3_SPEAKER):
 			return play_audio_chip(fn, False if block==None else block)
-		RUNSYS(f'mplayer -really-quiet -noconsolecontrols {fn}', ev_mutex)
+		g_last_speak_time = time.time() if g_last_speak_time else 0
+		g_last_speak_popen = POPENCMD(f'mplayer -really-quiet -noconsolecontrols {fn}', shell=True)[0]
+		run_thread(_set_mutex_after_speak)
+		# RUNSYS(f'mplayer -really-quiet -noconsolecontrols {fn}', _set_last_speaker_time, event=ev_mutex)
 	if block or block is None: ev_mutex.wait()
 	return ev_mutex
+os.play_audio = play_audio
 
 def record_audio_for_duration(tm_sec=5, file_path=DEFAULT_S2T_SND_FILE):
 	os.system(f'ffmpeg -y -f pulse -i {get_recorder(MIC_RECORDER)} -ac 1 -t {tm_sec} {file_path}')
@@ -1003,34 +1121,37 @@ def get_ASR_online(audio_fn=asr_input):
 		return str(e)
 
 class VoicePrompt:
-	def __init__(self, tv_name=None):
+	def __init__(self, tv_name=None, prompt=''):
 		self.cur_sta = self.cur_vol = None
 		self.tv_name = tv_name
+		self.prompt = prompt
 
 	def __enter__(self):	# preserve environment
 		global player
-		if self.tv_name and is_tv_wsock(self.tv_name):
-			self.cur_sta = tv_wscmd(self.tv_name, 'pause')
-			self.cur_vol = tvVolume(self.tv_name)
-		elif player!=None:
-			self.cur_sta = player.is_playing()
-			if self.cur_sta:
-				player.set_pause(True)
-			self.cur_vol = get_volume()
+		if self.prompt:
+			if self.tv_name and is_tv_wsock(self.tv_name):
+				self.cur_sta = tv_wscmd(self.tv_name, 'pause')
+				self.cur_vol = tvVolume(self.tv_name)
+			elif player!=None:
+				self.cur_sta = player.is_playing()
+				if self.cur_sta:
+					player.set_pause(True)
+				self.cur_vol = get_volume()
 		return self
 
 	def restore(self):
-		if self.tv_name:
-			if self.cur_vol:
-				tvVolume(self.tv_name, self.cur_vol)
-			if self.cur_sta != 'true':
-				tv_wscmd(self.tv_name, 'resume')
-		else:
-			if self.cur_vol != None:
-				set_volume(self.cur_vol)
-			if self.cur_sta:
-				player.set_pause(False)
-		self.cur_vol = self.cur_sta = None
+		if self.prompt:
+			if self.tv_name:
+				if self.cur_vol:
+					tvVolume(self.tv_name, self.cur_vol)
+				if self.cur_sta != 'true':
+					tv_wscmd(self.tv_name, 'resume')
+			else:
+				if self.cur_vol != None:
+					set_volume(self.cur_vol)
+				if self.cur_sta:
+					player.set_pause(False)
+			self.cur_vol = self.cur_sta = None
 		return True
 
 	def __exit__(self, exc_type, exc_value, exc_tb):	# restore environment
@@ -1040,15 +1161,15 @@ class VoicePrompt:
 
 
 # This function might take very long time, must be run in a separate thread
-def recog_and_do(prompt, tv_name, path_name, handler, url_root, audio_file=DEFAULT_S2T_SND_FILE, **kwargs):
+def recog_and_do(prompt, tv_name, path_name, handler, url_root='', audio_file=DEFAULT_S2T_SND_FILE, **kwargs):
 	global player, asr_model, ASR_cloud_running, ASR_server_running
 
-	with VoicePrompt(tv_name) as context:
+	with VoicePrompt(tv_name, prompt) as context:
 		# record speech
 		if prompt:
 			set_volume(VOICE_VOL[tv_name])
 			play_audio(prompt if os.path.isfile(prompt) else f'voice/speak_{prompt}.mp3', True, tv_name)
-			record_audio_for_duration()
+			record_audio_for_duration(file_path=audio_file)
 
 		# try cloud ASR
 		asr_output = None
@@ -1069,11 +1190,9 @@ def recog_and_do(prompt, tv_name, path_name, handler, url_root, audio_file=DEFAU
 		print(f'ASR result: {asr_output}', file=sys.stderr)
 		if asr_output=={} or type(asr_output)==str:
 			return play_audio('voice/asr_error.mp3', True, tv_name) if prompt else f"ASR error: {asr_output}"
-		elif not asr_output['text']:
-			return play_audio('voice/asr_fail.mp3', True, tv_name) if prompt else "ASR output is empty!"
 		else:
 			return handler(asr_output, tv_name, prompt, path_name, url_root.rstrip('/'), **kwargs)
-
+os.recog_and_do = recog_and_do
 
 def _play_last(name=None, url_root=None):
 	tvd, tms, ii = get_tv_data(name), 0, 0
@@ -1094,6 +1213,7 @@ def play_last(tv_name=None):
 	return 'OK'
 
 def handle_ASR_play(asr_out, tv_name, prompt, rel_path, url_root, **kwargs):
+	if not asr_out['text']: return
 	full_path = SHARED_PATH + rel_path
 	if os.path.isdir(full_path):
 		res = findMedia(asr_postprocess(asr_out['text']), asr_out['language'], base_path=full_path)
@@ -1228,8 +1348,17 @@ def tuyaOutlet(func, name_or_obj):
 	except:
 		return traceback.format_exc()
 
+@tool
 @app.route('/execRC/<path:name_or_obj>')
 def ExecRC(name_or_obj):
+	"""Run RC (remote-control) codes
+
+	Args:
+		name_or_obj (str): the RC code
+
+	Returns:
+		str: response string or stack trace (upon error)
+	"""
 	try:
 		return execRC(eval(name_or_obj))
 	except:
@@ -1345,10 +1474,6 @@ def get_default_browser_cookie():
 	ret = os.path.expandvars(def_cookie_loc[default_browser])
 	return f'{default_browser}:{ret}' if ret else ''
 
-def parseRC(txt):
-	its = [L.split('\t') for L in txt.strip().splitlines()]
-	return [(it[0], c, it[-1]) for it in its for c in it[1].replace('｜', '|').split('|')]
-
 @app.route('/fast_fwd/<tm>')
 @app.route('/fast_fwd/<tv_name>/<tm>')
 def fast_fwd(tm, tv_name='auto', op='+='):
@@ -1412,14 +1537,37 @@ def voice_cmd(hub_pfx):
 	except:
 		return traceback.format_exc()
 
-def _chatGPT():
-	record_voice_until_sil()
+def _chatGPT(args):
+	global gpt_agent
+	if args.pop('prompt', None):
+		play_audio('voice/ok_what.mp3', block=True)
+	while True:
+		record_voice_until_sil()
+		q = recog_and_do('', '', '', (lambda t, *args, **kwargs: t), **args)
+		if type(q) != dict or 'text' not in q:
+			return
+		play_audio('voice/ok_let_me_think.mp3', block=False)
+		gpt_agent(q['text'])
+
+@app.route('/GPTagent/<path:q>')
+def GPTagent(q):
+	run_thread(gpt_agent, q)
+	return 'OK'
 
 @app.route('/chatGPT')
 def chatGPT():
-	run_thread(_chatGPT)
+	args = dict(request.args)
+	args['url_root'] = get_url_root(request)
+	run_thread(_chatGPT, args)
 	return 'OK'
 
+@app.route('/stopGPT')
+def stopGPT():
+	global gpt_agent
+	gpt_agent.tool.stop()
+	if g_last_speak_popen != None and g_last_speak_popen.poll()==None:
+		os.killpg(g_last_speak_popen.pid, signal.SIGTERM)
+		g_last_speak_popen = None
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(usage='$0 [options]', description='launch the smart home server',
@@ -1458,12 +1606,21 @@ if __name__ == '__main__':
 	# Allow tmux/ssh session to display over HDMI output screen
 	xauth_add()
 
+	# Create ChatGPT agent
+	from strands_tools import stop as agent_stop
+	gpt_agent = Agent(
+		model=load_GPT_model(),
+		tools=[listen, speak, show_HTML, RUN, RUNCMD, runsys, tv_list, py_exec, py_eval, \
+			run_python_script, get_http, send_hub_cmd, tv_on_if_off, tvVolume, _tvPlay, ExecRC, agent_stop],
+		system_prompt=get_sys_prompt(),
+	)
+
 	if not ssl:
 		threading.Thread(target=lambda:app.run(host='0.0.0.0', port=port+1, threaded = True, ssl_context=('cert.pem', 'key.pem'))).start()
 	threading.Thread(target=lambda:app.run(host='0.0.0.0', port=port, threaded = True, ssl_context=('cert.pem', 'key.pem') if ssl else None)).start()
 
 	if no_console:
-		sys.exit(0)
+		while True: time.sleep(999999999)
 
 	try:
 		import IPython

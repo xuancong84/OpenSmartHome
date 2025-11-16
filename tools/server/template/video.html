@@ -35,6 +35,9 @@ video {
 	position: fixed;
 	object-fit: contain;
 }
+video::-webkit-media-text-track-display {
+  transform: translateY(0em);
+}
 canvas {
 	position: absolute;
 	left: 0;
@@ -808,6 +811,18 @@ requestMic();
 
 T2Sframe.style.display = S2Tframe.style.display = getCookie('infoDisp', 'none');
 var menuIcon0Height = getById('menuIcon0').offsetHeight;
+var subtt_vert_posi = 0;
+function shiftSubtt(amount){
+	subtt_vert_posi += amount;
+	for (const sheet of document.styleSheets)
+		for (const rule of sheet.cssRules) {
+			if (rule.selectorText === 'video::-webkit-media-text-track-display') {
+				rule.style.transform = `translateY(${subtt_vert_posi}em)`;
+				return;
+			}
+		}
+	return true;
+}
 function handleKey(key, amount=0){
 	switch (key) {
 		case "f":
@@ -820,10 +835,12 @@ function handleKey(key, amount=0){
 			v.currentTime += 3.75*2**amount;
 			break;
 		case "ArrowUp":
+			if(amount==4) return shiftSubtt(-0.25);
 			v.volume = Math.min(1, v.volume+.1);
 			show_flashmsg(`Volume = ${v.volume.toFixed(1)}`);
 			break;
 		case "ArrowDown":
+			if(amount==4) return shiftSubtt(0.25);
 			v.volume = Math.max(0, v.volume-.1);
 			show_flashmsg(`Volume = ${v.volume.toFixed(1)}`);
 			break;

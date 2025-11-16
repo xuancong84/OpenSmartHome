@@ -20,6 +20,8 @@ natsort
 git+https://github.com/klattimer/LGWebOSRemote.git
 qrcode
 tinytuya
+strands-agents[openai]
+strands-agents-tools
 
 # below are optional
 ipython
