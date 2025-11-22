@@ -170,6 +170,8 @@ h1 {
 <div id="menu2" class="playmenu" style="font-size: xx-large; font-weight: bold; top: 8px; text-align: left; height: 80%;">
 	<h1 id="header2"><span id="title2" style='display:inline-block'></span>
 		<span id="title2-after" style="position:absolute; right:4px;">
+			<input id="goto_field" type="text" oninput="scrollToTrans(this)" onblur="this.value=''" title="滚动到音译最相近的标题"
+				style="color: white; vertical-align: middle; font-size: xx-large; background: transparent; margin-bottom: 0.2em;" size="2">
 			<span style="cursor:pointer; color:yellow;" onclick="lsdir('..')" title="返回上一层目录" class="icon-level-up"></span>
 			<span id="loopButton1" style="cursor:pointer" onclick="toggle_loop()" title="单曲循环">🔁</span>
 			<span style="cursor:pointer" onclick="lsdir('.')" title="返回当前播放目录">🏠</span>
@@ -223,7 +225,7 @@ var menuMode = 0;
 var passCounter = 0, markCounter = 0;
 var playlist = {{playlist|tojson}};
 var is_random = {{is_random}};
-var dir_list, subdir_list;
+var dir_list, subdir_list, trl_list;
 var cur_dir = "", cur_file, asr_dir = "";
 var v = getById("video0");
 var recorder = null, subtt_info = null, subtt_loaded = 0; // 0: not loaded; 1: loading; 2:loaded
@@ -507,6 +509,19 @@ function toggle_menu(mode){
 	showSubtt.style.opacity = (menuMode==3?1:'');
 	showAudioTracks.style.opacity = (menuMode==4?1:'');
 }
+function binarySearchInsertIndex(arr, target) {
+  let lo = 0, hi = arr.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (arr[mid] < target) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+function scrollToTrans(obj){
+	var n = binarySearchInsertIndex(trl_list, obj.value);
+	getById('b'+n).scrollIntoView({block: "center"});
+}
 function getCookie(cookieName, dft="") {
 	var name = cookieName + "=";
 	var decodedCookie = decodeURIComponent(document.cookie);
@@ -593,9 +608,11 @@ function showDir(data){
 		list2.innerHTML += `<a onclick="lsdir('..')">../</a>`;
 	var i=0, j=0, scrollTo_id=-1, scrollTo_cur_max=0;
 	dir_list = [];
+	trl_list = [];
 	subdir_list = [];
-	for(var fn of data.split('\n')){
-		fulln = cur_dir?(cur_dir+'/'+fn):fn;
+	for(var L of data.split('\n')){
+		let [fn, tn] = L.split('\r')
+		let fulln = cur_dir?(cur_dir+'/'+fn):fn;
 		if(fn.endsWith('/')){
 			list2.innerHTML += `<a id="b${i}" onclick="lsdir(subdir_list[${j}])" name="${fn}">${fn}
 			<span>
@@ -616,6 +633,7 @@ function showDir(data){
 			scrollTo_cur_max = fulln.length;
 		}
 		dir_list.push(fulln);
+		trl_list.push(tn);
 		i+=1;
 	}
 	if(scrollTo_id>=0)
@@ -824,6 +842,7 @@ function shiftSubtt(amount){
 	return true;
 }
 function handleKey(key, amount=0){
+	if(document.activeElement==getById('goto_field')) return false;
 	switch (key) {
 		case "f":
 			document.fullscreenElement ? document.exitFullscreen() : getById('vcontainer').requestFullscreen();

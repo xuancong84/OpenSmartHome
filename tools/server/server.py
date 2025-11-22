@@ -957,7 +957,7 @@ def tv_wscmd(name, cmd):
 		elif cmd.startswith('lsdir '):
 			full_dir = SHARED_PATH+cmd.split(' ',1)[1]+'/'
 			lst = showdir(full_dir)
-			ws.send('\tshowDir\t'+'\n'.join(lst))
+			ws.send('\tshowDir\t'+'\n'.join([i+'\r'+transl_lower(i) for i in lst]))
 		elif cmd.startswith('list_subtitles '):
 			file_path = SHARED_PATH+cmd.split(' ',1)[1]
 			subs = list_subtitles(file_path)

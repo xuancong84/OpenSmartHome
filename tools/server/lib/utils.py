@@ -19,7 +19,8 @@ def Open(fn, mode='r', **kwargs):
 	fn = expand_path(fn)
 	return gzip.open(fn, mode, **kwargs) if fn.lower().endswith('.gz') else open(fn, mode, **kwargs)
 
-TransNatSort = lambda lst: natsorted(lst, key=unidecode)
+transl_lower = lambda t: unidecode(t).lower()
+TransNatSort = lambda lst: natsorted(lst, key=transl_lower)
 expand_path = lambda t: os.path.expandvars(os.path.expanduser(t))
 isdir = lambda t: os.path.isdir(expand_path(t))
 isfile = lambda t: os.path.isfile(expand_path(t))
