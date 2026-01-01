@@ -270,6 +270,7 @@ def setParams(query_line):
 		for i in ks[0:-1]:
 			p = p[i]
 		val = Try(lambda: eval(v, globals(), globals()), v)
+		val = v if callable(val) else val
 		if val is None:
 			del p[ks[-1]]
 			return 'OK Deleted'

@@ -290,7 +290,7 @@ class MSENSOR:
 				if (acti>=3) and self.dark_level>=self.P['DARK_TH_HIGH'] and millis>=self.sensor_on_block_until:
 					self.smartlight_dpin(True)
 					self.elapse = millis+self.P['DELAY_ON_MOV']
-				elif (type(self.dark_level)==int and self.dark_level<self.P['DARK_TH_LOW']): # return to day mode
+				elif self.dark_level<self.P['DARK_TH_LOW']: # return to day mode
 					if not self.is_night():
 						self.sensor_pwr_dpin(False)
 					self.is_dark_mode = False

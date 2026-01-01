@@ -171,7 +171,7 @@ h1 {
 	<h1 id="header2"><span id="title2" style='display:inline-block'></span>
 		<span id="title2-after" style="position:absolute; right:4px;">
 			<input id="goto_field" type="text" oninput="scrollToTrans(this)" onblur="this.value=''" title="滚动到音译最相近的标题"
-				style="color: white; vertical-align: middle; font-size: xx-large; background: transparent; margin-bottom: 0.2em;" size="2">
+				style="color: white; vertical-align: middle; font-size: xx-large; background: transparent; width: 36px; height: 36px; margin-bottom: 0.2em;">
 			<span style="cursor:pointer; color:yellow;" onclick="lsdir('..')" title="返回上一层目录" class="icon-level-up"></span>
 			<span id="loopButton1" style="cursor:pointer" onclick="toggle_loop()" title="单曲循环">🔁</span>
 			<span style="cursor:pointer" onclick="lsdir('.')" title="返回当前播放目录">🏠</span>
@@ -246,7 +246,11 @@ function create_wsock(){
 			window[its[1]](its[2]);
 		}else if(ev.data.startsWith(' ')){
 			ws_send('\t'+eval(ev.data.slice(1)));
-		}else setTimeout(ev.data, 1);
+		}else if(ev.data.startsWith('=')){
+			var p = ev.data.indexOf(' ');
+			var s = ev.data.slice(p+1);
+			eval(ev.data.slice(1, p)+'=s');
+ 		}else setTimeout(ev.data, 1);
 	});
 	return ws;
 }
@@ -601,11 +605,9 @@ function open_in_tab(fn){
 	window.open(`${location.origin}/webPlay/0/${fn}`, "_blank");
 }
 function showDir(data){
-	list2.innerHTML = '';
 	getById('title2').textContent = `Folder: /${cur_dir}`;
-	getById('list2').style.maxHeight = `calc(100% - ${getById('header2').offsetHeight}px)`;
-	if(cur_dir)
-		list2.innerHTML += `<a onclick="lsdir('..')">../</a>`;
+	list2.style.maxHeight = `calc(100% - ${getById('header2').offsetHeight}px)`;
+	lst2 = cur_dir?[`<a onclick="lsdir('..')">../</a>`]:[];
 	var i=0, j=0, scrollTo_id=-1, scrollTo_cur_max=0;
 	dir_list = [];
 	trl_list = [];
@@ -614,19 +616,19 @@ function showDir(data){
 		let [fn, tn] = L.split('\r')
 		let fulln = cur_dir?(cur_dir+'/'+fn):fn;
 		if(fn.endsWith('/')){
-			list2.innerHTML += `<a id="b${i}" onclick="lsdir(subdir_list[${j}])" name="${fn}">${fn}
+			lst2.push(`<a id="b${i}" onclick="lsdir(subdir_list[${j}])" name="${fn}">${fn}
 			<span>
 				<span class="icon-new-tab" title="在新页面中打开" onclick="open_in_tab('${fulln}')"></span>
 				<span class="icon-live_tv" title="在电视机上打开" onclick='showPlayOnTV(${i}, event)'></span>
-			</span></a>`;
+			</span></a>`);
 			subdir_list.push(fulln);
 			j+=1;
 		}else{
-			list2.innerHTML += `<a id="b${i}" onclick="gotoFile(event,${i})" href="/files/${fulln}" name="${fn}">${fn}
+			lst2.push(`<a id="b${i}" onclick="gotoFile(event,${i})" href="/files/${fulln}" name="${fn}">${fn}
 			<span>
 				<span class="icon-new-tab" title="在新页面中打开" onclick="open_in_tab('${fulln}')"></span>
 				<span class="icon-live_tv" title="在电视机上打开" onclick="showPlayOnTV(${i}, event)"></span>
-			</span></a>`;
+			</span></a>`);
 		}
 		if(cur_file.startsWith(fulln) && fulln.length>scrollTo_cur_max){
 			scrollTo_id = i;
@@ -636,15 +638,17 @@ function showDir(data){
 		trl_list.push(tn);
 		i+=1;
 	}
+	list2.innerHTML = lst2.join('');
 	if(scrollTo_id>=0)
 		setTimeout(()=>{setvidx(scrollTo_id, 'b', true);}, 0);
 }
 function updateList(arr){
 	playlist = arr.split('\n');
 	getById('title1').textContent = `${cur_dir}`;
-	list1.innerHTML = '';
+	var lst = []
 	for(var [i,fn] of playlist.entries())
-		list1.innerHTML += `<a id="a${i}" onclick="goto_idx(${i})">${fn}</a>`;
+		lst.push(`<a id="a${i}" onclick="goto_idx(${i})">${fn}</a>`);
+	list1.innerHTML = lst.join('\n');
 }
 function list_subtitles(s_lst){
 	subtt_info = JSON.parse(s_lst);
