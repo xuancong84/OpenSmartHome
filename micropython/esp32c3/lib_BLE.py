@@ -80,8 +80,10 @@ class BLEcentral:
 		self._ble.gap_scan(None)
 
 	def advertise(self, data, interval_us=125000, duration_s=0.6, connectable=False, **kwargs):
-		self._ble.gap_advertise(interval_us, adv_data=parse_data(data), connectable=connectable)
-		time.sleep(duration_s)
+		data = data if type(data)==list else [data]
+		for datum in data:
+			self._ble.gap_advertise(interval_us, adv_data=parse_data(datum), connectable=connectable)
+			time.sleep(duration_s)
 		self._ble.gap_advertise(None)
 
 	# Connect to the specified device (otherwise use cached address from a scan).

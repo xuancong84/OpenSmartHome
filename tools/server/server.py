@@ -684,10 +684,10 @@ def tv(name='', cmd=''):
 	if cmd == 'on':
 		return tv_on_if_off(name)
 	for i in range(3):
-		try:
-			return RUN(f'{LG_TV_BIN} --name {name} {cmd}')
-		except:
-			pass
+		res = os.system(f'{LG_TV_BIN} --name {name} {cmd}')
+		if res==0:
+			return 'OK'
+		time.sleep(1)
 	return 'Failed after trying 3 times!'
 os.tv = tv
 

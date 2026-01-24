@@ -465,7 +465,7 @@ function recordIR(obj) {
 		recordRC(obj.parentElement.parentElement, '/ir_record');
 }
 function openBLE(obj){
-	ble_rid = obj.parentElement.parentElement;
+	ble_row = obj.parentElement.parentElement;
 	getById('bleFront').style.display = getById('bleBack').style.display = 'block';
 }
 function closeBLE(n=0){

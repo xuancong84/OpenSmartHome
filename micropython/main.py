@@ -190,8 +190,7 @@ def execRC(s, stack=0):
 	if type(s)==bytes:
 		s = s.decode()
 	prt(f'execRC({stack}): {str(s)}')
-	if s is None: return 'OK'
-	if err and type(s)==str: return s
+	if s is None or s is 'OK': return 'OK'
 	try:
 		if type(s) == list:
 			res = []
