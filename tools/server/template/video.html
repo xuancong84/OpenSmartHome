@@ -823,6 +823,88 @@ function disableMic() {
 	g_stream = null;
 }
 
+var subtt_toggle_cache = "";
+function toggle_subtt(force = null){
+	// no subtitle metadata for this file
+	if (!subtt_info || subtt_info.length === 0) {
+		show_flashmsg('当前视频没有可用字幕');
+		return false;
+	}
+
+	// lazy-load subtitle tracks if needed
+	if (subtt_loaded === 0) {
+		ws_send(`load_subtitles 0 ${cur_file}`);
+		subtt_loaded = 1;
+		show_flashmsg('正在加载字幕，请稍候...');
+		return true;
+	}
+	if (subtt_loaded === 1) {
+		show_flashmsg('字幕仍在加载中...');
+		return true;
+	}
+
+	// current visible tracks
+	let visible = [];
+	for (let i = 0; i < v.textTracks.length; i++) {
+		if (v.textTracks[i].mode === 'showing') visible.push(i);
+	}
+
+	// decide target state
+	const turnOn = (force == null) ? (visible.length === 0) : !!force;
+
+	// turn OFF subtitles
+	if (!turnOn) {
+		subtt_toggle_cache = visible.join(',');
+
+		if (dvdsub != null) { dvdsub.dispose(); dvdsub = null; }
+
+		for (let i = 0; i < v.textTracks.length; i++) {
+			v.textTracks[i].mode = 'hidden';
+			const cb = getById('SCB' + i);
+			if (cb) cb.checked = false;
+		}
+		show_flashmsg('字幕已关闭');
+		return true;
+	}
+
+	// turn ON subtitles: restore previous selection, else cookie, else first track
+	let restore = (subtt_toggle_cache || last_subtt || getCookie("subtt", ""))
+		.split(',')
+		.filter(s => s !== '')
+		.map(s => parseInt(s, 10))
+		.filter(i => Number.isFinite(i) && i >= 0 && i < v.textTracks.length);
+
+	if (restore.length === 0 && v.textTracks.length > 0) restore = [0];
+
+	// apply restored selection
+	if (dvdsub != null) { dvdsub.dispose(); dvdsub = null; }
+
+	for (let i = 0; i < v.textTracks.length; i++) {
+		const on = restore.includes(i);
+		v.textTracks[i].mode = on ? 'showing' : 'hidden';
+		const cb = getById('SCB' + i);
+		if (cb) cb.checked = on;
+	}
+
+	// if restored set includes .sup, keep only first .sup (bitmap renderer constraint)
+	const supIdx = restore.find(i => i < subtt_info.length && subtt_info[i][1].endsWith('.sup'));
+	if (supIdx !== undefined) {
+		for (let i = 0; i < v.textTracks.length; i++) {
+			const on = (i === supIdx);
+			v.textTracks[i].mode = on ? 'showing' : 'hidden';
+			const cb = getById('SCB' + i);
+			if (cb) cb.checked = on;
+		}
+		dvdsub = new SUPtitles(v, `/subtt/${cur_file}/${subtt_info[supIdx][1]}`);
+		restore = [supIdx];
+	}
+
+	last_subtt = restore.join(',');
+	document.cookie = `subtt=${last_subtt}; path=/; max-age=31536000`;
+	show_flashmsg('字幕已开启');
+	return true;
+}
+
 // Main starts here
 setvsrc("{{file_path|safe}}", {{cur_ii}});
 var edge_pad = Number(getComputedStyle(document.documentElement).getPropertyValue('--edge-pad').slice(0,-2));
@@ -887,6 +969,9 @@ function handleKey(key, amount=0){
 			break;
 		case "n":
 			goto_idx(cur_ii+1);
+			break;
+		case "c":
+			toggle_subtt();
 			break;
 		default:
 			return false;

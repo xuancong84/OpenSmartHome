@@ -667,9 +667,11 @@ def tv_on_if_off(tv_name, wait_ready=False):
 	tvinfo = tv2lginfo(tv_name)
 	if not is_tv_on(tv_name):
 		send_wol({'data': tvinfo['mac']})
-		if wait_ready:
-			while not is_tv_ready(tv_name):
-				time.sleep(1)
+		time.sleep(5)
+	if wait_ready:
+		while not is_tv_ready(tv_name):
+			time.sleep(1)
+		time.sleep(1)
 	return 'OK'
 os.tv_on_if_off = tv_on_if_off
 
@@ -801,9 +803,12 @@ def load_playable(ip, tm_info, filename):
 	if ii<0 or tm_sec<0:
 		ii, tm_sec = tvd['markers'].get(json.dumps(lst), [0,0])
 	if randomize:
-		elem = lst[ii] if 0<=ii<len(lst) else None
-		random.shuffle(lst)
-		ii = ii if elem is None else lst.index(elem)
+		if randomize==2:
+			elem = lst[ii] if 0<=ii<len(lst) else None
+			random.shuffle(lst)
+			ii = ii if elem is None else lst.index(elem)
+		else:
+			random.shuffle(lst)
 	lst = [(s if s.startswith(SHARED_PATH) else SHARED_PATH+s) for s in lst]
 	tvd.update({'playlist': lst, 'cur_ii': ii, 'shuffled': randomize})
 	return lst, ii, tm_sec, randomize
@@ -1079,7 +1084,7 @@ def _set_mutex_after_speak():
 
 def play_audio(fn, block=None, tv_name=None):
 	# block: None (auto, i.e., True if from TV, False otherwise)
-	global g_last_speak_time
+	global g_last_speak_time, g_last_speak_popen
 	LOG(f'play_audio({fn}, {block}, {tv_name})')
 	ev_mutex.clear()
 	if tv_name:
@@ -1202,9 +1207,7 @@ def _play_last(name=None, url_root=None):
 		pl = Try(lambda: tvd['playlist'], lambda: json.loads(list(tvd['markers'].keys())[-1]), lambda: getAnyMediaList())
 		if pl:
 			ii, tms = tvd['markers'].get(json.dumps(pl), [tvd.get('cur_ii', 0), 0])
-	if name in _tv2lginfo:
-		tv_on_if_off(name, True)
-	tvPlay(f'{name} {tms} {ii}', json.dumps(pl), url_root)
+	_tvPlay(f'{name} {tms} {ii}', json.dumps(pl), url_root)
 
 @app.route('/play_last')
 @app.route('/play_last/<tv_name>')
@@ -1239,7 +1242,7 @@ def handle_ASR_play(asr_out, tv_name, prompt, rel_path, url_root, **kwargs):
 				elem = lst[res]
 				random.shuffle(lst)
 				res = lst.index(elem)
-			_tvPlay(f'{tv_name} 0 {res}', full_path if rel_path else json.dumps(lst), url_root) if tv_name else play(f'0 {res}', json.dumps(lst))
+			_tvPlay(f'{tv_name} 0 {res}', full_path if rel_path else json.dumps(lst), url_root) if tv_name else _play(f'0 {res}', json.dumps(lst))
 		else:
 			playFrom(res) if tv_name==None else tv_wscmd(tv_name, f'goto_idx {res}')
 		media_fn = lst[res][len(SHARED_PATH):]
