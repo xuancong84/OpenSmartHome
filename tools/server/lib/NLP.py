@@ -545,27 +545,50 @@ def xauth_add(key=None):
 
 
 # Weather API
+_weathercode_mapping = {
+	0: "Clear sky",
+	1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
+	45: "Fog", 48: "Depositing rime fog",
+	51: "Light drizzle", 53: "Moderate drizzle", 55: "Dense drizzle",
+	61: "Slight rain", 63: "Moderate rain", 65: "Heavy rain",
+	80: "Slight rain showers", 81: "Moderate rain showers", 82: "Violent rain showers",
+	95: "Thunderstorm",
+}
 def _get_weather():
-	obj = Try(lambda: json.parse(requests.get(ACCUWEATHER_API_GET).text)[0], {})
-	wt = {
-		'temperature': Try(lambda: obj['Temperature']['Metric']['Value'], None),
-		'humidity': Try(lambda: obj['RelativeHumidity'], None),
-		'realfeel': Try(lambda: obj['RealFeelTemperatureShade']['Metric']['Value'], None),
-		'weatherText': Try(lambda: obj['WeatherText'], None)
+	# Define the coordinates (e.g., Singapore)
+	params = {
+		"latitude": GPS_LOCATION[0],
+		"longitude": GPS_LOCATION[1],
+		"current": ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", "apparent_temperature", "weather_code"],
+		"timezone": "auto"
 	}
+	response = requests.get("https://api.open-meteo.com/v1/forecast", params=params)
+	try:
+		data = response.json()['current']
+		wt = {
+			'temperature': data['temperature_2m'],
+			'humidity': data['relative_humidity_2m'],
+			'realfeel': data['apparent_temperature'],
+			'weatherText': _weathercode_mapping.get(data['weather_code'], "Unknown condition")
+		}
+		print('_get_weather():', wt)
+	except:
+		print(f"Error in _get_weather(): {response.status_code}")
+		wt = {}
+	
 	return wt
 
 def get_weather():
 	now = pd.Timestamp.now()
 	try:
 		last_wt = os.sys_state['_weather_']['last_wt']
-		last_wt_tms = pd.Timestamp(os.sys_state['_weather_']['last_wt_tms'])
+		last_wt_tms = pd.Timestamp(os.sys_state['_weather_']['last_wt_tms'], unit='s')
 		refresh = now-last_wt_tms>pd.to_timedelta('1H')
 	except:
 		refresh = True
 	if refresh:
 		os.sys_state['_weather_']['last_wt'] = last_wt = _get_weather()
-		os.sys_state['_weather_']['last_wt_tms'] = now
+		os.sys_state['_weather_']['last_wt_tms'] = now.timestamp()
 		os.save_state()
 	return last_wt
 
@@ -840,7 +863,7 @@ def cpufreq_set(perc=0):
 class ASR:
 	def __init__(self, model_name='base', backend='faster_whisper:int8', verbose=True) -> None:
 		bk_name, bk_bit = list_get_args(backend.split(':'), 2, ['int8'])
-		if bk_name == 'faster_whisper':
+		if bk_name in ['faster_whisper', 'distil-large-v3']:
 			from faster_whisper import WhisperModel
 			self.model = WhisperModel(model_name, compute_type=bk_bit)
 			self.transcribe = self._transcribe_faster_whisper

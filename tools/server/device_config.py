@@ -31,6 +31,8 @@ LG_TV_CONFIG_FILE='~/.lgtv/config.json'
 LG_TV_BIN='./miniconda3/bin/lgtv --ssl'
 SHARED_PATH='~/Public'
 DOWNLOAD_PATH=SHARED_PATH+'/Download'
+NN_MODEL_PATH='./models'
+GPS_LOCATION=[1.305632, 103.781368]
 MAX_WALK_LEVEL=2
 ASR_CLOUD_URL='http://localhost:8883/run_asr/base'
 ASR_CLOUD_TIMEOUT=15
@@ -86,18 +88,23 @@ ASRchip_voice_hex = {
 	'set_timer_unknown': ('a50b0a', 3),
 	'set_timer_cancel': ('a50c0a', 3),
 	
+	'fan0': ('a55a0a', 0),
 	'fan1': ('a55b0a', 0),
 	'fan2': ('a55c0a', 0),
 	'fan3': ('a55d0a', 0),
 	'fan4': ('a55e0a', 0),
 	'fan5': ('a55f0a', 0),
 	'fan6': ('a5600a', 0),
+	'fan7': ('a5610a', 0),
+	'fan8': ('a5620a', 0),
+	'fan9': ('a5630a', 0),
+	'fan10': ('a5590a', 0),
 	'fanL': ('a5510a', 0),
 	'fanM': ('a5520a', 0),
 	'fanH': ('a5530a', 0),
-	'ceilfan0': ('a55a0a', 0),
+	'ceilfan0': ('a5460a', 0),
 	'floorfan0': ('a5500a', 0),
-	'anyfan0': ('a5460a', 0),
+	'anyfan0': ('a55a0a', 0),
 }
 
 VOICE_CMD_FFWD_DCT = {
@@ -137,6 +144,7 @@ AUTO_LEARN_OWL_SEC = 300
 # - 'OFF' button is compulsory for every fan
 # - Fans with 'ON' button must be powered on first before setting speed level
 # - 'S_' means for speech reporting
+FAN_MODELS = {}
 FAN_DATA = {
 	'dinningFan': {
 		'type': '433',
@@ -206,7 +214,7 @@ FAN_DATA = {
 	}
 }
 
-SECRET_VARS = ['ASR_CLOUD_URL', 'CUSTOM_CMDLINES', 'HUBS', 'ACCUWEATHER_API_GET']
+SECRET_VARS = ['ASR_CLOUD_URL', 'CUSTOM_CMDLINES', 'HUBS']
 if os.path.isfile('secret.py'):
 	import secret
 else:

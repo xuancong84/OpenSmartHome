@@ -9,3 +9,5 @@ tqdm>=4.30
 librosa
 soundfile
 tiktoken
+qwen-asr[vllm]
+langcodes

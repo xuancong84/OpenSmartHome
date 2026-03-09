@@ -18,6 +18,7 @@ from lib.gTranslateTTS import gTransTTS
 from lib.settings import *
 from lib.NLP import *
 from lib.chatGPT import *
+from lib.FanLevelDNN import *
 from device_config import *
 
 _regex_ip = re.compile("^(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
@@ -64,9 +65,10 @@ last_save_time = time.time()
 def save_playstate(obj, lazy=False):
 	if (not lazy) or (time.time()-last_save_time>3600):
 		prune_dict(obj)
-		with Open(PLAYSTATE_FILE, 'wt') as fp:
+		with Open(PLAYSTATE_FILE+'.tmp', 'wt') as fp:
 			obj.to_json(fp, indent=1)
 		last_save_time = time.time()
+		os.rename(PLAYSTATE_FILE+'.tmp', PLAYSTATE_FILE)
 
 os.save_state = lambda: save_playstate(ip2tvdata)
 get_base_url = lambda: f'{"https" if ssl else "http"}://{local_IP}:{port}'
@@ -1301,26 +1303,34 @@ def ecovacs(name='', cmd=''):
 # For ceiling fan control
 # autoFanOn levels exclude off state; autoFan levels include keeping the fan off
 # `level` ranges from 1 to # of speed levels, 0 means off, None means auto
+last_fan_tms = defaultdict(lambda:0)
 def autoFanLevel(name, level, forceOn):
+	global last_fan_tms
+	tms = time.time()
 	fan_cmds = FAN_DATA[name]
+	if name not in FAN_MODELS:
+		FAN_MODELS[name] = FanLevelDNN(f'{NN_MODEL_PATH}/{name}.pt', len(fan_cmds['LEVELS']))
+	fan_model = FAN_MODELS[name]
+	wt = get_weather()
 	if level==None:
-		level = HMC_predict(name, get_weather()['realfeel'])
+		level = fan_model.predict(wt['temperature'], wt['humidity'])
+		level = max(level, 1) if forceOn else level
+		if level>0:
+			if 'ON' in fan_cmds:
+				execRC(fan_cmds['ON'])
+			execRC(fan_cmds['LEVELS'][level-1])
+			if 'S_LEVELS' in fan_cmds:
+				play_ASRchip_voice(fan_cmds['S_LEVELS'][level-1])
+		else:
+			if 'S_OFF' in fan_cmds:
+				play_ASRchip_voice(fan_cmds['S_OFF'])
+			# shall not actively turn off the fan if predicted_fan_level==0
+			# execRC(fan_cmds['OFF'])
 	else:
-		HMC_train(name, get_weather()['realfeel'], execRC(fan_cmds['F_GET_SPEED']) if level<0 else level)
-		return
-	# HMC_predict will return None if first time (no training data points)
-	n = (1+len(fan_cmds['LEVELS'])//2) if level==None else level
-	if level>0:
-		if 'ON' in fan_cmds:
-			execRC(fan_cmds['ON'])
-		execRC(fan_cmds['LEVELS'][n-1])
-		if 'S_LEVELS' in fan_cmds:
-			play_ASRchip_voice(fan_cmds['S_LEVELS'][n-1])
-	else:
-		if 'S_OFF' in fan_cmds:
-			play_ASRchip_voice(fan_cmds['S_OFF'])
-		# If predicted_fan=0 should not actively turn off the fan
-		# execRC(fan_cmds['OFF'])
+		if level or (level==0 and tms-last_fan_tms[name]<100):
+			fan_model.add_data(wt['temperature'], wt['humidity'], level)
+			fan_model.train().save()
+	last_fan_tms[name] = tms
 
 @app.route('/autoFan/<name>')
 @app.route('/autoFan/<name>/<int:level>')
@@ -1578,7 +1588,7 @@ if __name__ == '__main__':
 	parser.add_argument('--port', '-p', type=int, default=8883, help='server port number')
 	parser.add_argument('--ssl', '-ssl', help='server port number', action='store_true')
 	parser.add_argument('--asr', '-a', default='auto', help='load local ASR model: yes, no, auto (default: yes if ASR_CLOUD_URL is empty)')
-	parser.add_argument('--asr-backend', '-ab', default='faster_whisper:int8', help='ASR backend: whisper, faster_whisper:float32, faster_whisper:int8 (default), ...')
+	parser.add_argument('--asr-backend', '-ab', default='faster_whisper:int8', help='ASR backend: whisper, distil-large-v3:int8, faster_whisper:float32, faster_whisper:int8 (default), ...')
 	parser.add_argument('--asr-model', '-am', default='base', help='ASR model to load: tiny, base (default), small, medium, large, ...')
 	parser.add_argument('--no-console', '-nc', help='do not open console', action='store_true')
 	parser.add_argument('--no-xauth', '-nx', help='do not xauth add magic key', action='store_true')

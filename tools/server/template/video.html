@@ -351,8 +351,12 @@ function setvidx(ii, L='a', scrollIntoView=false){
 }
 function play_audio(fn, reply=false){
 	var aud = new Audio(fn);
-	if(reply)
-		aud.onended = ()=>{ws_send('\taudio_ended')};
+	var is_paused = v.paused;
+	if(!is_paused) v.pause();
+	aud.onended = ()=>{
+		if(!is_paused) v.play();
+		if(reply) ws_send('\taudio_ended')
+	};
 	aud.play();
 }
 var siriWave=null, g_stream, g_source=null;
