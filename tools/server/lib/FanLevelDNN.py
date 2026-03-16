@@ -1,5 +1,3 @@
-import math
-import os
 from collections import defaultdict
 from copy import deepcopy
 from typing import Dict, List, Optional, Tuple
@@ -7,7 +5,7 @@ from typing import Dict, List, Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from lib.utils import *
 
 class FanLevelDNN(nn.Module):
 	"""
@@ -15,6 +13,7 @@ class FanLevelDNN(nn.Module):
 	- temperature
 	- humidity
 	- real-feel temperature (computed internally)
+	- the current time of the day
 
 	Checkpoint stores:
 	- model weights
@@ -22,6 +21,7 @@ class FanLevelDNN(nn.Module):
 	- normalization statistics
 	- config
 	"""
+	NN_in_dim = 4
 
 	class _MLP(nn.Module):
 		def __init__(self, in_dim: int, out_dim: int, hidden: Tuple[int, ...] = (32, 16)):
@@ -52,7 +52,7 @@ class FanLevelDNN(nn.Module):
 		self.lr = lr
 		self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
 
-		self.model = self._MLP(in_dim=3, out_dim=self.N_levels + 1, hidden=self.hidden).to(self.device)
+		self.model = self._MLP(in_dim=self.NN_in_dim, out_dim=self.N_levels + 1, hidden=self.hidden).to(self.device)
 		self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
 		# data[level] = list of {"temp": ..., "humidity": ..., "fan_level": ...}
@@ -62,14 +62,18 @@ class FanLevelDNN(nn.Module):
 		self._last_added: Optional[Tuple[int, int]] = None
 
 		# normalization stats
-		self.x_mean = torch.zeros(3, dtype=torch.float32, device=self.device)
-		self.x_std = torch.ones(3, dtype=torch.float32, device=self.device)
+		self.x_mean = torch.zeros(self.NN_in_dim, dtype=torch.float32, device=self.device)
+		self.x_std = torch.ones(self.NN_in_dim, dtype=torch.float32, device=self.device)
 
 		if os.path.exists(self.checkpoint_path):
-			self._load(self.checkpoint_path)
+			Try(lambda: self._load(self.checkpoint_path))
+
+	def get_time_of_day(self):
+		tm = pd.Timestamp.now()
+		totd = (tm-tm.floor('D'))/pd.to_timedelta('1D')
+		return totd-0.5
 
 	# ---------- public API ----------
-
 	def add_data(self, temperature_c: float, humidity_pct: float, fan_level: int) -> None:
 		"""Add one point. Keeps max 16 points per fan level, dropping the earliest of that level."""
 		self._validate_input(temperature_c, humidity_pct, fan_level)
@@ -78,6 +82,7 @@ class FanLevelDNN(nn.Module):
 		bucket.append({
 			"temp": float(temperature_c),
 			"humidity": float(humidity_pct),
+			"totd": self.get_time_of_day(),
 			"fan_level": int(fan_level),
 		})
 
@@ -94,11 +99,11 @@ class FanLevelDNN(nn.Module):
 		self._validate_input(temperature_c, humidity_pct, fan_level)
 
 		if self._last_added is None:
-			raise ValueError("No previously added data point to replace.")
+			return "No previously added data point to replace."
 
 		old_level, old_idx = self._last_added
 		if old_level not in self.data or old_idx >= len(self.data[old_level]):
-			raise RuntimeError("Last-added data reference is no longer valid.")
+			return "Last-added data reference is no longer valid."
 
 		# Remove old point
 		self.data[old_level].pop(old_idx)
@@ -109,6 +114,7 @@ class FanLevelDNN(nn.Module):
 
 		# Add replacement as the newest point of the new level
 		self.add_data(temperature_c, humidity_pct, fan_level)
+		return 'OK'
 
 	def train(self, epochs: int = 10, batch_size: int = 16, verbose: bool = False) -> float:
 		"""
@@ -158,7 +164,7 @@ class FanLevelDNN(nn.Module):
 		self._validate_input(temperature_c, humidity_pct, 0, check_level=False)
 		self.model.eval()
 		real_feel = self._compute_real_feel_c(temperature_c, humidity_pct)
-		x = torch.tensor([[temperature_c, humidity_pct, real_feel]], dtype=torch.float32, device=self.device)
+		x = torch.tensor([[temperature_c, humidity_pct, real_feel, self.get_time_of_day()]], dtype=torch.float32, device=self.device)
 		x = self._normalize(x)
 		probs = F.softmax(self.model(x), dim=-1).squeeze(0).cpu()
 		pred = int(torch.argmax(probs).item())
@@ -193,13 +199,13 @@ class FanLevelDNN(nn.Module):
 		saved_hidden = tuple(ckpt.get("hidden", self.hidden))
 		if saved_hidden != self.hidden:
 			self.hidden = saved_hidden
-			self.model = self._MLP(in_dim=3, out_dim=self.N_levels + 1, hidden=self.hidden).to(self.device)
+			self.model = self._MLP(in_dim=self.NN_in_dim, out_dim=self.N_levels + 1, hidden=self.hidden).to(self.device)
 			self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
 		self.model.load_state_dict(ckpt["model_state"])
 		self.data = defaultdict(list, {int(k): list(v) for k, v in ckpt.get("data", {}).items()})
-		self.x_mean = ckpt.get("x_mean", torch.zeros(3)).to(self.device)
-		self.x_std = ckpt.get("x_std", torch.ones(3)).to(self.device)
+		self.x_mean = ckpt.get("x_mean", torch.zeros(self.NN_in_dim)).to(self.device)
+		self.x_std = ckpt.get("x_std", torch.ones(self.NN_in_dim)).to(self.device)
 		self._last_added = ckpt.get("last_added", None)
 
 	def _build_dataset(self) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -210,13 +216,14 @@ class FanLevelDNN(nn.Module):
 			for item in self.data.get(level, []):
 				t = float(item["temp"])
 				h = float(item["humidity"])
+				T = float(item["totd"])
 				rf = self._compute_real_feel_c(t, h)
-				features.append([t, h, rf])
+				features.append([t, h, rf, T])
 				labels.append(level)
 
 		if not features:
 			return (
-				torch.empty((0, 3), dtype=torch.float32, device=self.device),
+				torch.empty((0, self.NN_in_dim), dtype=torch.float32, device=self.device),
 				torch.empty((0,), dtype=torch.long, device=self.device),
 			)
 
