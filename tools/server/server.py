@@ -8,6 +8,7 @@ import pandas as pd
 from collections import *
 from io import StringIO
 from flask import Flask, request, send_from_directory, render_template, send_file
+from flask.logging import default_handler
 from flask_sock import Sock
 from unidecode import unidecode
 from gtts import gTTS
@@ -27,6 +28,8 @@ isIP = _regex_ip.match
 app = Flask(__name__, template_folder='template')
 app.url_map.strict_slashes = False
 app.config['TEMPLATES_AUTO_RELOAD'] = True	##DEBUG
+app.logger.removeHandler(default_handler)
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
 sock = Sock(app)
 get_volume = lambda: RUN("amixer get Master | awk -F'[][]' '/Left:/ { print $2 }'").rstrip('%\n')
 ping = lambda ip: os.system(f'ping -W 1 -c 1 {ip}')==0
@@ -106,10 +109,13 @@ last_request_from, last_request_url, last_request_time = None, None, 0
 @app.before_request
 def common_prefilter():
 	global last_request_from, last_request_url, last_request_time
+	r, tms = request, str(pd.Timestamp.now())[:21]
+	app.logger.critical(f'[{tms}] FROM:{r.remote_addr} {r.method} {r.path} DATA:{r.data[:20]}')
 	if request.method=='GET':
-		if last_request_from!=request.remote_addr and last_request_url==request.url and time.time()-last_request_time<RL_MAX_DELAY:
+		if last_request_from!=r.remote_addr and last_request_url==r.url and time.time()-last_request_time<RL_MAX_DELAY:
+			app.logger.critical(f'[{tms}] IGNORED 204 lastReqFrom={last_request_from} lastReqTime={last_request_time}')
 			return 'Ignored', 204
-		last_request_from, last_request_url, last_request_time = request.remote_addr, request.url, time.time()
+		last_request_from, last_request_url, last_request_time = r.remote_addr, r.url, time.time()
 
 # Detect language, invoke Google-translate TTS and play the speech audio
 def prepare_TTS(txt, lang_id=None, fn=DEFAULT_T2S_SND_FILE):
