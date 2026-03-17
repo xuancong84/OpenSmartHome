@@ -13,8 +13,11 @@ def record_voice_until_sil(
 		timeout_max = 30,						# max duration for the speech
 		timeout_sil = 2,						# max silence for stopping recording
 		output_file = DEFAULT_S2T_SND_FILE,		# default output file
-		SAMPLING_RATE = SPEECH_SAMPLING_RATE,	# 16 kHz for Silero VAD
-		CHUNK_SIZE    = 512,					# samples per chunk (~32 ms)
+		SAMPLING_RATE	= SPEECH_SAMPLING_RATE,	# 16 kHz for Silero VAD
+		CHUNK_SIZE		= 512,					# samples per chunk (~32 ms)
+		force_return	= False,				# return the audio file even when no speech has ever been detected
+		cb_on_speech	= lambda: None,			# callback upon speech start
+		cb_on_return	= lambda: None,			# callback upon speech start
 	):
 	print("⏳ Listening… please speak into your microphone.")
 	audio_buffer = []
@@ -52,6 +55,7 @@ def record_voice_until_sil(
 					print("🗣️  Speech detected, recording…")
 					audio_buffer = audio_buffer[-4:]	# extract 3x32ms sil before speech start
 					speech_started = True
+					cb_on_speech()
 			else:
 				silence_accum += chunk_dur
 				if silence_accum >= (timeout_sil if speech_started else timeout_wait):
@@ -64,10 +68,16 @@ def record_voice_until_sil(
 	vad_iterator.reset_states()
 
 	# Concatenate and save WAV
-	waveform = np.concatenate(audio_buffer)
-	sf.write(output_file+'.wav', waveform, SAMPLING_RATE)
-	print(f"✅ Saved recording to {output_file}.wav")
-	runsys(f'ffmpeg -y -i {output_file}.wav -c:a libopus -b:a 128k {output_file}')
+	if speech_started or force_return:
+		waveform = np.concatenate(audio_buffer)
+		sf.write(output_file+'.wav', waveform, SAMPLING_RATE)
+		print(f"✅ Saved recording to {output_file}.wav")
+		runsys(f'ffmpeg -y -i {output_file}.wav -c:a libopus -b:a 128k {output_file}')
+		cb_on_return()
+		return output_file
+	else:
+		cb_on_return()
+		return ''
 
 @tool
 def listen(	max_wait_sec = 30,

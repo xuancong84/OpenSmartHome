@@ -34,7 +34,7 @@ DOWNLOAD_PATH=SHARED_PATH+'/Download'
 NN_MODEL_PATH='./models'
 GPS_LOCATION=[1.305632, 103.781368]
 MAX_WALK_LEVEL=2
-ASR_CLOUD_URL='http://localhost:8883/run_asr/base'
+ASR_CLOUD_ENDP='http://localhost:8883'
 ASR_CLOUD_TIMEOUT=15
 VAD_THRESHOLD=0.5
 VOICE_VOL=defaultdict(lambda: None, {None: 60})
@@ -151,10 +151,13 @@ FAN_DATA = {
 		'OFF': f'{ASRchip_voice_IP}/rc_run?DFS',
 		'S_OFF': 'ceilfan0',
 		'LEVELS': [
-			f'{ASRchip_voice_IP}/rc_run?DFL',
-			f'{ASRchip_voice_IP}/rc_run?DFM',
-			f'{ASRchip_voice_IP}/rc_run?DFH'],
-		'S_LEVELS': ['fanL', 'fanM', 'fanH']
+			f'{ASRchip_voice_IP}/rc_run?DF1',
+			f'{ASRchip_voice_IP}/rc_run?DF2',
+			f'{ASRchip_voice_IP}/rc_run?DF3',
+			f'{ASRchip_voice_IP}/rc_run?DF4',
+			f'{ASRchip_voice_IP}/rc_run?DF5',
+			f'{ASRchip_voice_IP}/rc_run?DF6'],
+		'S_LEVELS': ['fan1', 'fan2', 'fan3', 'fan4', 'fan5', 'fan6']
 	},
 	'sofaFan': {
 		'type': '433',
@@ -214,7 +217,7 @@ FAN_DATA = {
 	}
 }
 
-SECRET_VARS = ['ASR_CLOUD_URL', 'CUSTOM_CMDLINES', 'HUBS']
+SECRET_VARS = ['ASR_CLOUD_ENDP', 'CUSTOM_CMDLINES', 'HUBS']
 if os.path.isfile('secret.py'):
 	import secret
 else:
@@ -223,3 +226,6 @@ else:
 
 for var in SECRET_VARS:
 	exec(f'{var}=getattr(secret, "{var}", None)', globals(), globals())
+
+if ASR_CLOUD_ENDP:
+	ASR_CLOUD_ENDP = ASR_CLOUD_ENDP.rstrip('/')

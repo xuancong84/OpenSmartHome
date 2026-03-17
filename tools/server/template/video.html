@@ -54,6 +54,7 @@ h1 {
 	font-size: larger;
 	font-weight: bolder;
 }
+table, th, td {border: 1px solid blue;}
 .playmenu {
 	position: fixed;
 	left: 50%;
@@ -144,6 +145,7 @@ h1 {
 <div id="recButtons" class="overlay hoverShow" style="left:0; top:0;" >
 	<span id="recButton" title="播放指定文件（本地录音）" onclick="ASR()" class="icon-mic-local"></span>
 	<span title="播放指定文件（树莓派录音）" onclick="ws_send('play_spoken')" class="icon-mic-station"></span>
+	<span id="icon_benchmark" onclick="toggle_hide([ASRframe, S2Tframe, T2Sframe])" title="评测对比语音识别系统" class="icon-benchmark hand" style="display: none"></span>
 </div>
 <div class="overlay" style="left:0px; bottom:var(--edge-pad);">
 	<span class="hoverShow" title="复制视频链接然后扫码下载播放" onclick="showQR()">📱</span>
@@ -215,6 +217,14 @@ h1 {
 	<h1>语种：<span id="T2Slang">{{T2S_lang}}</span></h1>
 	<h1 class="vsb">文本：<br><span id="T2Stext">{{T2S_text}}</span></h1>
 </div>
+<div id="recButtons2" class="overlay" style="left:25%; top:0; position:absolute; display: none;" >
+	<span title="播放指定文件（本地录音）" onclick="ASR('/cmpASR')" class="icon-mic-local2"></span>
+	<span title="播放指定文件（树莓派录音）" onclick="cmpASRsend()" class="icon-mic-station2"></span>
+</div>
+<div id="ASRframe" style="background-color: #333; position: absolute; opacity:0.8; color: white; font-size: x-large; font-weight: bold; top: 10%; left:10%; width:80%; height: 80%; overflow: scroll; display: none;">
+	<h1 style="text-align: center; background-color: #00f;">【对比语音识别系统】<span onclick="toggle_hide([ASRframe])" title="关闭" class="icon-squared-cross hand" style='float:right'></span></h1>
+	<table id="ASRtable" style="table-layout: fixed; width: 100%;"></table>
+</div>
 
 <script>
 const pass = () => {};
@@ -234,7 +244,8 @@ var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator
 
 // Set global object handles
 for(var vname of ['ovl', 'ovl2', 'menu1', 'menu2', 'menu3', 'menu4', 'menu5', 'list1', 'list2', 'list3', 'S2Tframe', 'T2Sframe', 'INFOframe', 'EDITframe', 'S2Tlang', 'sc',
-	'showAudioTracks', 'T2Slang', 'S2Ttext', 'T2Stext', 'S2Tmatch', 'recButton', 'QRcontainer', 'showSubtt', 'recButtons', 'flashmsg', 'controls', 'banner0', 'countDownMsg'])
+	'showAudioTracks', 'T2Slang', 'S2Ttext', 'T2Stext', 'S2Tmatch', 'recButton', 'QRcontainer', 'showSubtt', 'recButtons', 'flashmsg', 'controls', 'banner0', 'ASRframe',
+	'ASRtable', 'countDownMsg', 'icon_benchmark', 'recButtons2'])
 	window.eval(`var ${vname} = getById("${vname}")`);
 ctx = sc.getContext("2d");
 
@@ -363,9 +374,9 @@ var siriWave=null, g_stream, g_source=null;
 const wav_win = getById('waveform'), updateFreq = 5;
 RA = f => 12194 ** 2 * f ** 4 /((f ** 2 + 20.6 ** 2) * Math.sqrt((f ** 2 + 107.7 ** 2) * (f ** 2 + 737.9 ** 2)) * (f ** 2 + 12194 ** 2));
 A = f => 20 * Math.log10(RA(f)) + 2.0;
-var asr_prompts = ["请说出想要播放的媒体文件名称然后点击确定："];
-async function ASR(func=''){
-	asr_func = func;
+var asr_prompts = ["请说出想要播放的媒体文件名称然后点击确定："], asr_url = '';
+async function ASR(_asr_url=''){
+	asr_url = _asr_url;
 	v.last_pause_state = v.paused;
 	v.pause();
 	getById('asr_prompt').textContent = asr_prompts[0];
@@ -429,9 +440,7 @@ async function ASR(func=''){
 		//scale amplituded from [0, 128] to [0, 10].
 		siriWave.setAmplitude(amplitude / 128 * 10);
 	};
-
 	taskHandle = requestIdleCallback(updateAnimation, { timeout: 1000 / updateFreq });
-
 	audios = [];
 	recorder = new MediaRecorder(g_stream, {mimeType: 'audio/webm'});
 	recorder.ondataavailable = (e) => { audios.push(e.data); if(recorder.state=='inactive') onRecStop(); };
@@ -439,7 +448,7 @@ async function ASR(func=''){
 	recorder_timeout = setTimeout("StopRecorder()", 15000);
 }
 var flash_tmr;
-function show_flashmsg(msg, delay=2000){
+function show_flashmsg(msg, delay=3000){
 	flashmsg.style.display = 'block';
 	flashmsg.innerHTML = msg;
 	clearTimeout(flash_tmr);
@@ -454,15 +463,54 @@ function StopRecorder(use_recorded=false){
 	recorder.use_recorded = use_recorded;
 	recorder.stop();
 }
+var asrScores = [0,0,0];
+function initASRtable(obj){
+	recButtons2.style.display = 'block';
+	var major = Math.floor(75/obj.length), minor = Math.floor(25/obj.length);
+	var cg1 = `<col style="width:${minor}%;"><col style="width:${major}%;">`;
+	var html = '<colgroup>'+cg1.repeat(obj.length)+'</colgroup><tr>';
+	obj.sort().forEach((o,ii) => {html += `<th id="LB${ii}">0.0</th><th>${o}</th>`});
+	ASRtable.innerHTML = html + '</tr>';
+	asrScores = [0,0,0];
+}
+function addASRtable(obj){
+	var s = "", keys_sorted = Object.keys(obj).sort();
+	var v_min = Math.min(...keys_sorted.map(k=>obj[k].time))
+	keys_sorted.forEach((k,ii)=>{
+		var o = obj[k], color = o.found?'green':'red', best = (o.time==v_min?"style='background:limegreen'":"");
+		s += `<td ${best}>${o.time.toFixed(3)}</td><td style="background:${color}">${o.out.language}: ${o.out.text}</td>`;
+		// update Leader Board
+		asrScores[ii] += o.found;
+		asrScores[ii] -= (1-v_min/o.time)/2;
+		getById(`LB${ii}`).textContent = asrScores[ii].toFixed(2);
+	});
+	if(s) ASRtable.innerHTML += '<tr>'+s+'</tr>';
+	var idxmax = asrScores.indexOf(Math.max(...asrScores));
+	keys_sorted.forEach((k,ii)=>{getById(`LB${ii}`).style.background = (ii==idxmax?"limegreen":"");});
+}
+function cmpASRsend(blob=''){
+	v.last_pause_state = v.paused;
+	v.pause();
+	if(!blob) recButtons2.style.background="#f00";
+	fetch('/cmpASR', {method: 'POST', body: blob})
+	.then(r => r.json())
+	.then(r => addASRtable(r))
+	.catch(e => alert('Error:'+JSON.stringify(e)))
+	.finally(() => {recButtons2.style.background="";});
+}
 function onRecStop(){
 	disableMic();
 	if(!v.last_pause_state) v.play();
 	if(!recorder.use_recorded) return;
 	var blob = new Blob(audios, { type: "audio/webm" });
-	const req = new XMLHttpRequest();
-	req.open("POST", '/play_recorded/'+asr_dir, true);
-	req.onerror = (e)=>{ alert(req.responseText); }
-	req.send(blob);
+	if(asr_url)
+		cmpASRsend(blob);
+	else{
+		fetch('/play_recorded/'+asr_dir, {
+			method: 'POST',
+			body: blob
+		}).catch(e => alert('Error:'+JSON.stringify(e)));
+	}
 }
 function lsdir(tgtDir=null){
 	if(tgtDir=='.') tgtDir=decodeURI(v.src.split('/').slice(4,-1).join('/'));
@@ -546,10 +594,20 @@ function getCookie(cookieName, dft="") {
 	return dft;
 }
 function toggle_hide(objs){
-	var disp = objs[0].style.display=='none'?'block':'none';
-	for(var obj of objs) obj.style.display=disp;
-	if(objs.indexOf(S2Tframe)>=0)
-		document.cookie = `infoDisp=${disp}; path=/; max-age=31536000`;
+	for(var obj of objs){
+		var disp = obj.style.display = (obj.style.display=='none'?'inline-block':'none');
+		if(obj == S2Tframe){
+			document.cookie = `infoDisp=${disp}; path=/; max-age=31536000`;
+			icon_benchmark.style.display = disp;
+		}
+		if(obj == ASRframe){
+			recButtons2.style.display = disp;
+			if(disp!='none') fetch('/cmpASR')
+				.then(r => r.json())
+				.then(o => initASRtable(o))
+				.catch(e => alert('Error:'+JSON.stringify(e)));
+		}
+	}
 }
 function toggle_loop(val=null){
 	v.loop = val==null?(!v.loop):val;
@@ -913,11 +971,11 @@ function toggle_subtt(force = null){
 setvsrc("{{file_path|safe}}", {{cur_ii}});
 var edge_pad = Number(getComputedStyle(document.documentElement).getPropertyValue('--edge-pad').slice(0,-2));
 var scr_size = Math.max(screen.width, screen.height);
-document.styleSheets[0].cssRules[0].style.fontSize=`${scr_size/20}px`;
+document.styleSheets[0].cssRules[0].style.fontSize=`${scr_size/25}px`;
 setInterval(timerInc, 2000);
 requestMic();
 
-T2Sframe.style.display = S2Tframe.style.display = getCookie('infoDisp', 'none');
+T2Sframe.style.display = S2Tframe.style.display = icon_benchmark.style.display = getCookie('infoDisp', 'none');
 var menuIcon0Height = getById('menuIcon0').offsetHeight;
 var subtt_vert_posi = 0;
 function shiftSubtt(amount){
