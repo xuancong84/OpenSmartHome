@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Set LD_LIBRARY_PATH and re-run if not set
-import os, sys, ctypes
+import os, sys, ctypes, time
 from langcodes import find as LC_find
 
 def Try(*args):
@@ -48,14 +48,15 @@ UPLOAD_FOLDER = '/dev/shm/'
 ALLOWED_EXTENSIONS = {'m4a', 'mp3', 'wav'}
 
 app = Flask(__name__)
+app.url_map.strict_slashes = False
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 64*1024*1024
 M_ASR = M_VOS = args = None
 g_threads = {}
 
-
+@app.route('/run_asr', methods=['POST'])
 @app.route('/run_asr/<model>', methods=['POST'])
-def upload_file(model):
+def run_asr(model=0):
 	global M_ASR, UPLOAD_FOLDER
 	# check if the post request has the file part
 	if 'file' not in request.files:
@@ -63,13 +64,38 @@ def upload_file(model):
 	file = request.files['file']
 	file.save(os.path.join(app.config['UPLOAD_FOLDER'], file.filename))
 	try:
-		obj = M_ASR.transcribe(UPLOAD_FOLDER+file.filename)
+		obj = M_ASR[model].transcribe(UPLOAD_FOLDER+file.filename)
 		print(obj, file=sys.stderr)
 		return jsonify(obj), 200
 	except Exception as e:
 		traceback.print_exc()
 		return str(e), 500
 
+@app.route('/cmp_asr', methods=['POST', 'GET'])
+def cmp_asr():
+	global M_ASR, UPLOAD_FOLDER
+	if request.method == 'GET':
+		return jsonify([m.name for m in M_ASR]), 200
+	# check if the post request has the file part
+	if 'file' not in request.files:
+		return ''
+	file = request.files['file']
+	file.save(os.path.join(app.config['UPLOAD_FOLDER'], file.filename))
+	def transcribe(m):
+		t = time.perf_counter()
+		try:
+			out = m.transcribe(UPLOAD_FOLDER+file.filename)
+		except Exception as e:
+			out = f'Fail: {e}'
+		t = time.perf_counter()-t
+		return {'time': t, 'out': out}
+	try:
+		obj = {M.name:transcribe(M) for M in M_ASR}
+		print(obj, file=sys.stderr)
+		return jsonify(obj), 200
+	except Exception as e:
+		traceback.print_exc()
+		return str(e), 500
 
 @app.route('/run_task/<path:cmdline>')
 def run_task(cmdline):
@@ -233,29 +259,32 @@ def split_vocal():
 
 
 class ASR:
-	def __init__(self, model_name='', backend='', verbose=True) -> None:
-		bk_name, bk_bit = (backend.split(':')+['int8'])[:2]
+	def __init__(self, compo_name='', verbose=True) -> None:
+		bk_name, model_name, bk_bit = (compo_name.split(':')+['',''])[:3]
 		if bk_name == 'faster_whisper':
-			load_cudnn()
 			from faster_whisper import WhisperModel
 			model_name = model_name or 'large-v3'
-			self.model = WhisperModel(model_name, compute_type=bk_bit)
+			compute_type = bk_bit or 'int8'
+			self.model = WhisperModel(model_name, compute_type=compute_type)
 			self.transcribe = self._transcribe_faster_whisper
-			if verbose:print(f'Offline {backend} ASR model `{model_name}` loaded successfully ...', file=sys.stderr)
+			if verbose:print(f'Offline {bk_name} ASR model `{model_name}:{compute_type}` loaded successfully ...', file=sys.stderr)
+			self.name = ':'.join([bk_name, model_name, compute_type])
 		elif bk_name == 'whisper':
 			import whisper
 			model_name = model_name or 'large-v3'
 			self.model = whisper.load_model(model_name, in_memory=True)
 			self.transcribe = self._transcribe_whisper
-			if verbose:print(f'Offline {backend} ASR model `{model_name}` loaded successfully ...', file=sys.stderr)
+			if verbose:print(f'Offline {bk_name} ASR model `{model_name}` loaded successfully ...', file=sys.stderr)
+			self.name = ':'.join([bk_name, model_name])
 		elif bk_name == 'qwen':
 			from qwen_asr import Qwen3ASRModel
 			model_name = model_name or "Qwen/Qwen3-ASR-1.7B"
 			self.model = Qwen3ASRModel.from_pretrained(model_name, dtype=torch.float16, device_map="cuda", max_inference_batch_size=1, max_new_tokens=1024)
 			self.transcribe = self._transcribe_qwen
-			if verbose:print(f'Offline {backend} ASR model `{model_name}` loaded successfully ...', file=sys.stderr)
+			if verbose:print(f'Offline {bk_name} ASR model `{model_name}` loaded successfully ...', file=sys.stderr)
+			self.name = ':'.join([bk_name, model_name])
 		else:
-			if verbose:print(f'Unknown backend {backend}, offline ASR model not loaded', file=sys.stderr)
+			if verbose:print(f'Unknown ASR model {compo_name}, offline ASR model not loaded', file=sys.stderr)
 
 	def __bool__(self):
 		return hasattr(self, 'model')
@@ -282,8 +311,7 @@ if __name__ == '__main__':
 			formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument('--ip', '-i', default='0.0.0.0', help='select the interface to listen on')
 	parser.add_argument('--port', '-p', type=int, default=8882, help='server port number')
-	parser.add_argument('--asr-model', '-am', default='', help='ASR model to load')
-	parser.add_argument('--asr-backend', '-ab', default='whisper', help='ASR backend: whisper, faster_whisper:float32, faster_whisper:int8 (default), qwen, ...')
+	parser.add_argument('--asr-models', '-am', default=[], help='ASR models to load, each in the form "backend:model_name:dtype", e.g., whisper:medium, faster_whisper:large-v3:int8, qwen:Qwen/Qwen3-ASR-1.7B, etc.', action='append')
 	parser.add_argument('--vocal-splitter', '-vs', help='whether to load vocal splitter model', action='store_true')
 	parser.add_argument('--gpu', '-g', type = int, help = 'CUDA device ID for GPU inference, set to -1 to force to use CPU (default will try to use GPU if available)', default = None)
 	parser.add_argument('--pretrained_model', '-P', type = str, default = 'models/baseline.pth')
@@ -300,7 +328,10 @@ if __name__ == '__main__':
 	args=parser.parse_args()
 	globals().update(vars(args))
 
-	M_ASR = ASR(asr_model, backend=asr_backend)
+	if [1 for asr_model in asr_models if asr_model.startswith('faster_whisper')]:
+		load_cudnn()
+
+	M_ASR = [ASR(asr_model) for asr_model in asr_models]
 
 	if asr_in:
 		print(M_ASR.transcribe(asr_in), file=sys.stderr)

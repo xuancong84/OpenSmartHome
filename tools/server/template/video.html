@@ -54,6 +54,7 @@ h1 {
 	font-size: larger;
 	font-weight: bolder;
 }
+table, th, td {border: 1px solid black;}
 .playmenu {
 	position: fixed;
 	left: 50%;
@@ -205,7 +206,7 @@ h1 {
 	<div id="INFOframe" style="overflow: scroll; width: 100%; height: 100%; white-space: pre;"></div>
 </div>
 <div id="S2Tframe" style="background-color: #04AA6D; position: absolute; opacity:0.8; font-size: x-large; font-weight: bold; top: 30%; left:5%; width:20%;">
-	<h1>【语音识别详情】</h1>
+	<h1>【语音识别详情】<span onclick="toggle_hide([ASRframe, S2Tframe, T2Sframe])" title="评测对比语音识别系统" class="icon-benchmark hand"></span></h1>
 	<h1>语种：<span id="S2Tlang">{{S2T_lang}}</span></h1>
 	<h1 class="vsb">识别文本：<br><span id="S2Ttext">{{S2T_text}}</span></h1>
 	<h1 class="vsb">匹配文件名：<br><span id="S2Tmatch">{{S2T_match}}</span></h1>
@@ -214,6 +215,14 @@ h1 {
 	<h1>【语音合成详情】</h1>
 	<h1>语种：<span id="T2Slang">{{T2S_lang}}</span></h1>
 	<h1 class="vsb">文本：<br><span id="T2Stext">{{T2S_text}}</span></h1>
+</div>
+<div id="recButtons2" class="overlay" style="left:25%; top:0; position:absolute; display: none;" >
+	<span id="recButton" title="播放指定文件（本地录音）" onclick="ASR()" class="icon-mic-local2"></span>
+	<span title="播放指定文件（树莓派录音）" onclick="ws_send('cmpASR-rec')" class="icon-mic-station2"></span>
+</div>
+<div id="ASRframe" style="background-color: #04AA6D; position: absolute; opacity:0.8; color: white; font-size: x-large; font-weight: bold; top: 10%; left:10%; width:80%; height: 80%; overflow: scroll;">
+	<h1 style="text-align: center">【对比语音识别系统】<span onclick="toggle_hide([ASRframe])" title="关闭" class="icon-squared-cross hand" style='float:right'></span></h1>
+	<table id="ASRtable" style="table-layout: fixed; width: 100%;"></table>
 </div>
 
 <script>
@@ -234,7 +243,8 @@ var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator
 
 // Set global object handles
 for(var vname of ['ovl', 'ovl2', 'menu1', 'menu2', 'menu3', 'menu4', 'menu5', 'list1', 'list2', 'list3', 'S2Tframe', 'T2Sframe', 'INFOframe', 'EDITframe', 'S2Tlang', 'sc',
-	'showAudioTracks', 'T2Slang', 'S2Ttext', 'T2Stext', 'S2Tmatch', 'recButton', 'QRcontainer', 'showSubtt', 'recButtons', 'flashmsg', 'controls', 'banner0', 'countDownMsg'])
+	'showAudioTracks', 'T2Slang', 'S2Ttext', 'T2Stext', 'S2Tmatch', 'recButton', 'QRcontainer', 'showSubtt', 'recButtons', 'flashmsg', 'controls', 'banner0', 'ASRframe',
+	'ASRtable', 'countDownMsg'])
 	window.eval(`var ${vname} = getById("${vname}")`);
 ctx = sc.getContext("2d");
 
@@ -545,11 +555,20 @@ function getCookie(cookieName, dft="") {
 	}
 	return dft;
 }
+function initASRtable(){
+	getById('recButtons2').style.display = 'block';
+	ws_send('cmpASR-ls');
+}
 function toggle_hide(objs){
-	var disp = objs[0].style.display=='none'?'block':'none';
-	for(var obj of objs) obj.style.display=disp;
-	if(objs.indexOf(S2Tframe)>=0)
-		document.cookie = `infoDisp=${disp}; path=/; max-age=31536000`;
+	for(var obj of objs){
+		var disp = obj.style.display = (obj.style.display=='none'?'block':'none');
+		if(obj == S2Tframe)
+			document.cookie = `infoDisp=${disp}; path=/; max-age=31536000`;
+		if(obj == ASRframe){
+			document.cookie = `compDisp=${disp}; path=/; max-age=31536000`;
+			disp=='none' ? toggle_hide([getById('recButtons2')]) : initASRtable();
+		}
+	}
 }
 function toggle_loop(val=null){
 	v.loop = val==null?(!v.loop):val;
@@ -918,6 +937,8 @@ setInterval(timerInc, 2000);
 requestMic();
 
 T2Sframe.style.display = S2Tframe.style.display = getCookie('infoDisp', 'none');
+ASRframe.style.display = getCookie('compDisp', 'none');
+if(ASRframe.style.display!='none') initASRtable();
 var menuIcon0Height = getById('menuIcon0').offsetHeight;
 var subtt_vert_posi = 0;
 function shiftSubtt(amount){

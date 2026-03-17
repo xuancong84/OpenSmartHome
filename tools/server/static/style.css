@@ -1,10 +1,10 @@
 @font-face {
   font-family: 'icomoon';
-  src:  url('fonts/icomoon.eot?419htw');
-  src:  url('fonts/icomoon.eot?419htw#iefix') format('embedded-opentype'),
-    url('fonts/icomoon.ttf?419htw') format('truetype'),
-    url('fonts/icomoon.woff?419htw') format('woff'),
-    url('fonts/icomoon.svg?419htw#icomoon') format('svg');
+  src:  url('fonts/icomoon.eot?tckjpr');
+  src:  url('fonts/icomoon.eot?tckjpr#iefix') format('embedded-opentype'),
+    url('fonts/icomoon.ttf?tckjpr') format('truetype'),
+    url('fonts/icomoon.woff?tckjpr') format('woff'),
+    url('fonts/icomoon.svg?tckjpr#icomoon') format('svg');
   font-weight: normal;
   font-style: normal;
   font-display: block;
@@ -27,6 +27,15 @@
 
 .icon-level-up1:before {
   content: "\e90c";
+}
+.icon-mic-local2:before {
+  content: "\e912";
+}
+.icon-mic-station2:before {
+  content: "\e913";
+}
+.icon-squared-cross:before {
+  content: "\e911";
 }
 .icon-sound-tracks:before {
   content: "\e900";
@@ -57,6 +66,9 @@
 }
 .icon-level-up:before {
   content: "\f148";
+}
+.icon-benchmark:before {
+  content: "\f24e";
 }
 .icon-live_tv:before {
   content: "\e90f";

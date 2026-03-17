@@ -17,7 +17,12 @@ def Open(fn, mode='r', **kwargs):
 	if fn == '-':
 		return sys.stdin if mode.startswith('r') else sys.stdout
 	fn = expand_path(fn)
-	return gzip.open(fn, mode, **kwargs) if fn.lower().endswith('.gz') else open(fn, mode, **kwargs)
+	# Read the first two bytes to check for gzip magic number
+	is_gzip = True
+	if 'r' in mode:
+		with open(fn, 'rb') as f:
+			is_gzip = f.read(2) == b'\x1f\x8b'
+	return gzip.open(fn, mode, **kwargs) if fn.lower().endswith('.gz') and is_gzip else open(fn, mode, **kwargs)
 
 transl_lower = lambda t: unidecode(t).lower()
 TransNatSort = lambda lst: natsorted(lst, key=transl_lower)

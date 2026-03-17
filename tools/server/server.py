@@ -8,6 +8,7 @@ import pandas as pd
 from collections import *
 from io import StringIO
 from flask import Flask, request, send_from_directory, render_template, send_file
+from flask.logging import default_handler
 from flask_sock import Sock
 from unidecode import unidecode
 from gtts import gTTS
@@ -27,6 +28,8 @@ isIP = _regex_ip.match
 app = Flask(__name__, template_folder='template')
 app.url_map.strict_slashes = False
 app.config['TEMPLATES_AUTO_RELOAD'] = True	##DEBUG
+app.logger.removeHandler(default_handler)
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
 sock = Sock(app)
 get_volume = lambda: RUN("amixer get Master | awk -F'[][]' '/Left:/ { print $2 }'").rstrip('%\n')
 ping = lambda ip: os.system(f'ping -W 1 -c 1 {ip}')==0
@@ -35,7 +38,6 @@ inst = vlc.Instance()
 event = vlc.EventType()
 ev_mutex = threading.Event()
 ev_reply = None
-asr_model = None
 asr_input = DEFAULT_S2T_SND_FILE
 player = None
 playlist = None
@@ -51,6 +53,7 @@ g_last_speak_time = 0
 g_last_speak_popen = None
 isJustAfterBoot = True if sys.platform=='darwin' else float(open('/proc/uptime').read().split()[0])<120
 random.seed(time.time())
+M_ASR = []
 ASR_server_running = ASR_cloud_running = False
 lang_detector = LanguageDetectorBuilder.from_languages(*lang2id.keys()).build()
 
@@ -65,10 +68,10 @@ last_save_time = time.time()
 def save_playstate(obj, lazy=False):
 	if (not lazy) or (time.time()-last_save_time>3600):
 		prune_dict(obj)
-		with Open(PLAYSTATE_FILE+'.tmp', 'wt') as fp:
+		with Open(PLAYSTATE_FILE+'.tmp.gz', 'wt') as fp:
 			obj.to_json(fp, indent=1)
 		last_save_time = time.time()
-		os.rename(PLAYSTATE_FILE+'.tmp', PLAYSTATE_FILE)
+		os.rename(PLAYSTATE_FILE+'.tmp.gz', PLAYSTATE_FILE)
 
 os.save_state = lambda: save_playstate(ip2tvdata)
 get_base_url = lambda: f'{"https" if ssl else "http"}://{local_IP}:{port}'
@@ -106,10 +109,13 @@ last_request_from, last_request_url, last_request_time = None, None, 0
 @app.before_request
 def common_prefilter():
 	global last_request_from, last_request_url, last_request_time
+	r, tms = request, str(pd.Timestamp.now())[:21]
+	app.logger.critical(f'[{tms}] FROM:{r.remote_addr} {r.method} {r.path} DATA:{r.data[:20]}')
 	if request.method=='GET':
-		if last_request_from!=request.remote_addr and last_request_url==request.url and time.time()-last_request_time<RL_MAX_DELAY:
+		if last_request_from!=r.remote_addr and last_request_url==r.url and time.time()-last_request_time<RL_MAX_DELAY:
+			app.logger.critical(f'[{tms}] IGNORED 204 lastReqFrom={last_request_from} lastReqTime={last_request_time}')
 			return 'Ignored', 204
-		last_request_from, last_request_url, last_request_time = request.remote_addr, request.url, time.time()
+		last_request_from, last_request_url, last_request_time = r.remote_addr, r.url, time.time()
 
 # Detect language, invoke Google-translate TTS and play the speech audio
 def prepare_TTS(txt, lang_id=None, fn=DEFAULT_T2S_SND_FILE):
@@ -948,6 +954,15 @@ def tv_wscmd(name, cmd):
 			ws.send('QRcontainer.style.display="none";')
 		elif cmd == 'play_spoken':
 			play_spoken(name)
+		elif cmd == 'cmpASR-ls':
+			r = requests.get(ASR_CLOUD_ENDP+'/cmp_asr', timeout=ASR_CLOUD_TIMEOUT)
+			obj = json.loads(r.text)
+			th = f"<th style='width:{100//len(obj)}%'>"
+			js = 'ASRtable.innerHTML="<tr>'+''.join([f"{th}{o}</th>" for o in obj])+'</tr>"'
+			ws.send(js)
+		elif cmd == 'cmpASR-rec':
+			r = requests.post(ASR_CLOUD_ENDP+'/cmp_asr', timeout=ASR_CLOUD_TIMEOUT)
+			aa=5
 		elif cmd.startswith('report_title '):
 			report_title(name, cmd.split(' ', 1)[1])
 		elif cmd.startswith('mark '):
@@ -1112,7 +1127,7 @@ def record_audio_for_duration(tm_sec=5, file_path=DEFAULT_S2T_SND_FILE):
 # For ASR server
 def get_ASR_offline(audio_fn=asr_input):
 	try:
-		obj = asr_model.transcribe(audio_fn)
+		obj = M_ASR[0].transcribe(audio_fn)
 		return obj
 	except Exception as e:
 		traceback.print_exc()
@@ -1121,7 +1136,7 @@ def get_ASR_offline(audio_fn=asr_input):
 def get_ASR_online(audio_fn=asr_input):
 	try:
 		with Open(audio_fn, 'rb') as f:
-			r = requests.post(ASR_CLOUD_URL, files={'file': f}, timeout=ASR_CLOUD_TIMEOUT)
+			r = requests.post(f'{ASR_CLOUD_ENDP}/run_asr', files={'file': f}, timeout=ASR_CLOUD_TIMEOUT)
 		return json.loads(r.text) if r.status_code==200 else {}
 	except Exception as e:
 		traceback.print_exc()
@@ -1169,7 +1184,7 @@ class VoicePrompt:
 
 # This function might take very long time, must be run in a separate thread
 def recog_and_do(prompt, tv_name, path_name, handler, url_root='', audio_file=DEFAULT_S2T_SND_FILE, **kwargs):
-	global player, asr_model, ASR_cloud_running, ASR_server_running
+	global player, M_ASR, ASR_cloud_running, ASR_server_running
 
 	with VoicePrompt(tv_name, prompt) as context:
 		# record speech
@@ -1180,23 +1195,23 @@ def recog_and_do(prompt, tv_name, path_name, handler, url_root='', audio_file=DE
 
 		# try cloud ASR
 		asr_output = None
-		if ASR_CLOUD_URL and not ASR_cloud_running:
+		if ASR_CLOUD_ENDP and not ASR_cloud_running:
 			ASR_cloud_running = True
 			asr_output = get_ASR_online(audio_file)
 			ASR_cloud_running = False
 
 		# try offline ASR if cloud ASR fails
 		if type(asr_output)==str or not asr_output:
-			if not asr_model:
-				return play_audio('voice/offline_asr_not_available.mp3', True, tv_name) if prompt else "Offline ASR not available!"
+			if not M_ASR:
+				return play_audio('voice/offline_asr_not_available.mp3', True, tv_name) if prompt else tv_wscmd(tv_name, "show_flashmsg('Offline ASR not available!')")
 			if ASR_server_running:
-				return play_audio('voice/unfinished_offline_asr.mp3', True, tv_name) if prompt else "Another offline ASR is running!"
+				return play_audio('voice/unfinished_offline_asr.mp3', True, tv_name) if prompt else tv_wscmd(tv_name, "show_flashmsg('Another offline ASR is running!')")
 			run_thread(lambda: [play_audio('voice/wait_for_asr.mp3', True, tv_name), context.restore()])
 			asr_output = get_ASR_offline(audio_file)
 
 		print(f'ASR result: {asr_output}', file=sys.stderr)
 		if asr_output=={} or type(asr_output)==str:
-			return play_audio('voice/asr_error.mp3', True, tv_name) if prompt else f"ASR error: {asr_output}"
+			return play_audio('voice/asr_error.mp3', True, tv_name) if prompt else tv_wscmd(tv_name, f"show_flashmsg('ASR error: {asr_output}')")
 		else:
 			return handler(asr_output, tv_name, prompt, path_name, url_root.rstrip('/'), **kwargs)
 os.recog_and_do = recog_and_do
@@ -1303,7 +1318,7 @@ def ecovacs(name='', cmd=''):
 # For ceiling fan control
 # autoFanOn levels exclude off state; autoFan levels include keeping the fan off
 # `level` ranges from 1 to # of speed levels, 0 means off, None means auto
-last_fan_tms = defaultdict(lambda:0)
+last_fan_tms = defaultdict(lambda:0)	# the last time when fan level is auto determined to be on
 def autoFanLevel(name, level, forceOn):
 	global last_fan_tms
 	tms = time.time()
@@ -1321,6 +1336,7 @@ def autoFanLevel(name, level, forceOn):
 			execRC(fan_cmds['LEVELS'][level-1])
 			if 'S_LEVELS' in fan_cmds:
 				play_ASRchip_voice(fan_cmds['S_LEVELS'][level-1])
+			last_fan_tms[name] = tms
 		else:
 			if 'S_OFF' in fan_cmds:
 				play_ASRchip_voice(fan_cmds['S_OFF'])
@@ -1330,7 +1346,6 @@ def autoFanLevel(name, level, forceOn):
 		if level or (level==0 and tms-last_fan_tms[name]<100):
 			fan_model.add_data(wt['temperature'], wt['humidity'], level)
 			fan_model.train().save()
-	last_fan_tms[name] = tms
 
 @app.route('/autoFan/<name>')
 @app.route('/autoFan/<name>/<int:level>')
@@ -1520,14 +1535,14 @@ def voice_cmd(hub_pfx):
 		assert audio_file
 
 		# try cloud ASR
-		if ASR_CLOUD_URL and not ASR_cloud_running:
+		if ASR_CLOUD_ENDP and not ASR_cloud_running:
 			ASR_cloud_running = True
 			asr_output = get_ASR_online(audio_file)
 			ASR_cloud_running = False
 
 		# try offline ASR if cloud ASR fails
 		if type(asr_output)==str or not asr_output:
-			if asr_model == None:
+			if not M_ASR:
 				return 'Offline ASR not enabled'
 			if ASR_server_running:
 				return 'Unfinished offline ASR'
@@ -1587,9 +1602,7 @@ if __name__ == '__main__':
 			formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument('--port', '-p', type=int, default=8883, help='server port number')
 	parser.add_argument('--ssl', '-ssl', help='server port number', action='store_true')
-	parser.add_argument('--asr', '-a', default='auto', help='load local ASR model: yes, no, auto (default: yes if ASR_CLOUD_URL is empty)')
-	parser.add_argument('--asr-backend', '-ab', default='faster_whisper:int8', help='ASR backend: whisper, distil-large-v3:int8, faster_whisper:float32, faster_whisper:int8 (default), ...')
-	parser.add_argument('--asr-model', '-am', default='base', help='ASR model to load: tiny, base (default), small, medium, large, ...')
+	parser.add_argument('--asr-models', '-am', default=[], help='ASR models to load, each in the form "backend:model_name:dtype", e.g., whisper:medium, faster_whisper:large-v3:int8, qwen:Qwen/Qwen3-ASR-1.7B, etc.', action='append')
 	parser.add_argument('--no-console', '-nc', help='do not open console', action='store_true')
 	parser.add_argument('--no-xauth', '-nx', help='do not xauth add magic key', action='store_true')
 	parser.add_argument('--hide-subtitle', '-nosub', help='whether to hide subtitles', action='store_true')
@@ -1611,8 +1624,7 @@ if __name__ == '__main__':
 	else:
 		cookies_opt = ['--cookies-from-browser', browser_cookies]
 
-	if asr.lower().startswith('y') or (asr=='auto' and not ASR_CLOUD_URL):
-		asr_model = ASR(model_name=asr_model, backend=asr_backend, verbose=True)
+	M_ASR = [ASR(asr_model) for asr_model in asr_models]
 
 	os.url_root = f'http://{get_local_IP()}:{port}'
 
