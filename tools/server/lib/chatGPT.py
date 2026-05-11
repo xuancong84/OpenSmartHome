@@ -162,6 +162,7 @@ def get_sys_prompt():
 	ret = SYSTEM_PROMPT_PREFIX
 	for name, url in HUBS.items():
 		ret += f"\nHub name: {name}\n"
-		cmd_tbl = parseRC(os.get_http(url+'/rc_load')[0])
-		ret += '\n'.join([f'{its[0]}\t{its[1]}' for its in cmd_tbl if (its[0] and not its[0].isdigit())]) + '\n'
+		cmd_tbl = parseRC(os.get_http(url+'/rc_load', timeout=3)[0])
+		if cmd_tbl:
+			ret += '\n'.join([f'{its[0]}\t{its[1]}' for its in cmd_tbl if (its[0] and not its[0].isdigit())]) + '\n'
 	return ret

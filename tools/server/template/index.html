@@ -607,7 +607,7 @@ function dragStart(event){
   lastPosition.left = event.target.clientX;
   lastPosition.top = event.target.clientY;
   dragHandleEl.classList.add('dragging');
-  dragHandleEl.addEventListener('mousemove', dragMove);
+  document.addEventListener('mousemove', dragMove);
 }
 function dragMove(event){
   const dragElRect = dragEl.getBoundingClientRect();
@@ -625,7 +625,7 @@ function getDraggableAncestor(element){
 }
 function dragEnd(){
   dragHandleEl.classList.remove('dragging');
-  dragHandleEl.removeEventListener('mousemove',dragMove);
+  document.removeEventListener('mousemove',dragMove);
   dragEl = null;
 }
 function resolveMic(clicked=false) {

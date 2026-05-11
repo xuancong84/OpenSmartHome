@@ -7,7 +7,7 @@ import vlc, signal, qrcode, qrcode.image.svg
 import pandas as pd
 from collections import *
 from io import StringIO
-from flask import Flask, Response, request, send_from_directory, render_template, send_file
+from flask import Flask, Response, request, send_from_directory, send_file, render_template, render_template_string
 from flask.logging import default_handler
 from flask_sock import Sock
 from unidecode import unidecode
@@ -121,6 +121,7 @@ def common_prefilter():
 def prepare_TTS(txt, lang_id=None, fn=DEFAULT_T2S_SND_FILE):
 	lang_id = lang_id or Try(lambda: lang2id[lang_detector.detect_language_of(txt)], 'km')
 	LOG(f'TTS txt="{txt}" lang_id={lang_id}')
+	Try(lambda: os.makedirs(os.path.dirname(fn), exist_ok=True))
 	try:
 		tts = gTTS(txt, lang=lang_id)
 		tts.save(fn+'.mp3')
@@ -211,7 +212,7 @@ def get_index_page():
 
 @tool
 @app.route('/get_http/<path:url>')
-def get_http(url):
+def get_http(url, timeout=None):
 	"""Send HTTP request to the given URL
 
 	Args:
@@ -221,7 +222,7 @@ def get_http(url):
 		(str, int): response text and status code
 	"""
 	try:
-		res = requests.get(url if url.startswith('http://') else f'http://{url}')
+		res = requests.get(url if url.startswith('http://') else f'http://{url}', timeout=timeout)
 	except:
 		return '', 404
 	return res.text, res.status_code
@@ -1337,6 +1338,65 @@ def cmpASR(rel_path=''):
 	except:
 		ws.send(f'alert("{traceback.format_exc()}")')
 
+@app.route('/audio_cache/<path:rel_path>')
+def serve_audio(rel_path):
+	target_path = os.path.join(AUDIO_CACHE_DIR, rel_path)
+	if not os.path.isfile(target_path):
+		prepare_TTS(os.path.basename(target_path).split('.')[0], fn=target_path)
+	return send_file(target_path)
+
+@app.route('/speak_file/')
+@app.route('/speak_file/<path:subpath>')
+def speak_file(subpath=""):
+	# Security: Ensure we stay inside BASE_DIR
+	target_path = os.path.normpath(os.path.join(SHARED_PATH, subpath))
+	if not target_path.startswith(SHARED_PATH.rstrip('/')):
+		return "Access Denied", 403
+
+	if not os.path.isdir(target_path):
+		return "Folder not found", 404
+
+	folder_contents = []
+	for item in os.listdir(target_path):
+		item_path = os.path.join(target_path, item)
+		is_dir = os.path.isdir(item_path)
+		
+		# Prepare item data
+		item_data = {
+			"name": item,
+			"is_dir": is_dir,
+			"rel_path": os.path.join(subpath, item).replace("\\", "/")
+		}
+
+		if not is_dir:
+			base_name = os.path.splitext(item)[0]
+			audio_filename = base_name + ".mp3"
+			item_data["audio_url"] = '/audio_cache/'+audio_filename
+
+		folder_contents.append(item_data)
+
+	# Simple HTML template to handle logic
+	template = """
+	<h1>Browsing: /{{ subpath }}</h1>
+	<ul>
+		{% if subpath %}
+			<li><a href="{{ '/speak_file/'+'/'.join(subpath.split('/')[:-1]) }}">.. (parent folder)</a></li>
+		{% endif %}
+		
+		{% for item in contents %}
+			<li>
+				{% if item.is_dir %}
+					📁 <a href="{{ '/speak_file/'+item.rel_path }}">{{ item.name }}/</a>
+				{% else %}
+					📄 <a href="#" onclick="new Audio('{{ item.audio_url }}').play(); return false;">{{ item.name }}</a>
+				{% endif %}
+			</li>
+		{% endfor %}
+	</ul>
+	"""
+	return render_template_string(template, contents=folder_contents, subpath=subpath)
+
+
 # For Ecovacs
 @app.route('/ecovacs', defaults={'name': '', 'cmd':''})
 @app.route('/ecovacs/<name>/<cmd>')
@@ -1373,7 +1433,8 @@ def autoFanLevel(name, level, forceOn):
 	else:
 		if level or (level==0 and tms-last_fan_tms[name]<100):
 			fan_model.add_data(wt['temperature'], wt['humidity'], level)
-			fan_model.train().save()
+			fan_model.train()
+			fan_model.save()
 
 @app.route('/autoFan/<name>')
 @app.route('/autoFan/<name>/<int:level>')

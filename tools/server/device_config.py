@@ -12,7 +12,7 @@ KTV_SPEAKER_OFF={'protocol':'BLE', 'data': '0201011bffff00ee1bc878f64a4491562fb4
 KTV_SCREEN='livingTV:HDMI_2'
 KTV_EXEC='~/projects/pikaraoke/run-cloud.sh'
 GAME_SCREEN='livingTV:HDMI_2'
-MP3_SPEAKER='54:B7:E5:9E:F4:14'
+MP3_SPEAKER='54:15:89:25:FB:C3'
 MP3_OFF_DELAY=200	# turn off MP3 speaker after this seconds
 MP3_DFTLIST='Desktop/musics.m3u'
 MP4_SPEAKER=['hdmi', 'audio.stereo']
@@ -30,6 +30,7 @@ DRAMA_DURATION_TH=1200	# duration threshold for whether to track the last movie/
 LG_TV_CONFIG_FILE='~/.lgtv/config.json'
 LG_TV_BIN='./miniconda3/bin/lgtv --ssl'
 SHARED_PATH='~/Public'
+AUDIO_CACHE_DIR=SHARED_PATH+'/.cache/voices'
 DOWNLOAD_PATH=SHARED_PATH+'/Download'
 NN_MODEL_PATH='./models'
 GPS_LOCATION=[1.305632, 103.781368]
@@ -46,6 +47,7 @@ HUBS={}
 sys.DEBUG_LOG = True
 SHARED_PATH = expand_path(SHARED_PATH).rstrip('/')+'/'
 DOWNLOAD_PATH = expand_path(DOWNLOAD_PATH)
+AUDIO_CACHE_DIR = expand_path(AUDIO_CACHE_DIR)+'/'
 TV_LIST = {
 	'客厅电视机': 'livingTV',
 	'主人房电视机': 'masterTV',
