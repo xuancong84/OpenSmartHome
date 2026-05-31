@@ -563,7 +563,8 @@ def pair_ble(dev_mac):
 	os.system(f'bluetoothctl --timeout 8 pair {dev_mac}' if sys.platform=='linux' else f'blueutil --timeout 8 --pair {dev_mac}')
 	return is_ble_paired(dev_mac)
 
-def is_ble_connected(dev_mac):
+def is_ble_connected(ble_dev):
+	dev_mac = ble_dev.get('mac', '') if type(ble_dev)==dict else ble_dev
 	ret = RUN(f'bluetoothctl devices Connected' if sys.platform=='linux' else f'blueutil --devices Connected')
 	return bool([L for L in ret.upper().splitlines() if dev_mac.upper() in L])
 
@@ -1026,22 +1027,31 @@ def _off_speaker_delayed():
 	g_last_speak_time = 0
 os._off_speaker_delayed = _off_speaker_delayed
 
-def set_audio_device(devs, wait=3):
-	for dev in (devs if type(devs)==list else [devs]):
-		for i in range(wait+1):
-			patn = dev
-			if dev.count(':')==5:
-				connectble(dev)
-				patn = dev.replace(':', '_')
-				time.sleep(1)
-			out = [L.split() for L in list_sinks().splitlines()]
-			res = [its[0] for its in out if patn in its[1]]
-			if res:
-				return os.system(f'pactl set-default-sink {res[0]}')==0
+def set_audio_device(dev, wait=3):
+	for i in range(wait+1):
+		if type(dev) == dict:
+			if dev.get('on', ''):
+				return Invoke(dev['on'], lambda: set_audio_device(dev['mac'], wait=wait))
+			dev = dev.get('mac', '')
+		patn = dev
+		if dev.count(':')==5:
+			connectble(dev)
+			patn = dev.replace(':', '_')
+			time.sleep(1)
+		out = [L.split() for L in list_sinks().splitlines()]
+		res = [its[0] for its in out if patn in its[1]]
+		if res:
+			return os.system(f'pactl set-default-sink {res[0]}')==0
 	return (os.system(f'pactl set-default-sink {out[0][0]}')==0) if out else False
 
 def unset_audio_device(devs):
 	for dev in (devs if type(devs)==list else [devs]):
+		if type(dev) == dict:
+			if dev.get('off', ''):
+				Invoke(dev['off'])
+				continue
+			else:
+				dev = dev.get('mac', '')
 		if dev.count(':')==5:
 			disconnectble(dev)
 	return True
