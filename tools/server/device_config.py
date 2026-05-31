@@ -6,13 +6,36 @@ from collections import defaultdict
 from lib.utils import *
 
 # all fields must be set, if absent put ''
+MediaDevices = {
+	'LGspeaker': {
+		'type': 'bluetooth',
+		'mac': '54:15:89:25:FB:C3',
+		'on': [None, 'sudo external/lg_xboom_ctl.py set_rgb'],
+		'off': 'sudo external/lg_xboom_ctl.py enter_standby'
+	},
+	'KTVspeaker': {
+		'type': 'bluetooth',
+		'mac': '10:3C:88:17:20:78',
+		'on': {'protocol':'BLE', 'data': '0201011bffff00ee1bc878f64a4491542fb40e6e1b2120a5443c1ea5e2a6dd'},
+		'off': {'protocol':'BLE', 'data': '0201011bffff00ee1bc878f64a4491562fb40e6ecaf0f38b95edcf743364c4'},
+	},
+	'livingTV': {
+
+	},
+	'masterTV': {
+
+	},
+	'commonTV': {
+
+	}
+}
 KTV_SPEAKER='10:3C:88:17:20:78'
 KTV_SPEAKER_ON={'protocol':'BLE', 'data': '0201011bffff00ee1bc878f64a4491542fb40e6e1b2120a5443c1ea5e2a6dd'}
-KTV_SPEAKER_OFF={'protocol':'BLE', 'data': '0201011bffff00ee1bc878f64a4491562fb40e6ecaf0f38b95edcf743364c4'}
+KTV_SPEAKER_OFF=['time.sleep(1)', {'protocol':'BLE', 'data': '0201011bffff00ee1bc878f64a4491562fb40e6ecaf0f38b95edcf743364c4'}]
 KTV_SCREEN='livingTV:HDMI_2'
 KTV_EXEC='~/projects/pikaraoke/run-cloud.sh'
 GAME_SCREEN='livingTV:HDMI_2'
-MP3_SPEAKER='54:15:89:25:FB:C3'
+MP3_SPEAKER={'mac':'54:15:89:25:FB:C3', 'on':[None, 'sudo external/lg_xboom_ctl.py set_rgb'], 'off':'sudo external/lg_xboom_ctl.py enter_standby'}
 MP3_OFF_DELAY=200	# turn off MP3 speaker after this seconds
 MP3_DFTLIST='Desktop/musics.m3u'
 MP4_SPEAKER=['hdmi', 'audio.stereo']
@@ -38,7 +61,7 @@ MAX_WALK_LEVEL=2
 ASR_CLOUD_ENDP='http://localhost:8883'
 ASR_CLOUD_TIMEOUT=15
 VAD_THRESHOLD=0.5
-VOICE_VOL=defaultdict(lambda: None, {None: 60})
+VOICE_VOL=defaultdict(lambda: None, {None: 50})
 STD_VOL_DBFS=-21	# for volume normalization on media files
 RL_MAX_DELAY=3		# if multiple ASR hubs hear the same voice and send the same request within this seconds, ignore subsequent ones
 CUSTOM_CMDLINES={}

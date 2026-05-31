@@ -24,6 +24,16 @@ def Open(fn, mode='r', **kwargs):
 			is_gzip = f.read(2) == b'\x1f\x8b'
 	return gzip.open(fn, mode, **kwargs) if fn.lower().endswith('.gz') and is_gzip else open(fn, mode, **kwargs)
 
+def Invoke(obj, func: callable = lambda:None):
+	if type(obj) == list:
+		return [Invoke(o) for o in obj]
+	if callable(obj):
+		return obj()
+	elif type(obj) == str:
+		return os.system(obj)
+	elif obj is None:
+		return Try(func)
+
 transl_lower = lambda t: unidecode(t).lower()
 TransNatSort = lambda lst: natsorted(lst, key=transl_lower)
 expand_path = lambda t: os.path.expandvars(os.path.expanduser(t))

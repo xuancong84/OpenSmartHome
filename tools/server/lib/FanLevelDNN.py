@@ -92,7 +92,7 @@ class FanLevelDNN(nn.Module):
 
 		while len(self.data) > self.N_max_data_per_class:
 			for i, d1 in enumerate(self.data):
-				if len([1 for D1 in self.data if D1['fan_level']==d1['fan_level']]) > N_min_data_per_class:
+				if len([1 for D1 in self.data if D1['fan_level']==d1['fan_level']]) > self.N_min_data_per_class:
 					self.data.pop(i)
 					break
 

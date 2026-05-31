@@ -1,3 +1,7 @@
+pandas
+googletrans
+sounddevice
+silero_vad
 hanziconv
 jionlp
 pydub
@@ -22,6 +26,10 @@ qrcode
 tinytuya
 strands-agents[openai]
 strands-agents-tools
+torch
+torchaudio
+torchvision
+
 
 # below are optional
 ipython

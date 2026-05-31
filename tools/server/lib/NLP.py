@@ -8,7 +8,7 @@ from strands import Agent
 from strands.tools import tool
 from unidecode import unidecode
 from hanziconv import HanziConv
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 from werkzeug import local
 from googletrans import Translator
 from pydub import AudioSegment as AudSeg
