@@ -1,10 +1,12 @@
 <!doctype html>
 <html>
-<head><title>{{title}}</title>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
 <script src="/static/siriwave.umd.min.js"></script>
 <script src="/static/dvdsub.js"></script>
 <style>
-:root { --edge-pad: 100px; }
+:root { --edge-pad: clamp(12px, 5vh, 100px); }
 .overlay {
 	position: absolute;
 	/*  object-fit is not supported on IE  */
@@ -66,6 +68,7 @@ table, th, td {border: 1px solid blue;}
 	width: 50%;
 	vertical-align: middle;
 	background-color: #222;
+	font-size: 0.5rem;
 }
 .playmenu a {
 	color: #fff; /* text color */
@@ -77,14 +80,45 @@ table, th, td {border: 1px solid blue;}
 	word-break: break-all;
 }
 .playmenu a:hover { background-color: #aaa; }
-.xxlarge { font-size: xx-large; }
-.xlarge { font-size: x-large; }
-.larger { font-size: larger; }
+@media (orientation: portrait) {
+    .playmenu {width: 80%;}
+    #list1 > a,
+    #list2 > a {
+        font-size: clamp(16px, 4vw, 24px);
+    }
+}
+.xxlarge { font-size: 1.5rem; }
+.xlarge  { font-size: 1rem; }
+.larger  { font-size: 0.75rem; }
+#menuIcon1 {
+    position: fixed !important;
+    z-index: 1000 !important;
+    pointer-events: auto;
+}
+#menu2 {
+    box-sizing: border-box;
+	z-index: 20;
+    height: auto !important;
+    overflow: hidden;
+}
+#menu5 {
+    position: fixed;
+    left: auto;
+    right: 8px;
+    width: max-content;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    overflow-y: auto;
+    box-sizing: border-box;
+    transform: none;
+    font-size: clamp(16px, 4vw, 24px);
+}
 .vsb { margin-top: 8px; overflow-wrap:break-word; }
 .z50 { z-index: 50; }
 .hand {cursor: pointer;}
 /* #list2 a {cursor: pointer;display: flex; justify-content: space-between;} */
-.icon-live_tv {font-size: xxx-large;}
+.icon-live_tv {font-size: 1.2em; line-height: 1;}
+
 </style>
 <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -158,7 +192,7 @@ table, th, td {border: 1px solid blue;}
 	<span onclick="promptOpenFolder()" title="显示当前视频的URL链接" class="icon-link"></span>
 	<span onclick="showMediaInfo()" title="显示当前媒体文件的详细信息" class="icon-info"></span>
 </div>
-<div id="menu1" class="playmenu" style="font-size: xx-large; font-weight: bold; text-align: center; height: 80%;">
+<div id="menu1" class="playmenu" style="font-weight: bold; text-align: center; height: 80%;">
 	<h1 id="header1">
 		<span id="title1">{{listname}}</span>
 		<span id="loopButton" style="position:absolute; right: 4px; cursor:pointer" onclick="toggle_loop()" title="单曲循环">🔁</span>
@@ -169,7 +203,7 @@ table, th, td {border: 1px solid blue;}
 		{% endfor %}
 	</div>
 </div>
-<div id="menu2" class="playmenu" style="font-size: xx-large; font-weight: bold; top: 8px; text-align: left; height: 80%;">
+<div id="menu2" class="playmenu" style="font-weight: bold; top: 8px; text-align: left;">
 	<h1 id="header2"><span id="title2" style='display:inline-block'></span>
 		<span id="title2-after" style="position:absolute; right:4px;">
 			<input id="goto_field" type="text" oninput="scrollToTrans(this)" onblur="this.value=''" title="滚动到音译最相近的标题"
@@ -190,7 +224,7 @@ table, th, td {border: 1px solid blue;}
 	<p id="t_audtk_status0" style="margin:0; color: lime; ">请选择音轨：</p>
 	<div id="list4" style="overflow-y: scroll;"></div>
 </div>
-<div id="menu5" class="playmenu" onblur="this.style.display='none'" style="font-size: xx-large; font-weight: bold; left:75%; transform: none; width: auto; max-height: 50%;">
+<div id="menu5" class="playmenu" onblur="this.style.display='none'" style="font-size: xx-large; font-weight: bold; transform: none; max-height: 50%;">
 	<p style="margin:0; color: red;">在电视机上播放：</p>
 	{% for TITLE,NAME in tvlist.items() %}
 	<a onclick="playOnTV('{{NAME}}');menu5.style.display='none';" style="color:yellow;">{{TITLE}}</a>
@@ -245,7 +279,7 @@ var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator
 // Set global object handles
 for(var vname of ['ovl', 'ovl2', 'menu1', 'menu2', 'menu3', 'menu4', 'menu5', 'list1', 'list2', 'list3', 'S2Tframe', 'T2Sframe', 'INFOframe', 'EDITframe', 'S2Tlang', 'sc',
 	'showAudioTracks', 'T2Slang', 'S2Ttext', 'T2Stext', 'S2Tmatch', 'recButton', 'QRcontainer', 'showSubtt', 'recButtons', 'flashmsg', 'controls', 'banner0', 'ASRframe',
-	'ASRtable', 'countDownMsg', 'icon_benchmark', 'recButtons2'])
+	'ASRtable', 'countDownMsg', 'icon_benchmark', 'recButtons2', 'menuIcon1'])
 	window.eval(`var ${vname} = getById("${vname}")`);
 ctx = sc.getContext("2d");
 
@@ -340,7 +374,7 @@ function showQR(){
 		const req = new XMLHttpRequest();
 		req.open("GET", '/QR', true);
 		req.onload = (ev)=>{
-			QRcontainer.width = QRcontainer.height = `${scr_size/8}px`;
+			QRcontainer.width = QRcontainer.height = `${scr_size/4}px`;
 			QRcontainer.innerHTML = ev.target.responseText;
 		};
 		req.send();
@@ -523,6 +557,14 @@ function setAudioTrack(ii=0){
 		v.audioTracks[i].enabled=(i==ii);
 	toggle_menu(0);
 }
+function positionMenu2() {
+    const gap = 8;
+    const iconRect = menuIcon1.getBoundingClientRect();
+    menu2.style.top = `${gap}px`;
+    menu2.style.height = "auto";
+    const bottomClearance = window.innerHeight - iconRect.top + gap;
+    menu2.style.bottom = `${bottomClearance}px`;
+}
 function toggle_menu(mode){
 	menuMode = (menuMode==mode?0:mode);
 	menu1.style.display = menuMode==1?"block":"none";
@@ -533,7 +575,7 @@ function toggle_menu(mode){
 		getById('list1').style.maxHeight = `calc(100% - ${getById('header1').offsetHeight}px)`;
 		setvidx(cur_ii, 'a', true);
 	}else if(menuMode==2){
-		menu2.style.bottom=`${getById('menuIcon1').offsetHeight+edge_pad}px`;
+		positionMenu2();
 		if(list2.innerHTML=='') lsdir();
 		else{
 			var ii = -1, i = 0;
@@ -543,7 +585,7 @@ function toggle_menu(mode){
 		}
 		getById("title2").style.width = `calc(100% - ${getById("title2-after").offsetWidth}px)`;
 	}else if(menuMode==3){
-		menu3.style.bottom=`${getById('menuIcon1').offsetHeight+edge_pad}px`;
+		menu3.style.bottom=`${menuIcon1.offsetHeight+edge_pad}px`;
 		if(subtt_loaded==0){
 			ws_send(`load_subtitles 0 ${cur_file}`);
 			subtt_loaded = 1;
@@ -561,7 +603,7 @@ function toggle_menu(mode){
 	menu3.style.display = menuMode==3?"block":"none";
 	menu4.style.display = menuMode==4?"block":"none";
 	getById('menuIcon0').textContent = menuMode==1?"▿":"▤";
-	getById('menuIcon1').textContent = menuMode==2?"▵":"📁";
+	menuIcon1.textContent = menuMode==2?"▵":"📁";
 	showSubtt.style.opacity = (menuMode==3?1:'');
 	showAudioTracks.style.opacity = (menuMode==4?1:'');
 }
@@ -793,18 +835,45 @@ function pad(num, size) {
 	num = num.toString();
 	return "0".repeat(size-num.length) + num;
 }
-function showPlayOnTV(itid, event){
-	event.preventDefault();
-	event.stopPropagation();
-	var it = getById('b'+itid);
-	var middleLine = window.innerHeight/2;
-	var rect = it.getBoundingClientRect();
-	if(rect.top+menu5.offsetHeight/2 > middleLine)
-		menu5.style.top = (rect.top-menu5.offsetHeight+rect.height)+'px';
-	else
-		menu5.style.top = rect.top + 'px';
-	menu5.style.display = 'block';
-	menu5.playID = itid;
+function showPlayOnTV(itid, event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    menu5.playID = itid;
+
+    // Display invisibly first so its dimensions can be measured.
+    menu5.style.visibility = "hidden";
+    menu5.style.display = "block";
+    menu5.style.left = "0px";
+    menu5.style.right = "auto";
+    menu5.style.top = "0px";
+
+    const anchor = event.currentTarget;
+    const anchorRect = anchor.getBoundingClientRect();
+    const popupRect = menu5.getBoundingClientRect();
+    const margin = 8;
+
+    // Prefer placing the popup to the left of the TV icon.
+    let left = anchorRect.right - popupRect.width;
+
+    // Keep it inside the viewport horizontally.
+    left = Math.max(
+        margin,
+        Math.min(left, window.innerWidth - popupRect.width - margin)
+    );
+
+    // Align popup top with the clicked icon.
+    let top = anchorRect.top;
+
+    // Keep it inside the viewport vertically.
+    top = Math.max(
+        margin,
+        Math.min(top, window.innerHeight - popupRect.height - margin)
+    );
+
+    menu5.style.left = `${left}px`;
+    menu5.style.top = `${top}px`;
+    menu5.style.visibility = "visible";
 }
 function playOnTV(tv_name){
 	fetch(`/tvPlay/${tv_name}/${dir_list[menu5.playID].replace(/\/$/,'')}`)
@@ -967,11 +1036,27 @@ function toggle_subtt(force = null){
 	return true;
 }
 
+function updateBaseFontSize() {
+    const width = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+    const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const shortSide = Math.min(width, height);
+    const baseFontSize = Math.max(28, Math.min(64, shortSide / 10));
+    document.documentElement.style.fontSize = `${baseFontSize}px`;
+}
+
+updateBaseFontSize();
+
+window.addEventListener("resize", updateBaseFontSize);
+window.addEventListener("orientationchange", updateBaseFontSize);
+
+if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", updateBaseFontSize);
+}
+
 // Main starts here
 setvsrc("{{file_path|safe}}", {{cur_ii}});
 var edge_pad = Number(getComputedStyle(document.documentElement).getPropertyValue('--edge-pad').slice(0,-2));
-var scr_size = Math.max(screen.width, screen.height);
-document.styleSheets[0].cssRules[0].style.fontSize=`${scr_size/25}px`;
+var scr_size = Math.min(screen.width, screen.height);
 setInterval(timerInc, 2000);
 requestMic();
 
