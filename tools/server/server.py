@@ -14,7 +14,7 @@ from unidecode import unidecode
 from gtts import gTTS
 from lingua import LanguageDetectorBuilder
 from langcodes import Language as LC
-from lib.DefaultRevisionDict import *
+from lib.DefaultRevisionDict import InfiniteDefaultRevisionDict
 from lib.gTranslateTTS import gTransTTS
 from lib.settings import *
 from lib.NLP import *
@@ -66,8 +66,9 @@ local_IP = get_local_IP()
 load_playstate = lambda: Try(lambda: InfiniteDefaultRevisionDict().from_json(Open(PLAYSTATE_FILE)), InfiniteDefaultRevisionDict())
 last_save_time = time.time()
 def save_playstate(obj, lazy=False):
+	global last_save_time
 	if (not lazy) or (time.time()-last_save_time>3600):
-		prune_dict(obj)
+		obj.prune(max_items=PLAY_HISTORY_MAX_ITEMS, max_age=PLAY_HISTORY_RETENTION_SEC)
 		with Open(PLAYSTATE_FILE+'.tmp.gz', 'wt') as fp:
 			obj.to_json(fp, indent=1)
 		last_save_time = time.time()
@@ -885,7 +886,7 @@ def updateMarker(tvd):
 	fn = tvd['playlist'][tvd['cur_ii']]
 	if getDuration(fn) >= DRAMA_DURATION_TH:
 		tvd['last_movie_drama'] = fn
-	prune_dict(tvd['markers'])
+	tvd['markers'].prune(max_items=PLAY_HISTORY_MAX_ITEMS, max_age=PLAY_HISTORY_RETENTION_SEC)
 	save_playstate(ip2tvdata, True)
 
 def mark(name, tms, cur_file):

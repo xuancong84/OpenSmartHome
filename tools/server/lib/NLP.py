@@ -19,6 +19,7 @@ from lib.utils import *
 from lib.ChineseNumber import *
 from lib.EnglishNumber import *
 from lib.settings import *
+from lib.DefaultRevisionDict import InfiniteDefaultRevisionDict
 from device_config import *
 from contextlib import redirect_stdout, redirect_stderr
 from lib.HMC_model import Model as HMC_model
@@ -90,11 +91,6 @@ def DelTimer(name):
 def get_url_root(r):
 	os.last_url_root = r.url_root.rstrip('/') if r.url_root.count(':')>=2 else r.url_root.rstrip('/')+f':{r.server[1]}'
 	return os.last_url_root
-
-def prune_dict(dct, limit=10):
-	while len(dct)>limit:
-		dct.pop(list(dct.keys())[0])
-	return dct
 
 def Eval(cmd, default=None):
 	try:
@@ -252,13 +248,13 @@ def norm_song_volume(fn):
 		audio.export(fn, format=('mp3' if fn.lower().endswith('.mp3') else 'ipod'))
 
 
-fn2dur = {}
+fn2dur = InfiniteDefaultRevisionDict()	# cache for getDuration()
 def getDuration(fn):
 	if fn in fn2dur:
 		return fn2dur[fn]
 	res = RUN(['ffprobe', '-i', fn, '-show_entries', 'format=duration', '-v', 'quiet',  '-of', 'csv=p=0'], shell=False)
 	ret = fn2dur[fn] = Try(lambda: float(res.strip()), 0)
-	prune_dict(fn2dur)
+	fn2dur.prune(max_items=100)
 	return ret
 
 def str_search(name, name_list):

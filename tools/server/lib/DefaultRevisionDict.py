@@ -11,36 +11,57 @@ For example,
 >>> dct[company_name][employees] = [...]
 """
 
-import bisect, json
-from collections import namedtuple
-from collections.abc import MutableMapping
+import os, json
+from time import time
+from collections import defaultdict
 
-
-from collections import OrderedDict, defaultdict
-
-class Dict(OrderedDict):
-	def __init__(self, default=None, init_dct={}):
-		self._default = default
-		self.update(init_dct)
+class Dict(defaultdict):
+	def __init__(self, *args, **kwargs):
+		super().__init__(Dict, *args, **kwargs)
 
 	def __setitem__(self, key, value):
 		super().__setitem__(key, value)
-		self.move_to_end(key)
+		if not key.endswith(' _tms'):
+			super().__setitem__(key+" _tms", time())
 
-	def __missing__(self, key):
-		self[key] = self._default() if callable(self._default) else self._default
-		return self[key]
+	def __delitem__(self, key):
+		try:
+			super().__delitem__(key)
+		except:
+			pass
+		try:
+			super().__delitem__(key+" _tms")
+		except:
+			pass
 
 	def to_json(self, fp=None, **kwargs):
 		return json.dumps(self, default=lambda t: dict(t), **kwargs) if fp==None else json.dump(self, fp, default=lambda t: dict(t), **kwargs)
 
-	def from_json(self, fp=None, data=''):
-		self.update(json.loads(data, object_hook=lambda t: (Dict(self._default, t) if type(t)==dict else t)) if fp==None \
-			else json.load(fp, object_hook=lambda t: (Dict(self._default, t) if type(t)==dict else t)))
+	def from_json(self, fp_or_data):
+		hook = lambda t: Dict(t) if type(t) == dict else t
+		self.update(json.loads(fp_or_data, object_hook=hook) if type(fp_or_data) == str
+				else json.load(fp_or_data, object_hook=hook))
 		return self
 
+	def prune(self, max_items=None, max_age=None):
+		"""Prune items in the dict based on the maximum number of items and/or maximum age (in seconds)"""
+		if max_items is not None:
+			data_keys = [k for k in self.keys() if not k.endswith(' _tms')]
+			while len(data_keys) > max_items:
+				oldest_key = min(data_keys, key=lambda k: self.get(k+' _tms', 0))
+				del self[oldest_key]
+				data_keys.remove(oldest_key)
+		if max_age is not None:
+			now = time()
+			for k in list(self.keys()):
+				if not k.endswith(' _tms') and (k+' _tms') in self:
+					if now - self[k+' _tms'] > max_age:
+						del self[k]
+					elif type(self[k]) == Dict:
+						self[k].prune(max_items, max_age)
 
-InfiniteDefaultRevisionDict = lambda: Dict(InfiniteDefaultRevisionDict)
+
+InfiniteDefaultRevisionDict = Dict
 
 # dd=SDict()
 # dd['a']['b'][2] = [1,'2',3.5]

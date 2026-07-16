@@ -88,7 +88,7 @@ table, th, td {border: 1px solid blue;}
     }
 }
 .xxlarge { font-size: 1.5rem; }
-.xlarge  { font-size: 1rem; }
+.xlarge  { font-size: 1.25rem; }
 .larger  { font-size: 0.75rem; }
 #menuIcon1 {
     position: fixed !important;
@@ -164,17 +164,17 @@ table, th, td {border: 1px solid blue;}
 		<span onclick="toggle_hide([controls])" title="播放设置" class="icon-gear"></span>
 		<span onclick="handleKey('f')" id="toggle-fs" title="切换全屏" class="icon-expand"></span>
 	</div>
-	<div class="overlay hoverShow" style="left:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="goto_idx(cur_ii-1)" title="跳回前一部">◀</div>
-	<div class="overlay hoverShow" style="right:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="goto_idx(cur_ii+1)" title="跳到下一部">▶</div>
+	<div class="overlay hoverShow xlarge" style="left:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="goto_idx(cur_ii-1)" title="跳回前一部">◀</div>
+	<div class="overlay hoverShow xlarge" style="right:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="goto_idx(cur_ii+1)" title="跳到下一部">▶</div>
 </div>
 <div id="ovl">
-	<div class="overlay" style="left:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="goto_idx(cur_ii-1)" title="跳回前一部">◀</div>
-	<div class="overlay" style="right:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="goto_idx(cur_ii+1)" title="跳到下一部">▶</div>
-	<div class="overlay" id="menuIcon0" style="left:50%; top:0px; transform: translateX(-50%);" onclick="toggle_menu(1)" title="当前播放列表">▤</div>
+	<div class="overlay xlarge" style="left:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="goto_idx(cur_ii-1)" title="跳回前一部">◀</div>
+	<div class="overlay xlarge" style="right:0px; top:calc(50% - 50px); transform: translateY(-50%);" onclick="goto_idx(cur_ii+1)" title="跳到下一部">▶</div>
+	<div class="overlay xlarge" id="menuIcon0" style="left:50%; top:0px; transform: translateX(-50%);" onclick="toggle_menu(1)" title="当前播放列表">▤</div>
 </div>
 <div id="ovl2">
-	<div class="overlay" style="left:50%; top:calc(50% - 50px); transform: translate(-50%, -50%);" onclick="v.currentTime=0;v.play()" title="重头开始播放">↻</div>
-	<div class="overlay" id="menuIcon1" style="left:50%; bottom:var(--edge-pad); transform: translateX(-50%);" onclick="toggle_menu(2)" title="浏览文件夹">📁</div>
+	<div class="overlay xlarge" style="left:50%; top:calc(50% - 50px); transform: translate(-50%, -50%);" onclick="v.currentTime=0;v.play()" title="重头开始播放">↻</div>
+	<div class="overlay xlarge" id="menuIcon1" style="left:50%; bottom:var(--edge-pad); transform: translateX(-50%);" onclick="toggle_menu(2)" title="浏览文件夹">📁</div>
 </div>
 <div id="recButtons" class="overlay hoverShow" style="left:0; top:0;" >
 	<span id="recButton" title="播放指定文件（本地录音）" onclick="ASR()" class="icon-mic-local"></span>
@@ -232,13 +232,13 @@ table, th, td {border: 1px solid blue;}
 	</div>
 </div>
 <div id="EDITframe" style="color: yellow; background-color: blue; overflow: hidden; position: absolute; opacity:0.9;
-		font-size: medium; display: none; z-index: 50; inset: 5%; white-space: pre-wrap;">
-	<span style="display: inline-flex;">
+		font-size: medium; flex-direction: column; display: none; z-index: 50; inset: 5%; white-space: pre-wrap;">
+	<span style="display: inline-flex; flex: none;">
 		<button onclick="norm_vol()" title="对当前媒体文件的音量进行标准化调整，重新压缩音频并替换原文件">标准化媒体音量</button>&nbsp;
 		<button onclick="ws=create_wsock()" title="重新与服务端建立WebSocket连接">重新连接WebSocket</button>&nbsp;
 		<button onclick="ws_send(`load_subtitles 1 ${cur_file}`);" title="重新加载该视频的字幕">重新加载字幕</button>
 	</span>
-	<div id="INFOframe" style="overflow: scroll; width: 100%; height: 100%; white-space: pre;"></div>
+	<div id="INFOframe" style="overflow: auto; width: 100%; flex: 1 1 auto; min-height: 0; white-space: pre;"></div>
 </div>
 <div id="S2Tframe" style="background-color: #04AA6D; position: absolute; opacity:0.8; font-size: x-large; font-weight: bold; top: 30%; left:5%; width:20%;">
 	<h1>【语音识别详情】</h1>
@@ -585,7 +585,9 @@ function toggle_menu(mode){
 		}
 		getById("title2").style.width = `calc(100% - ${getById("title2-after").offsetWidth}px)`;
 	}else if(menuMode==3){
-		menu3.style.bottom=`${menuIcon1.offsetHeight+edge_pad}px`;
+		const subttRect = showSubtt.getBoundingClientRect();
+		menu3.style.left = `${subttRect.left}px`;
+		menu3.style.bottom = `${window.innerHeight - subttRect.top + edge_pad}px`;
 		if(subtt_loaded==0){
 			ws_send(`load_subtitles 0 ${cur_file}`);
 			subtt_loaded = 1;
@@ -637,7 +639,7 @@ function getCookie(cookieName, dft="") {
 }
 function toggle_hide(objs){
 	for(var obj of objs){
-		var disp = obj.style.display = (obj.style.display=='none'?'inline-block':'none');
+		var disp = obj.style.display = (obj.style.display=='none'?(obj==EDITframe?'flex':'inline-block'):'none');
 		if(obj == S2Tframe){
 			document.cookie = `infoDisp=${disp}; path=/; max-age=31536000`;
 			icon_benchmark.style.display = disp;
@@ -770,8 +772,6 @@ function list_subtitles(s_lst){
 			const title = si1[1].endsWith('.sup')?'bitmap subtitle':'text subtitle';
 			list3.innerHTML += `<input type="checkbox" id="SCB${ii}" onclick="set_subtt(${ii}, this)"><a style="display:inline" title="${title}"" onclick="set_subtt(${ii})">${tag}</a><br>`;
 		}
-		menu3.style.left = showSubtt.offsetLeft+'px';
-		menu3.style.bottom = (showSubtt.offsetHeight+edge_pad)+'px';
 	}
 }
 function load_subtitles(){
@@ -1055,7 +1055,7 @@ if (window.visualViewport) {
 
 // Main starts here
 setvsrc("{{file_path|safe}}", {{cur_ii}});
-var edge_pad = Number(getComputedStyle(document.documentElement).getPropertyValue('--edge-pad').slice(0,-2));
+var edge_pad = parseFloat(getComputedStyle(menuIcon1).bottom);
 var scr_size = Math.min(screen.width, screen.height);
 setInterval(timerInc, 2000);
 requestMic();
