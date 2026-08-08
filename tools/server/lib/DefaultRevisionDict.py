@@ -21,8 +21,8 @@ class Dict(defaultdict):
 
 	def __setitem__(self, key, value):
 		super().__setitem__(key, value)
-		if not key.endswith(' _tms'):
-			super().__setitem__(key+" _tms", time())
+		if not str(key).endswith(' _tms'):
+			super().__setitem__(str(key)+" _tms", time())
 
 	def __delitem__(self, key):
 		try:
@@ -30,7 +30,7 @@ class Dict(defaultdict):
 		except:
 			pass
 		try:
-			super().__delitem__(key+" _tms")
+			super().__delitem__(str(key)+" _tms")
 		except:
 			pass
 
@@ -46,16 +46,16 @@ class Dict(defaultdict):
 	def prune(self, max_items=None, max_age=None):
 		"""Prune items in the dict based on the maximum number of items and/or maximum age (in seconds)"""
 		if max_items is not None:
-			data_keys = [k for k in self.keys() if not k.endswith(' _tms')]
+			data_keys = [k for k in self.keys() if not str(k).endswith(' _tms')]
 			while len(data_keys) > max_items:
-				oldest_key = min(data_keys, key=lambda k: self.get(k+' _tms', 0))
+				oldest_key = min(data_keys, key=lambda k: self.get(str(k)+' _tms', 0))
 				del self[oldest_key]
 				data_keys.remove(oldest_key)
 		if max_age is not None:
 			now = time()
 			for k in list(self.keys()):
-				if not k.endswith(' _tms') and (k+' _tms') in self:
-					if now - self[k+' _tms'] > max_age:
+				if not str(k).endswith(' _tms') and (str(k)+' _tms') in self:
+					if now - self[str(k)+' _tms'] > max_age:
 						del self[k]
 					elif type(self[k]) == Dict:
 						self[k].prune(max_items, max_age)
