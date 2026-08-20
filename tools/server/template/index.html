@@ -634,6 +634,11 @@ function resolveMic(clicked=false) {
 		if(confirm("Only HTTPS websites can have access to microphone, do you want to redirect to HTTPS website?")){
 			var port = parseInt(window.location.href.split(':')[2]);
 			window.location.href = window.location.href.replace('http:', 'https:').replace(port, port+1);
+		}else if(window.navigator.userAgent.includes('Edg/')){
+			if(confirm("You need to change the security setting in Edge browser to allow microphone access in HTTP website, do you want to proceed?")){
+				alert("Please open 'edge://flags/#unsafely-treat-insecure-origin-as-secure' in a new tab and enable the setting.");
+				openInNewTab("");
+			}
 		}else if(window.navigator.userAgent.includes('Chrome')){
 			if(confirm("You need to change the security setting in Chrome browser to allow microphone access in HTTP website, do you want to proceed?")){
 				alert("Please open 'chrome://flags/#unsafely-treat-insecure-origin-as-secure' in a new tab and enable the setting.");

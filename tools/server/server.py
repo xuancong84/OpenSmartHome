@@ -908,7 +908,7 @@ def _load_subtitles(video_file, ip, force=False):
 	out_dir = f'{TMP_DIR}/.subtitles/{video_file[len(SHARED_PATH):]}'
 	if force or (not os.path.isdir(out_dir)) or (not listdir(out_dir)):
 		Try(lambda: os.makedirs(out_dir))
-		stt_info = fullpath2stt_info.get(os.path.realpath(video_file), [])
+		stt_info = list_subtitles(video_file, force=force)
 		txt_stt = [fn.split('.')[0] for lang, fn in stt_info if fn.endswith('.vtt')]
 		bmp_stt = [fn.split('.')[0] for lang, fn in stt_info if fn.endswith('.sup')]
 		n_subs = len(txt_stt+bmp_stt)

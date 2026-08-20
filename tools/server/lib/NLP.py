@@ -492,9 +492,9 @@ def ffprobe_streams(fn):
 	return json.loads(out.strip())
 
 fullpath2stt_info = {}
-def list_subtitles(fullpath):
+def list_subtitles(fullpath, force=False):
 	realpath = os.path.realpath(fullpath)
-	if realpath not in fullpath2stt_info:
+	if force or realpath not in fullpath2stt_info:
 		try:
 			obj = ffprobe_streams(fullpath)
 			fullpath2stt_info[realpath] = [[get_subts_tagInfo(s['tags']), str(s["index"])+('.sup' if s["codec_name"]=="dvd_subtitle" else '.vtt') ]

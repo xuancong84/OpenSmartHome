@@ -274,7 +274,8 @@ var cur_dir = "", cur_file, asr_dir = "";
 var v = getById("video0");
 var recorder = null, subtt_info = null, subtt_loaded = 0; // 0: not loaded; 1: loading; 2:loaded
 var audios, start_time, recorder_timeout, last_subtt;
-var isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+var isEdge = /Edg\//.test(navigator.userAgent);
+var isChrome = !isEdge && /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
 
 // Set global object handles
 for(var vname of ['ovl', 'ovl2', 'menu1', 'menu2', 'menu3', 'menu4', 'menu5', 'list1', 'list2', 'list3', 'S2Tframe', 'T2Sframe', 'INFOframe', 'EDITframe', 'S2Tlang', 'sc',
@@ -348,8 +349,8 @@ function setvsrc(url, ii=0){
 	cb_sndTrack = setInterval(()=>{
 		if(v.currentTime>0.5){
 			clearInterval(cb_sndTrack);
-			if(isChrome && v.audioTracks==undefined && getCookie("chromeSelectAudio")==''){
-				if(confirm('For Chrome browser, you must enable "Experimental Web Platform features" in "chrome://flags/" to select audio tracks. Prevent this dialog in the future?'))
+			if((isChrome || isEdge) && v.audioTracks==undefined && getCookie("chromeSelectAudio")==''){
+				if(confirm(`For ${isEdge?'Edge':'Chrome'} browser, you must enable "Experimental Web Platform features" in "${isEdge?'edge':'chrome'}://flags/" to select audio tracks. Prevent this dialog in the future?`))
 					document.cookie = `chromeSelectAudio=hide; path=/; max-age=31536000`;
 			}
 			if(v.audioTracks!=null && v.audioTracks.length>1) showAudioTracks.style.display="inline";
@@ -913,6 +914,11 @@ function resolveMic(clicked=false) {
 		if(confirm("Only HTTPS websites can have access to microphone, do you want to redirect to HTTPS website?")){
 			var port = parseInt(window.location.href.split(':')[2]);
 			window.location.href = window.location.href.replace('http:', 'https:').replace(port, port+1);
+		}else if(window.navigator.userAgent.includes('Edg/')){
+			if(confirm("You need to change the security setting in Edge browser to allow microphone access in HTTP website, do you want to proceed?")){
+				alert("Please open 'edge://flags/#unsafely-treat-insecure-origin-as-secure' in a new tab and enable the setting.");
+				openInNewTab("");
+			}
 		}else if(window.navigator.userAgent.includes('Chrome')){
 			if(confirm("You need to change the security setting in Chrome browser to allow microphone access in HTTP website, do you want to proceed?")){
 				alert("Please open 'chrome://flags/#unsafely-treat-insecure-origin-as-secure' in a new tab and enable the setting.");
