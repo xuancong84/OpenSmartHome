@@ -483,8 +483,7 @@ def download_video(song_url, include_subtitles, high_quality, redownload, mobile
 	return ''
 
 def get_subts_tagInfo(t):
-	out = [t.get('language', ''), t.get('title', '')]
-	Try(lambda:out.remove(''))
+	out = [t.get(name, '') for name in ['language', 'title', 'handler_name'] if t.get(name, '')]
 	return (':'.join(out) if out else [f'{k}:{v}' for k,v in t.items()][0]).replace('\t', ' ').strip()
 
 def ffprobe_streams(fn):

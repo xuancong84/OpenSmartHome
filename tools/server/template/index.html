@@ -328,9 +328,10 @@ function getByClass(cls_str, cmd) { for(var e of document.getElementsByClassName
 function openInNewTab(url) {window.open(url, '_blank').focus();}
 function isString(s){return typeof s === 'string' || s instanceof String;}
 function isMixedProtocol(){return (window.location.href.startsWith('https://')+cur_hub_pfx.startsWith('https://'))==1;}
-function GET(url, onOkay=null, onFail=null) {
+function GET(url, onOkay=null, onFail=null, timeout=0) {
 	var xmlHttp = new XMLHttpRequest();
 	xmlHttp.open('GET', isMixedProtocol()?('/get_http/'+url):url, onOkay!=null||onFail!=null);
+	if(timeout>0 && (onOkay!=null||onFail!=null)) xmlHttp.timeout = timeout;
 	if(onOkay!=null) xmlHttp.onload = onOkay;
 	if(onFail!=null) xmlHttp.onerror = xmlHttp.onabort = xmlHttp.ontimeout = onFail;
 	xmlHttp.send(null);
@@ -397,16 +398,19 @@ function setTimer(){
 	GET(`/set_timer/${res}/`, (e)=>{updatePlayList()}, (e)=>{alert(e.target.statusText)});
 }
 function load(hub_url){
-	try {
-		cur_hub_pfx = hub_url.replace(/\/$/, '');
-		var txt = GET(cur_hub_pfx+'/rc_load').trim();
-		if(!txt) return;
-		clear_all();
-		for (var line of txt.split('\n'))
-			add_new_row(-1, line.split('\t'));
-	} catch (err) {
-		alert(err);
-	}
+	// asynchronous with a timeout, so that an unreachable hub does not freeze the page
+	cur_hub_pfx = hub_url.replace(/\/$/, '');
+	GET(cur_hub_pfx+'/rc_load', (ev)=>{
+		try {
+			var txt = ev.target.responseText.trim();
+			if(!txt) return;
+			clear_all();
+			for (var line of txt.split('\n'))
+				add_new_row(-1, line.split('\t'));
+		} catch (err) {
+			alert(err);
+		}
+	}, ()=>toast(`Hub ${cur_hub_pfx} unreachable`), 5000);
 }
 function init() {
 	if(hub.childElementCount>0) load(hub.value);
